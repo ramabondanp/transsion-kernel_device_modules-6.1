@@ -2781,6 +2781,7 @@ static int mtk_charger_plug_out(struct mtk_charger *info)
 	if (info->enable_vbat_mon)
 		charger_dev_enable_6pin_battery_charging(info->chg1_dev, false);
 
+	power_supply_changed(info->psy1);
 	return 0;
 }
 
@@ -2824,6 +2825,7 @@ static int mtk_charger_plug_in(struct mtk_charger *info,
 	charger_dev_plug_in(info->chg1_dev);
 	mtk_charger_force_disable_power_path(info, CHG1_SETTING, false);
 
+	power_supply_changed(info->psy1);
 	return 0;
 }
 
