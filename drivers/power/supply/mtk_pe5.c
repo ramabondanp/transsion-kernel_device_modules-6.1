@@ -1276,6 +1276,12 @@ static int pe50_calculate_rcable_by_swchg(struct pe50_algo_info *info)
 		return ret;
 	}
 
+	ret = pe50_set_ta_cap_cv(info, 8000, 1000);
+	if (ret < 0) {
+		PE50_ERR("set ta cap fail(%d)\n", ret);
+		return ret;
+	}
+
 	ret = pe50_hal_enable_charging(info->alg, CHG1, true);
 	if (ret < 0) {
 		PE50_ERR("en swchg fail(%d)\n", ret);
@@ -1581,6 +1587,12 @@ static int pe50_algo_init_with_ta_cv(struct pe50_algo_info *info)
 		PE50_ERR("enable ta charging fail(%d)\n", ret);
 		sinfo.hardreset_ta = true;
 		goto err;
+	}
+
+	ret = pe50_hal_set_aicr(info->alg, CHG1, data->ita_setting);
+	if (ret < 0) {
+		PE50_ERR("set aicr fail(%d)\n", ret);
+		return ret;
 	}
 
 	ret = pe50_hal_enable_hz(info->alg, CHG1, false);
