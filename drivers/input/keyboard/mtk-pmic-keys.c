@@ -340,6 +340,7 @@ static const struct of_device_id of_mtk_pmic_keys_match_tbl[] = {
 };
 MODULE_DEVICE_TABLE(of, of_mtk_pmic_keys_match_tbl);
 
+
 static int mtk_pmic_keys_probe(struct platform_device *pdev)
 {
 	int error, index = 0;
@@ -437,10 +438,12 @@ static int mtk_pmic_keys_probe(struct platform_device *pdev)
 
 	mtk_pmic_keys_lp_reset_setup(keys, mtk_pmic_regs);
 
+
 	platform_set_drvdata(pdev, keys);
 
 	return 0;
 }
+
 
 static struct platform_driver pmic_keys_pdrv = {
 	.probe = mtk_pmic_keys_probe,
