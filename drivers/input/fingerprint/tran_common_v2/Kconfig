@@ -1,0 +1,24 @@
+menuconfig TRAN_FINGERPRINT
+	tristate "transsion class series devices"
+	default n
+
+if TRAN_FINGERPRINT
+
+config TRAN_FP_DRV_MODE_SPI
+	bool "specify fingerprint driver type --- SPI mode"
+	default y
+	help
+		support for spi mode fingerprint driver
+
+config TRAN_FP_LOG_LVL
+	string "which log level does transsion fp support?"
+	default "DEBUG"
+	help
+		support for transsion fp log output control
+config TRAN_FP_ANDROID_VERSION
+	string "finger android version"
+	default "android_s"
+	help
+		finger android version
+endif
+
