@@ -1,0 +1,276 @@
+/*
+ * (C) Copyright 2021-2023, Shenzhen Tetras.AI Technology Co., Ltd
+ * This file is classified as confidential level C4 within Tetras.AI
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later
+ *
+ * Change Logs:
+ * Date		Author		Notes
+ * 2022-01-20	yanghua		Initialize.
+ */
+
+/**
+ * @brief sdiobridge register file
+ * @Date  2021-01-20
+ */
+
+#ifndef __SDIO2AXI_SC_H__
+#define __SDIO2AXI_SC_H__
+
+#define AXI_CSR_OFFSET 0x400
+
+#define SDIO_IDLE_OFFSET 0
+#define SDIO_IDLE_MASK (0x1 << 0)
+#define SDIO_ERR_OFFSET 1
+#define SDIO_ERR_MASK (0x1 << 1)
+#define AXI_ERR_OFFSET 2
+#define AXI_ERR_MASK (0x1 << 2)
+#define FIFO_ERR_OFFSET 3
+#define FIFO_ERR_MASK (0x1 << 3)
+#define FORCE_PENDING_CLR_OFFSET 5
+#define FORCE_PENDING_CLR_MASK (0x1 << 5)
+#define LOG_CLR_OFFSET 6
+#define LOG_CLR_MASK (0x1 << 6)
+#define LOG_EN_OFFSET 7
+#define LOG_EN_MASK (0x1 << 7)
+#define AXI_XFER_BEATS_CNT_OFFSET 8
+#define AXI_XFER_BEATS_CNT_MASK (0x1f << 8)
+#define AXI_REMAIN_XFER_BEAT_OFFSET 16
+#define AXI_REMAIN_XFER_BEAT_MASK (0x3ff << 16)
+#define AXI_PENDING_TRANS_OFFSET 26
+#define AXI_PENDING_TRANS_MASK (0x3f << 26)
+
+#define AXI_CTRL0_OFFSET 0x404
+#define AXI_ADDR_OFFSET 0
+#define AXI_ADDR_MASK (0xffffffff << 0)
+
+#define AXI_CTRL1_OFFSET 0x408
+#define AXI_MAX_BURST_LEN_OFFSET 0
+#define AXI_MAX_BURST_LEN_MASK (0xf << 0)
+#define AXI_QOS_OFFSET 4
+#define AXI_QOS_MASK (0xf << 4)
+#define AXI_ID_OFFSET 8
+#define AXI_ID_MASK (0xfff << 8)
+#define AXI_PROT_OFFSET 21
+#define AXI_PROT_MASK (0x7 << 21)
+#define AXI_MCACHE_OFFSET 24
+#define AXI_MCACHE_MASK (0xf << 24)
+#define AXI_SIZE_OFFSET 29
+#define AXI_SIZE_MASK (0x7 << 29)
+
+#define AXI_CTRL2_OFFSET 0x40C
+#define AXI_MAX_OUTSTANDING_OFFSET 0
+#define AXI_MAX_OUTSTANDING_MASK (0xff << 0)
+
+#define DS_CTRL_OFFSET 0x410
+#define DS_TYPE_A_OFFSET 0
+#define DS_TYPE_A_MASK (0xf << 0)
+#define DS_TYPE_B_OFFSET 8
+#define DS_TYPE_B_MASK (0xf << 8)
+#define DS_TYPE_C_OFFSET 16
+#define DS_TYPE_C_MASK (0xf << 16)
+#define DS_TYPE_D_OFFSET 24
+#define DS_TYPE_D_MASK (0xf << 24)
+
+#define SDCLK_STOP_TIME_OFFSET 0x414
+#define SDCLK_STOP_OFFSET 0
+#define SDCLK_STOP_MASK GENMASK(19, 0)
+
+#define SDIO_STS_OFFSET 0x420
+#define SDIO_STS_EN_OFFSET 0
+#define SDIO_STS_EN_MASK (0x1 << 0)
+#define VOLTAGE_1P8V_OFFSET 6
+#define VOLTAGE_1P8V_MASK (0x1 << 6)
+#define CLOCK_EDGE_OFFSET 7
+#define CLOCK_EDGE_MASK (0x1 << 7)
+#define RESP_FLAGS_OFFSET 8
+#define RESP_FLAGS_MASK (0xff << 8)
+#define RCA_OFFSET 16
+#define RCA_MASK (0xffff << 16)
+
+#define CMD53_QUEUE_STS_OFFSET 0x424
+#define BYTE_PER_BLOCK_OFFSET 0
+#define BYTE_PER_BLOCK_MASK (0x3ff << 0)
+#define FLAG_NEW_BLK_OFFSET 10
+#define FLAG_NEW_BLK_MASK (0x1 << 10)
+#define FLAG_OP_MODE_OFFSET 11
+#define FLAG_OP_MODE_MASK (0x1 << 11)
+#define FLAG_RW_OFFSET 12
+#define FLAG_RW_MASK (0x1 << 12)
+#define FLAG_CRC_STS_OFFSET 13
+#define FLAG_CRC_STS_MASK (0x1 << 13)
+#define CMD53_ADDR_OFFSET 14
+#define CMD53_ADDR_MASK (0x3ffff << 14)
+
+#define FIFO_STS0_OFFSET 0x428
+#define RFIFO_WCNT_OFFSET 0
+#define RFIFO_WCNT_MASK (0xff << 0)
+#define WFIFO_RCNT_OFFSET 8
+#define WFIFO_RCNT_MASK (0x1ff << 8)
+#define CMD53_QUEUE_RCNT_OFFSET 18
+#define CMD53_QUEUE_RCNT_MASK (0x3f << 18)
+#define CMD53_QUEUE_REMPTY_OFFSET 24
+#define CMD53_QUEUE_REMPTY_MASK (0x1 << 24)
+#define CMD53_QUEUE_RAFULL_OFFSET 25
+#define CMD53_QUEUE_RAFULL_MASK (0x1 << 25)
+#define RFIFO_WFULL_OFFSET 27
+#define RFIFO_WFULL_MASK (0x1 << 27)
+#define RFIFO_WEMPTY_OFFSET 28
+#define RFIFO_WEMPTY_MASK (0x1 << 28)
+#define WFIFO_REMPTY_OFFSET 30
+#define WFIFO_REMPTY_MASK (0x1 << 30)
+#define WFIFO_RFULL_OFFSET 31
+#define WFIFO_RFULL_MASK (0x1 << 31)
+
+#define FIFO_STS1_OFFSET 0x42c
+#define RFIFO_RCNT_OFFSET 0
+#define RFIFO_RCNT_MASK (0xff << 0)
+#define WFIFO_WCNT_OFFSET 8
+#define WFIFO_WCNT_MASK (0x1ff << 8)
+#define CMD53_QUEUE_WCNT_OFFSET 18
+#define CMD53_QUEUE_WCNT_MASK (0x3f << 18)
+#define CMD53_QUEUE_WEMPTY_OFFSET 24
+#define CMD53_QUEUE_WEMPTY_MASK (0x1 << 24)
+#define CMD53_QUEUE_WAFULL_OFFSET 25
+#define CMD53_QUEUE_WAFULL_MASK (0x1 << 25)
+#define RFIFO_RFULL_OFFSET 27
+#define RFIFO_RFULL_MASK (0x1 << 27)
+#define RFIFO_REMPTY_OFFSET 28
+#define RFIFO_REMPTY_MASK (0x1 << 28)
+#define WFIFO_WEMPTY_OFFSET 30
+#define WFIFO_WEMPTY_MASK (0x1 << 30)
+#define WFIFO_WFULL_OFFSET 31
+#define WFIFO_WFULL_MASK (0x1 << 31)
+
+#define FSM_STS0_OFFSET 0x430
+#define CMD_STATE_OFFSET 0
+#define CMD_STATE_MASK (0x7 << 0)
+#define CMD_NEXT_STATE_OFFSET 4
+#define CMD_NEXT_STATE_MASK (0x7 << 4)
+#define RESP_STATE_OFFSET 8
+#define RESP_STATE_MASK (0x7 << 8)
+#define RESP_NEXT_STATE_OFFSET 12
+#define RESP_NEXT_STATE_MASK (0x7 << 12)
+#define DATA_STATE_OFFSET 16
+#define DATA_STATE_MASK (0xf << 16)
+#define DATA_NEXT_STATE_OFFSET 20
+#define DATA_NEXT_STATE_MASK (0xf << 20)
+#define CARD_STATE_OFFSET 24
+#define CARD_STATE_MASK (0x7 << 24)
+#define CARD_NEXT_STATE_OFFSET 28
+#define CARD_NEXT_STATE_MASK (0x7 << 28)
+
+#define FSM_STS1_OFFSET 0x434
+#define CMD53_QUEUE_STATE_OFFSET 0
+#define CMD53_QUEUE_STATE_MASK (0x7 << 0)
+#define CMD53_QUEUE_NEXT_STATE_OFFSET 4
+#define CMD53_QUEUE_NEXT_STATE_MASK (0x7 << 4)
+#define GIF_STATE_OFFSET 8
+#define GIF_STATE_MASK (0xf << 8)
+#define GIF_NEXT_STATE_OFFSET 12
+#define GIF_NEXT_STATE_MASK (0xf << 12)
+
+#define CMD_MON_CTRL_OFFSET 0x500
+#define CMD_MON_CTRL_CMD_MON_SEL_OFFSET 0
+#define CMD_MON_CTRL_CMD_MON_SEL_MASK (0xf << 0)
+#define CMD_MON_CTRL_CMD_MON_CLR_OFFSET 7
+#define CMD_MON_CTRL_CMD_MON_CLR_MASK (0x1 << 7)
+
+#define CMD_MON_STS0_OFFSET 0x504
+#define CMD_MON_STS0_CMD_DATA_37_32_OFFSET 24
+#define CMD_MON_STS0_CMD_DATA_37_32_MASK (0x3f << 24)
+#define CMD_MON_STS0_CMD_VALID_OFFSET 31
+#define CMD_MON_STS0_CMD_VALID_MASK (0x1 << 31)
+
+#define CMD_MON_STS1_OFFSET 0x508
+#define CMD_MON_STS1_CMD_DATA_31_0_OFFSET 0
+#define CMD_MON_STS1_CMD_DATA_31_0_MASK (0xffffffff << 0)
+
+#define CMD_LOG_OFFSET(n) (0x510 + (n * 0xc))
+#define CMD_LOG_READ_OFFSET 0
+#define CMD_LOG_READ_MASK (0x1 << 0)
+#define CMD_LOG_WRITE_OFFSET 1
+#define CMD_LOG_WRITE_MASK (0x1 << 1)
+#define CMD_LOG_RESP_OFFSET 2
+#define CMD_LOG_RESP_MASK (0x3 << 2)
+#define CMD_LOG_BURST_LEN_OFFSET 4
+#define CMD_LOG_BURST_LEN_MASK (0xf << 4)
+#define CMD_LOG_QOS_OFFSET 8
+#define CMD_LOG_QOS_MASK (0xf << 8)
+#define CMD_LOG_ADDR_35_32_OFFSET 16
+#define CMD_LOG_ADDR_35_32_MASK (0xf << 16)
+
+#define ADDR_LOG_OFFSET(n) (0x514 + (n * 0xc))
+#define ADDR_LOG_ADDR_OFFSET 0
+#define ADDR_LOG_ADDR_MASK (0xffffffff << 0)
+
+#define DATA_LOG_OFFSET(n) (0x518 + (n * 0xc))
+#define DATA_LOG_DAT_OFFSET 0
+#define DATA_LOG_DAT_MASK (0xffffffff << 0)
+
+#define TESTPIN_CTRL_OFFSET 0x550
+#define TESTPIN_CTRL_TESTPIN_SEL_OFFSET 0
+#define TESTPIN_CTRL_TESTPIN_SEL_MASK (0x1f << 0)
+
+#define SDIO_INT_MASK_OFFSET 0x600
+#define CMD_CRC_ERR_OFFSET 0
+#define CMD_CRC_ERR_MASK (0x1 << 0)
+#define CMD_SEQ_ERR_OFFSET 1
+#define CMD_SEQ_ERR_MASK (0x1 << 1)
+#define DAT_SEQ_ERR_OFFSET 2
+#define DAT_SEQ_ERR_MASK (0x1 << 2)
+#define DAT0_CRC_ERR_OFFSET 3
+#define DAT0_CRC_ERR_MASK (0x1 << 3)
+#define DAT1_CRC_ERR_OFFSET 4
+#define DAT1_CRC_ERR_MASK (0x1 << 4)
+#define DAT2_CRC_ERR_OFFSET 5
+#define DAT2_CRC_ERR_MASK (0x1 << 5)
+#define DAT3_CRC_ERR_OFFSET 6
+#define DAT3_CRC_ERR_MASK (0x1 << 6)
+#define ILLEGAL_CMD_OFFSET 7
+#define ILLEGAL_CMD_MASK (0x1 << 7)
+#define INVALID_FUNC_OFFSET 8
+#define INVALID_FUNC_MASK (0x1 << 8)
+#define INACTIVE_OFFSET 9
+#define INACTIVE_MASK (0x1 << 9)
+#define OUT_OF_RANGE_OFFSET 10
+#define OUT_OF_RANGE_MASK (0x1 << 10)
+#define CMD53_QUEUE_WERR_OFFSET 11
+#define CMD53_QUEUE_WERR_MASK (0x1 << 11)
+#define CMD53_QUEUE_RERR_OFFSET 12
+#define CMD53_QUEUE_RERR_MASK (0x1 << 12)
+#define WFIFO_WERR_OFFSET 13
+#define WFIFO_WERR_MASK (0x1 << 13)
+#define WFIFO_RERR_OFFSET 14
+#define WFIFO_RERR_MASK (0x1 << 14)
+#define RFIFO_WERR_OFFSET 15
+#define RFIFO_WERR_MASK (0x1 << 15)
+#define RFIFO_RERR_OFFSET 16
+#define RFIFO_RERR_MASK (0x1 << 16)
+#define RESP_ERR_OFFSET 17
+#define RESP_ERR_MASK (0x1 << 17)
+
+#define SDIO_INT_CLR_OFFSET 0x604
+
+#define SDIO_INT_SET_OFFSET 0x608
+
+#define SDIO_INT_RAW_OFFSET 0x60c
+
+#define SDIO_INT_OFFSET 0x610
+
+#define SDIO2AXI_SC_TID_OFFSET 0x614
+#define SDIO2AXI_SC_TID_ID_OFFSET 0
+#define SDIO2AXI_SC_TID_ID_MASK (0xffff << 0)
+#define SDIO2AXI_SC_TID_VER_OFFSET 16
+#define SDIO2AXI_SC_TID_VER_MASK (0xffff << 16)
+
+#define CSR_GLB_ERR_MASK \
+	(SDIO_ERR_MASK | AXI_ERR_MASK | FIFO_ERR_MASK)
+
+#define get_masked_val(val, bits_name) \
+	(((val) & bits_name##_MASK) >> bits_name##_OFFSET)
+
+#define AXI_TRIGGER_ADDR(addr) (0x1f000 | (addr & 0xfff))
+#define SCATTER_TRIGGER_ADDR (0x10000)
+
+#endif /* __SDIO2AXI_SC_H__ */

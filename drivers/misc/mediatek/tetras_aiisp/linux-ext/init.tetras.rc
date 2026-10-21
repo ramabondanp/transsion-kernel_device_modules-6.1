@@ -1,0 +1,5 @@
+on boot
+    insmod /vendor/lib/modules/spibridge.ko
+    insmod /vendor/lib/modules/tetras_ipc.ko
+    insmod /vendor/lib/modules/communication.ko
+    insmod /vendor/lib/modules/cam_ai_isp.ko

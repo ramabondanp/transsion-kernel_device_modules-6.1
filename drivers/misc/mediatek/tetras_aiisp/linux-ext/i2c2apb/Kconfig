@@ -1,0 +1,8 @@
+# SPDX-License-Identifier: GPL-2.0-only
+config TETRAS_I3C2APB
+	tristate "tetras i3c2apb driver"
+	depends on I3C
+	default m
+	help
+	  Enable this driver if you want to support tetras i3c2apb block.
+
