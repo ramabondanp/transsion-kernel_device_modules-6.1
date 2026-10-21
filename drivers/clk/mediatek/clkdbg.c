@@ -372,7 +372,7 @@ static void dump_provider_clk(struct provider_clk *pvdck, struct seq_file *s)
 		pvdck->provider_name != NULL ? pvdck->provider_name : "/ ",
 		clk_hw_get_name(c_hw),
 		clkdbg_pvdck_is_on(pvdck) > 0 ? "ON" : "OFF",
-		clkchk_pvdck_is_prepared(pvdck),
+		clkchk_pvdck_is_enabled(pvdck) ? clkchk_pvdck_is_prepared(pvdck) : -1,
 		clkchk_pvdck_is_enabled(pvdck),
 		clk_hw_get_rate(c_hw),
 		p != NULL ? clk_hw_get_name(p_hw) : "- ");

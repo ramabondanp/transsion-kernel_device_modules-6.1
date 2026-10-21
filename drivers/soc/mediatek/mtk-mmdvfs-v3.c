@@ -298,8 +298,13 @@ static int mmdvfs_vcp_ipi_send(const u8 func, const u8 idx, const u8 opp, u32 *d
 		if (mmdvfs_rst_clk_done && func == FUNC_CLKMUX_ENABLE)
 			break;
 		if (func == FUNC_VMM_GENPD_NOTIFY || func == FUNC_VMM_CEIL_ENABLE ||
-			func == FUNC_MMDVFS_LP_MODE || (func == FUNC_CLKMUX_ENABLE && !opp))
+			func == FUNC_MMDVFS_LP_MODE || (func == FUNC_CLKMUX_ENABLE && !opp)) {
+			if (func == FUNC_CLKMUX_ENABLE)
+				ret = -2;
 			goto ipi_send_end;
+		}
+		if (func == FUNC_CLKMUX_ENABLE && opp)
+			break;
 		if (++retry > VCP_SYNC_TIMEOUT_MS) {
 			ret = -ETIMEDOUT;
 			goto ipi_send_end;
@@ -918,7 +923,8 @@ static int mmdvfs_force_step_by_vcp_ipi(const u8 pwr_idx, const s8 opp)
 	if (dpsw_thr && mux->id >= MMDVFS_MUX_VDE && mux->id <= MMDVFS_MUX_CAM &&
 		(opp < 0 || opp >= dpsw_thr) && *last >= 0 && *last < dpsw_thr)
 		mtk_mmdvfs_enable_vmm(false);
-	*last = opp;
+	if (!ret)
+		*last = opp;
 
 	MMDVFS_DBG("pwr_idx:%hhu idx:%hhu mux:%hhu opp:%hhd",
 		pwr_idx, idx, mux->id, opp);
@@ -979,7 +985,8 @@ static int mtk_mmdvfs_v3_set_force_step_ipi(const u16 pwr_idx, const s16 opp)
 	if (dpsw_thr > 0 && *last >= 0 && *last < dpsw_thr &&
 		(opp < 0 || opp >= dpsw_thr) && pwr_idx == PWR_MMDVFS_VMM)
 		mtk_mmdvfs_enable_vmm(false);
-	*last = opp;
+	if (!ret)
+		*last = opp;
 
 	MMDVFS_DBG("pwr_idx:%hu opp:%hd ret:%d", pwr_idx, opp, ret);
 	return ret;
@@ -1014,6 +1021,25 @@ int mtk_mmdvfs_v3_set_force_step(const u16 pwr_idx, const s16 opp, const bool cm
 }
 EXPORT_SYMBOL_GPL(mtk_mmdvfs_v3_set_force_step);
 
+int mtk_mmdvfs_v3_get_force_step(const u16 pwr_idx)
+{
+	return last_force_step[pwr_idx];
+}
+EXPORT_SYMBOL_GPL(mtk_mmdvfs_v3_get_force_step);
+
+static int mmdvfs_get_force_step(char *buf, const struct kernel_param *kp)
+{
+	int len = 0, i;
+
+	if (!mmdvfs_is_init_done())
+		return 0;
+
+	for (i = 0; i < PWR_MMDVFS_NUM; i++)
+		len += snprintf(buf + len, PAGE_SIZE - len, "%d", last_force_step[i]);
+
+	return len;
+}
+
 static int mmdvfs_set_force_step(const char *val, const struct kernel_param *kp)
 {
 	u16 idx = 0;
@@ -1035,6 +1061,7 @@ static int mmdvfs_set_force_step(const char *val, const struct kernel_param *kp)
 
 static const struct kernel_param_ops mmdvfs_force_step_ops = {
 	.set = mmdvfs_set_force_step,
+	.get = mmdvfs_get_force_step,
 };
 module_param_cb(force_step, &mmdvfs_force_step_ops, NULL, 0644);
 MODULE_PARM_DESC(force_step, "force mmdvfs to specified step");
@@ -1554,6 +1581,8 @@ static void mmdvfs_fmeter_dump(void)
 
 static int mmdvfs_vcp_notifier_callback(struct notifier_block *nb, unsigned long action, void *data)
 {
+	u32 mux_ena, mux_ena_done;
+
 	switch (action) {
 	case VCP_EVENT_READY:
 		cb_timestamp[2] = sched_clock();
@@ -1567,6 +1596,17 @@ static int mmdvfs_vcp_notifier_callback(struct notifier_block *nb, unsigned long
 		mutex_lock(&mmdvfs_vcp_cb_mutex);
 		mmdvfs_vcp_cb_ready = true;
 		mutex_unlock(&mmdvfs_vcp_cb_mutex);
+		mux_ena_done = readl(MEM_CLKMUX_ENABLE_DONE);
+		mux_ena = readl(MEM_CLKMUX_ENABLE);
+		if (mux_ena != mux_ena_done) {
+			MMDVFS_DBG("FUNC_CLKMUX_ENABLE_ALL start mux_ena:%#x mux_ena_done:%#x",
+				mux_ena, mux_ena_done);
+			mmdvfs_vcp_ipi_send(FUNC_CLKMUX_ENABLE_ALL, MAX_OPP, MAX_OPP, NULL);
+			mux_ena_done = readl(MEM_CLKMUX_ENABLE_DONE);
+			mux_ena = readl(MEM_CLKMUX_ENABLE);
+			MMDVFS_DBG("FUNC_CLKMUX_ENABLE_ALL end mux_ena:%#x mux_ena_done:%#x",
+				mux_ena, mux_ena_done);
+		}
 		if (hqa_enable)
 			mtk_mmdvfs_enable_vmm(true);
 		break;
@@ -1762,32 +1802,50 @@ ccu_init_end:
 static int mtk_mmdvfs_clk_enable(const u8 clk_idx)
 {
 	int err;
+	u32 mux_ena, mux_ena_done;
 
 	if (!mmdvfs_is_init_done())
 		return 0;
 
 	err = set_clkmux_memory(clk_idx, true);
 
-	if (err || is_vcp_suspending_ex())
+	if (err || is_vcp_suspending_ex()) {
+		MMDVFS_DBG("err:%d vcp_suspend:%d clk_idx:%hhu",
+			err, is_vcp_suspending_ex(), clk_idx);
 		return 0;
+	}
 
 	mmdvfs_vcp_ipi_send(FUNC_CLKMUX_ENABLE, clk_idx, true, NULL);
+
+	mux_ena_done = readl(MEM_CLKMUX_ENABLE_DONE);
+	mux_ena = readl(MEM_CLKMUX_ENABLE);
+	//MMDVFS_DBG("clk_idx:%d mux_ena:%#x mux_ena_done:%#x",
+	//	clk_idx, mux_ena, mux_ena_done);
 	return 0;
 }
 
 static int mtk_mmdvfs_clk_disable(const u8 clk_idx)
 {
 	int err;
+	u32 mux_ena, mux_ena_done;
 
 	if (!mmdvfs_is_init_done())
 		return 0;
 
 	err = set_clkmux_memory(clk_idx, false);
 
-	if (err || is_vcp_suspending_ex())
+	if (err || is_vcp_suspending_ex()) {
+		MMDVFS_DBG("err:%d vcp_suspend:%d clk_idx:%d",
+			err, is_vcp_suspending_ex(), clk_idx);
 		return 0;
+	}
 
 	mmdvfs_vcp_ipi_send(FUNC_CLKMUX_ENABLE, clk_idx, false, NULL);
+
+	mux_ena_done = readl(MEM_CLKMUX_ENABLE_DONE);
+	mux_ena = readl(MEM_CLKMUX_ENABLE);
+	//MMDVFS_DBG("clk_idx:%d mux_ena:%#x mux_ena_done:%#x",
+	//	clk_idx, mux_ena, mux_ena_done);
 	return 0;
 }
 

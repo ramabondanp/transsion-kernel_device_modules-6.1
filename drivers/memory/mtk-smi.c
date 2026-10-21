@@ -16,6 +16,7 @@
 #include <linux/pm_opp.h>
 #include <linux/pm_runtime.h>
 #include <linux/pm_domain.h>
+#include <linux/sched/clock.h>
 #include <soc/mediatek/smi.h>
 #include <dt-bindings/memory/mt2701-larb-port.h>
 #include <dt-bindings/memory/mtk-memory-port.h>
@@ -165,6 +166,15 @@ struct mtk_smi_larb_gen {
 };
 
 #define SMI_MAX_CG_CTRL_NR		(7)
+
+enum { PRE_SET, POST_SET, SET_TIMIMG_NR};
+struct mtk_smi_flow_ctrl_dbg {
+	bool active;
+	ktime_t time[SET_TIMIMG_NR];
+	u32 status[SET_TIMIMG_NR];
+	u32 cmd_thrt_val[SET_TIMIMG_NR];
+};
+
 struct mtk_smi {
 	struct device			*dev;
 	int				nr_clks;
@@ -179,6 +189,7 @@ struct mtk_smi {
 	bool				skip_busy_check;
 	bool				skip_rpm_cb;
 	atomic_t			ref_count;
+	struct mtk_smi_flow_ctrl_dbg	*flow_ctrl_dbg;
 };
 
 #define LARB_MAX_COMMON		(2)
@@ -429,6 +440,20 @@ void mtk_smi_dump_last_pd(const char *user)
 	}
 }
 EXPORT_SYMBOL_GPL(mtk_smi_dump_last_pd);
+
+void mtk_smi_dump_last_flow_ctrl_dbg(struct device *dev)
+{
+	struct mtk_smi *common = dev_get_drvdata(dev);
+	struct mtk_smi_flow_ctrl_dbg *dbg = common->flow_ctrl_dbg;
+
+	if (dbg && dbg->active) {
+		dev_notice(dev, "pre set time=%18llu,status:%#x,%#x=%#x\n", dbg->time[PRE_SET],
+				dbg->status[PRE_SET], SMI_L1LEN, dbg->cmd_thrt_val[PRE_SET]);
+		dev_notice(dev, "post set time=%18llu,status:%#x,%#x=%#x\n", dbg->time[POST_SET],
+				dbg->status[POST_SET], SMI_L1LEN, dbg->cmd_thrt_val[POST_SET]);
+	}
+}
+EXPORT_SYMBOL_GPL(mtk_smi_dump_last_flow_ctrl_dbg);
 
 static int mtk_smi_clk_enable(const struct mtk_smi *smi)
 {
@@ -3115,6 +3140,58 @@ out:
 	return NOTIFY_OK;
 }
 
+s32 mtk_smi_status_check(struct device *larbdev, bool log_enable)
+{
+	struct mtk_smi_larb *larb = dev_get_drvdata(larbdev);
+	int i, ret = 0;
+	u32 val;
+
+	if (unlikely(!larb))
+		return 0;
+
+	/* check larb status */
+	if (pm_runtime_get_if_in_use(larbdev)) {
+		for (i = 0; i < SMI_LARB_PORT_NR_MAX; i++) {
+			val = readl(larb->base + SMI_LARB_OSTD_MON_PORT(i));
+			if (val) {
+				pr_notice("[smi]%s:larb:%d port:%d ostd:%#x\n", __func__,
+					larb->larbid, i, val);
+				ret = 1;
+			}
+		}
+		if (log_enable)
+			pr_notice("[smi]%s:larb:%d check done.\n", __func__, larb->larbid);
+
+		pm_runtime_put(larbdev);
+	}
+
+	/* check common status */
+	for (i = 0; i < LARB_MAX_COMMON; i++) {
+		if (larb->comm_port_id[i] >= 0 && larb->smi_common_dev[i]) {
+			struct mtk_smi *common;
+
+			common = dev_get_drvdata(larb->smi_common_dev[i]);
+			if (pm_runtime_get_if_in_use(larb->smi_common_dev[i])) {
+				val = readl(common->base + SMI_DEBUG_S(larb->comm_port_id[i]));
+				if (val & 0x1ffe000) {
+					pr_notice("[smi]%s:comm:%d port:%d ostd:%#x\n", __func__,
+						common->commid, larb->comm_port_id[i], val);
+					ret = 1;
+				}
+				if (log_enable)
+					pr_notice("[smi]%s:comm:%d check done.\n",
+								__func__, common->commid);
+				pm_runtime_put(larb->smi_common_dev[i]);
+			}
+		}
+	}
+	if (log_enable)
+		pr_notice("[smi]%s:check done, ret=%d\n", __func__, ret);
+
+	return ret;
+}
+EXPORT_SYMBOL_GPL(mtk_smi_status_check);
+
 static bool is_p2_lock;
 void mtk_smi_larb_clamp_and_lock(struct device *larbdev, bool on)
 {
@@ -4254,6 +4331,12 @@ static int mtk_smi_common_probe(struct platform_device *pdev)
 	if (of_parse_phandle(dev->of_node, "mediatek,cmdq", 0))
 		kthr = kthread_run(smi_cmdq, dev, __func__);
 
+	common->flow_ctrl_dbg = devm_kzalloc(dev, sizeof(*common->flow_ctrl_dbg), GFP_KERNEL);
+	if (!common->flow_ctrl_dbg)
+		return -ENOMEM;
+	if (of_property_read_bool(dev->of_node, "flow-ctrl-dbg"))
+		common->flow_ctrl_dbg->active = true;
+
 	if (of_property_read_bool(dev->of_node, "init-power-on")) {
 		dev_notice(dev, "%s: init power on\n", __func__);
 		ret = pm_runtime_get_sync(dev);
@@ -4287,6 +4370,30 @@ static int mtk_smi_common_remove(struct platform_device *pdev)
 {
 	pm_runtime_disable(&pdev->dev);
 	return 0;
+}
+
+static void smi_flow_ctrl_dbg(struct mtk_smi *common, u32 stat)
+{
+	u32 val;
+
+	if (!common->flow_ctrl_dbg->active)
+		return;
+
+	common->flow_ctrl_dbg->time[stat] = sched_clock();
+
+	val = readl_relaxed(common->base + SMI_DEBUG_MISC);
+	if (!(val & 0x1)) {
+		dev_notice(common->dev, "%s:check fail! stat=%d, %#x=%#x\n",
+					__func__, stat, SMI_DEBUG_MISC, val);
+		raw_notifier_call_chain(&smi_driver_notifier_list, common->commid, NULL);
+	}
+	common->flow_ctrl_dbg->status[stat] = val;
+
+	val = readl_relaxed(common->base + SMI_L1LEN);
+	if ((val == 0xa) && (stat == PRE_SET))
+		dev_notice(common->dev, "%s:check fail! stat=%d, %#x=%#x\n",
+					__func__, stat, SMI_L1LEN, val);
+	common->flow_ctrl_dbg->cmd_thrt_val[stat] = val;
 }
 
 static int __maybe_unused mtk_smi_common_resume(struct device *dev)
@@ -4326,12 +4433,18 @@ static int __maybe_unused mtk_smi_common_resume(struct device *dev)
 			writel_relaxed(
 				common->plat->bwl[common->commid * SMI_COMMON_LARB_NR_MAX + i],
 				common->base + SMI_L1ARB(i));
-		for (i = 0; i < SMI_COMMON_MISC_NR; i++)
+		for (i = 0; i < SMI_COMMON_MISC_NR; i++) {
+			if (common->plat->misc[
+				common->commid * SMI_COMMON_MISC_NR + i].offset == SMI_L1LEN)
+				smi_flow_ctrl_dbg(common, PRE_SET);
 			writel_relaxed(common->plat->misc[
 				common->commid * SMI_COMMON_MISC_NR + i].value,
 				common->base + common->plat->misc[
 				common->commid * SMI_COMMON_MISC_NR + i].offset);
-
+			if (common->plat->misc[
+				common->commid * SMI_COMMON_MISC_NR + i].offset == SMI_L1LEN)
+				smi_flow_ctrl_dbg(common, POST_SET);
+		}
 	} else {
 		for (i = 0; i < SMI_COMMON_LARB_NR_MAX; i++)
 			writel_relaxed(common->plat->bwl[i],

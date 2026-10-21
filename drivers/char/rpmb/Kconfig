@@ -6,3 +6,10 @@ config RPMB
 	  access RPMB partition.
 
 	  If unsure, select N.
+
+config TRAN_ENABLE_RPMB
+    tristate "Enable tran rpmb"
+    default n
+    help
+      enable tran rpmb
+

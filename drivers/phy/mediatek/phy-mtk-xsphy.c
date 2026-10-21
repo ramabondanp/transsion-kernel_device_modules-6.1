@@ -2196,6 +2196,8 @@ done:
 	return mode;
 }
 
+static struct regmap *uart_cfg = NULL;
+
 static int mtk_xsphy_uart_suspend(struct device *dev)
 {
 	return 0;
@@ -2232,6 +2234,10 @@ static int mtk_xsphy_uart_resume(struct device *dev)
 	mtk_phy_set_bits(pbase + XSP_U2PHYDTM0,
 		(0x1 << 17) | (0x1 << 19) | (0x1 << 20) | (0x1 << 21) | (0x1 << 23));
 
+	if (uart_cfg) {
+		regmap_write(uart_cfg, 0x58, 1);
+	}
+
 	return 0;
 }
 
@@ -2240,9 +2246,19 @@ static int mtk_phy_uart_init(struct phy *phy)
 	struct xsphy_instance *inst = phy_get_drvdata(phy);
 	struct mtk_xsphy *xsphy = dev_get_drvdata(phy->dev.parent);
 	int ret;
+	struct device *dev = &phy->dev;
+	struct device_node *np = dev->of_node;
+	struct of_phandle_args args;
 
 	if  (inst->type != PHY_TYPE_USB2)
 		return 0;
+
+	ret = of_parse_phandle_with_fixed_args(np, "usb2uart", 0, 0, &args);
+	if (ret)
+		pr_err("%s parse usb2uart error\n", __func__);
+	else {
+		uart_cfg = syscon_node_to_regmap(args.np);
+	}
 
 	dev_info(xsphy->dev, "uart init\n");
 

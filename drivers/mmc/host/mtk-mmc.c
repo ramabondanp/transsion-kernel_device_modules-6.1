@@ -60,7 +60,10 @@ static const struct mtk_mmc_compatible mt8135_compat = {
 	},
 	.enhance_rx = false,
 	.support_64g = false,
-	.need_gate_cg = true,
+	.clock_set = {
+		.need_gate_cg = true,
+		.set_type = MSDC_CLK_SET_V1,
+	},
 	.new_tx_ver = 0,
 	.new_rx_ver = 0,
 	.infra_check = {
@@ -82,7 +85,10 @@ static const struct mtk_mmc_compatible mt8173_compat = {
 	},
 	.enhance_rx = false,
 	.support_64g = false,
-	.need_gate_cg = true,
+	.clock_set = {
+		.need_gate_cg = true,
+		.set_type = MSDC_CLK_SET_V1,
+	},
 	.new_tx_ver = 0,
 	.new_rx_ver = 0,
 	.infra_check = {
@@ -106,7 +112,10 @@ static const struct mtk_mmc_compatible mt8183_compat = {
 	},
 	.enhance_rx = true,
 	.support_64g = true,
-	.need_gate_cg = true,
+	.clock_set = {
+		.need_gate_cg = true,
+		.set_type = MSDC_CLK_SET_V1,
+	},
 	.new_tx_ver = 0,
 	.new_rx_ver = 0,
 	.infra_check = {
@@ -151,7 +160,10 @@ static const struct mtk_mmc_compatible mt2701_compat = {
 	},
 	.enhance_rx = false,
 	.support_64g = false,
-	.need_gate_cg = true,
+	.clock_set = {
+		.need_gate_cg = true,
+		.set_type = MSDC_CLK_SET_V1,
+	},
 	.new_tx_ver = 0,
 	.new_rx_ver = 0,
 	.infra_check = {
@@ -175,7 +187,10 @@ static const struct mtk_mmc_compatible mt2712_compat = {
 	},
 	.enhance_rx = true,
 	.support_64g = true,
-	.need_gate_cg = true,
+	.clock_set = {
+		.need_gate_cg = true,
+		.set_type = MSDC_CLK_SET_V1,
+	},
 	.new_tx_ver = 0,
 	.new_rx_ver = 0,
 	.infra_check = {
@@ -199,7 +214,10 @@ static const struct mtk_mmc_compatible mt7622_compat = {
 	},
 	.enhance_rx = true,
 	.support_64g = false,
-	.need_gate_cg = true,
+	.clock_set = {
+		.need_gate_cg = true,
+		.set_type = MSDC_CLK_SET_V1,
+	},
 	.new_tx_ver = 0,
 	.new_rx_ver = 0,
 	.infra_check = {
@@ -221,7 +239,10 @@ static const struct mtk_mmc_compatible mt8516_compat = {
 		.stop_cnt = 3,
 		.pop_cnt = 8,
 	},
-	.need_gate_cg = true,
+	.clock_set = {
+		.need_gate_cg = true,
+		.set_type = MSDC_CLK_SET_V1,
+	},
 	.new_tx_ver = 0,
 	.new_rx_ver = 0,
 	.infra_check = {
@@ -243,7 +264,10 @@ static const struct mtk_mmc_compatible mt7620_compat = {
 	},
 	.enhance_rx = false,
 	.use_internal_cd = true,
-	.need_gate_cg = true,
+	.clock_set = {
+		.need_gate_cg = true,
+		.set_type = MSDC_CLK_SET_V1,
+	},
 	.new_tx_ver = 0,
 	.new_rx_ver = 0,
 	.infra_check = {
@@ -267,7 +291,10 @@ static const struct mtk_mmc_compatible mt6779_compat = {
 	},
 	.enhance_rx = true,
 	.support_64g = true,
-	.need_gate_cg = true,
+	.clock_set = {
+		.need_gate_cg = true,
+		.set_type = MSDC_CLK_SET_V1,
+	},
 	.new_tx_ver = 0,
 	.new_rx_ver = 0,
 	.infra_check = {
@@ -291,7 +318,9 @@ static const struct mtk_mmc_compatible common_v2_compat = {
 	},
 	.enhance_rx = true,
 	.support_64g = true,
-	.need_gate_cg = false,
+	.clock_set = {
+		.need_gate_cg = false,
+	},
 	.new_tx_ver = 0,
 	.new_rx_ver = 0,
 	.infra_check = {
@@ -315,7 +344,9 @@ static const struct mtk_mmc_compatible mt6985_compat = {
 	},
 	.enhance_rx = true,
 	.support_64g = true,
-	.need_gate_cg = false,
+	.clock_set = {
+		.need_gate_cg = false,
+	},
 	.new_tx_ver = MSDC_NEW_TX_V1,
 	.new_rx_ver = 0,
 	.infra_check = {
@@ -339,7 +370,9 @@ static const struct mtk_mmc_compatible mt6886_compat = {
 	},
 	.enhance_rx = true,
 	.support_64g = true,
-	.need_gate_cg = false,
+	.clock_set = {
+		.need_gate_cg = false,
+	},
 	.new_tx_ver = MSDC_NEW_TX_V1,
 	.new_rx_ver = 0,
 	.infra_check = {
@@ -363,7 +396,9 @@ static const struct mtk_mmc_compatible mt6897_compat = {
 	},
 	.enhance_rx = true,
 	.support_64g = true,
-	.need_gate_cg = false,
+	.clock_set = {
+		.need_gate_cg = false,
+	},
 	.new_tx_ver = MSDC_NEW_TX_V1,
 	.new_rx_ver = MSDC_NEW_RX_V1,
 	.infra_check = {
@@ -387,7 +422,10 @@ static const struct mtk_mmc_compatible mt6989_compat = {
 	},
 	.enhance_rx = true,
 	.support_64g = true,
-	.need_gate_cg = false,
+	.clock_set = {
+		.need_gate_cg = true,
+		.set_type = MSDC_CLK_SET_V2,
+	},
 	.new_tx_ver = MSDC_NEW_TX_V1,
 	.new_rx_ver = MSDC_NEW_RX_V1,
 	.infra_check = {
@@ -413,7 +451,9 @@ static const struct mtk_mmc_compatible mt6878_compat = {
 	},
 	.enhance_rx = true,
 	.support_64g = true,
-	.need_gate_cg = false,
+	.clock_set = {
+		.need_gate_cg = false,
+	},
 	.new_tx_ver = MSDC_NEW_TX_V2,
 	.new_rx_ver = MSDC_NEW_RX_V1,
 	.infra_check = {
@@ -421,6 +461,8 @@ static const struct mtk_mmc_compatible mt6878_compat = {
 	},
 	.set_crypto_enable_in_sw = true,
 	.need_power_voter = true,
+	.hs400_free_run = true,
+	.sw_infra_check = true,
 };
 
 static const struct of_device_id msdc_of_ids[] = {
@@ -791,6 +833,54 @@ static void msdc_new_tx_rx_setting(struct msdc_host *host, unsigned char timing)
 	}
 }
 
+static int msdc_prepare_set_mclk(struct msdc_host *host, bool gate)
+{
+	int ret = 0;
+#if !IS_ENABLED(CONFIG_FPGA_EARLY_PORTING)
+	if (host->dev_comp->clock_set.need_gate_cg == false)
+		return 0;
+
+	if (host->dev_comp->clock_set.need_gate_cg &&
+		!support_clk_set(host->dev_comp->clock_set.set_type))
+		return 1;
+
+	switch (host->dev_comp->clock_set.set_type) {
+	case MSDC_CLK_SET_V1:
+		if (gate) {
+			/*
+			 * As src_clk/HCLK use the same bit to gate/ungate,
+			 * So if want to only gate src_clk, need gate its parent(mux).
+			 */
+			if (host->src_clk_cg)
+				clk_disable_unprepare(host->src_clk_cg);
+			else
+				clk_disable_unprepare(clk_get_parent(host->src_clk));
+		} else {
+			if (host->src_clk_cg)
+				ret = clk_prepare_enable(host->src_clk_cg);
+			else
+				ret = clk_prepare_enable(clk_get_parent(host->src_clk));
+		}
+		break;
+	case MSDC_CLK_SET_V2:
+		/* Due to bus protect, gate/ungate mux replace cg */
+		if (gate) {
+			clk_disable_unprepare(host->src_clk);
+			if (host->src_clk_cg)
+				clk_disable_unprepare(host->src_clk);
+		} else {
+			ret = clk_prepare_enable(host->src_clk);
+			if (host->src_clk_cg && ret == 0)
+				ret = clk_prepare_enable(host->src_clk);
+		}
+		break;
+	default:
+		break;
+	}
+#endif
+	return ret;
+}
+
 static void msdc_set_mclk(struct msdc_host *host, unsigned char timing, u32 hz)
 {
 	struct mmc_host *mmc = mmc_from_priv(host);
@@ -800,7 +890,7 @@ static void msdc_set_mclk(struct msdc_host *host, unsigned char timing, u32 hz)
 	u32 sclk;
 	u32 tune_reg = host->dev_comp->pad_tune_reg;
 	u32 val;
-	int timing_changed = 0;
+	int timing_changed = 0, ret;
 
 	if (!hz) {
 		dev_dbg(host->dev, "set mclk to 0\n");
@@ -864,17 +954,19 @@ static void msdc_set_mclk(struct msdc_host *host, unsigned char timing, u32 hz)
 		}
 	}
 	sdr_clr_bits(host->base + MSDC_CFG, MSDC_CFG_CKPDN);
-	/*
-	 * As src_clk/HCLK use the same bit to gate/ungate,
-	 * So if want to only gate src_clk, need gate its parent(mux).
-	 */
 
-	if (host->dev_comp->need_gate_cg) {
-		if (host->src_clk_cg)
-			clk_disable_unprepare(host->src_clk_cg);
-		else
-			clk_disable_unprepare(clk_get_parent(host->src_clk));
+	/* In order to ensure that hs400 mode R1b response
+	 * will not timeout, set free run mode.
+	 */
+	if (host->dev_comp->hs400_free_run &&
+		host->timing == MMC_TIMING_MMC_HS400 &&
+		!(mmc->caps2 & MMC_CAP2_NO_MMC)) {
+		sdr_set_bits(host->base + MSDC_CFG, MSDC_CFG_CKPDN);
 	}
+
+	ret = msdc_prepare_set_mclk(host, true);
+	if (ret)
+		dev_info(host->dev, "[gate] msdc prepare set clk err: %d\n", ret);
 	if (host->dev_comp->clk_div_bits == 8)
 		sdr_set_field(host->base + MSDC_CFG,
 			      MSDC_CFG_CKMOD | MSDC_CFG_CKDIV,
@@ -884,13 +976,9 @@ static void msdc_set_mclk(struct msdc_host *host, unsigned char timing, u32 hz)
 			      MSDC_CFG_CKMOD_EXTRA | MSDC_CFG_CKDIV_EXTRA,
 			      (mode << 12) | div);
 
-	if (host->dev_comp->need_gate_cg) {
-		if (host->src_clk_cg)
-			clk_prepare_enable(host->src_clk_cg);
-		else
-			clk_prepare_enable(clk_get_parent(host->src_clk));
-	}
-
+	ret = msdc_prepare_set_mclk(host, false);
+	if (ret)
+		dev_info(host->dev, "[ungate] msdc prepare set clk err: %d\n", ret);
 	readl_poll_timeout(host->base + MSDC_CFG, val, (val & MSDC_CFG_CKSTB), 0, 0);
 	if (host->mclk == 0 && (mmc->caps2 & MMC_CAP2_NO_MMC)
 		&& mmc->ios.signal_voltage == MMC_SIGNAL_VOLTAGE_180) {
@@ -2138,7 +2226,7 @@ static inline void msdc_set_cmd_delay(struct msdc_host *host, u32 value)
 		sdr_set_field(host->top_base + EMMC_TOP_CMD, PAD_CMD_RXDLY, pad_dly1);
 		sdr_set_field(host->top_base + EMMC_TOP_CMD, PAD_CMD_RXDLY2, pad_dly2);
 		sdr_set_field(host->top_base + EMMC_TOP_CMD, PAD_CMD_RD_RXDLY_SEL, dly1_sel);
-		sdr_set_field(host->top_base + EMMC_TOP_CMD, PAD_DAT_RD_RXDLY2_SEL, dly2_sel);
+		sdr_set_field(host->top_base + EMMC_TOP_CMD, PAD_CMD_RD_RXDLY2_SEL, dly2_sel);
 	} else {
 		sdr_set_field(host->base + MSDC_PAD_TUNE0, MSDC_PAD_TUNE_CMDRDLY, pad_dly1);
 		sdr_set_field(host->base + MSDC_PAD_TUNE1, MSDC_PAD_TUNE_CMDRDLY, pad_dly2);
@@ -2987,6 +3075,8 @@ static void msdc_hs400_enhanced_strobe(struct mmc_host *mmc,
 #define MMC_MTK_SIP_INFRA_REQ_RELEASE	BIT(3)
 #define MMC_MTK_SIP_POWER_VOTER_REQ	BIT(4)
 #define MMC_MTK_SIP_POWER_VOTER_RELEASE	BIT(5)
+#define MMC_MTK_SIP_SW_INFRA_REQ	BIT(6)
+#define MMC_MTK_SIP_SW_INFRA_RELEASE	BIT(7)
 
 /* SMC call wapper function */
 #define mmc_mtk_crypto_ctrl(smcc_res) \
@@ -3009,16 +3099,34 @@ static void msdc_hs400_enhanced_strobe(struct mmc_host *mmc,
 	arm_smccc_smc(MTK_SIP_MMC_CONTROL, \
 		MMC_MTK_SIP_POWER_VOTER_RELEASE, 0, 0, 0, 0, 0, 0, &smcc_res)
 
+#define mmc_mtk_sw_infra_req(smcc_res, id) \
+	arm_smccc_smc(MTK_SIP_MMC_CONTROL, \
+		MMC_MTK_SIP_SW_INFRA_REQ, id, 0, 0, 0, 0, 0, &smcc_res)
+
+#define mmc_mtk_sw_infra_release(smcc_res, id) \
+	arm_smccc_smc(MTK_SIP_MMC_CONTROL, \
+		MMC_MTK_SIP_SW_INFRA_RELEASE, id, 0, 0, 0, 0, 0, &smcc_res)
+
 
 static void mmc_mtk_crypto_enable(struct mmc_host *mmc)
 {
 	struct arm_smccc_res res;
+	struct msdc_host *host = mmc_priv(mmc);
+	u32 cqhci_cfg = 0;
 
 	mmc_mtk_crypto_ctrl(res);
 	if (res.a0) {
 		pr_info("%s: crypto enable failed, err: %lu\n",
 			 __func__, res.a0);
 		mmc->caps2 &= ~MMC_CAP2_CRYPTO;
+	}
+	if (host && host->cq_host) {
+		cqhci_cfg = readl(host->cq_host->mmio + CQHCI_CFG);
+		if (!(cqhci_cfg & CQHCI_CRYPTO_GENERAL_ENABLE)) {
+			pr_info("%s: crypto enable failed, cqhci_cfg: 0x%X\n",
+			 __func__, cqhci_cfg);
+			BUG_ON(1);
+		}
 	}
 }
 
@@ -3259,6 +3367,34 @@ static int msdc_of_clock_parse(struct platform_device *pdev,
 }
 #endif
 
+static int mmc_sw_infra_req(struct msdc_host *host)
+{
+	struct arm_smccc_res res;
+
+	mmc_mtk_sw_infra_req(res, host->id);
+	if (res.a0) {
+		pr_info("%s: sw infra request fail, err: %lu\n",
+			 __func__, res.a0);
+		return 1;
+	}
+
+	return 0;
+}
+
+static int mmc_sw_infra_release(struct msdc_host *host)
+{
+	struct arm_smccc_res res;
+
+	mmc_mtk_sw_infra_release(res, host->id);
+	if (res.a0) {
+		pr_info("%s: sw infra request release fail, err: %lu\n",
+			 __func__, res.a0);
+		return 1;
+	}
+
+	return 0;
+}
+
 void msdc_sd_power_off(struct msdc_host *host)
 {
 	struct mmc_host *mmc = mmc_from_priv(host);
@@ -3446,7 +3582,6 @@ static int msdc_drv_probe(struct platform_device *pdev)
 		mmc->max_seg_size = BDMA_DESC_BUFLEN_EXT;
 	else
 		mmc->max_seg_size = BDMA_DESC_BUFLEN;
-	mmc->max_blk_size = 2048;
 	mmc->max_req_size = 512 * 1024;
 	mmc->max_blk_count = mmc->max_req_size / 512;
 	if (host->dev_comp->support_64g)
@@ -3747,6 +3882,7 @@ static int __maybe_unused msdc_runtime_suspend(struct device *dev)
 {
 	struct mmc_host *mmc = dev_get_drvdata(dev);
 	struct msdc_host *host = mmc_priv(mmc);
+	int ret;
 
 	sdr_clr_bits(host->base + SDC_CFG, SDC_CFG_SDIOIDE);
 	if (host->sdio_irq_cnt == 0 && host->id == MSDC_SDIO) {
@@ -3755,11 +3891,23 @@ static int __maybe_unused msdc_runtime_suspend(struct device *dev)
 		host->sdio_irq_cnt++;
 	}
 
+	if (mmc->caps2 & MMC_CAP2_CQE) {
+		ret = cqhci_suspend(mmc);
+		if (ret)
+			pr_info("cqhci suspend fail, ret = %d\n", ret);
+	}
+
 	msdc_save_reg(host);
 	msdc_gate_clock(host);
 
 	if(host->dev_comp->need_power_voter && host->id == MSDC_EMMC)
 		msdc_power_voter_release(host);
+
+	if (host->dev_comp->sw_infra_check) {
+		ret = mmc_sw_infra_release(host);
+		if (ret)
+			pr_info("mmc%d sw infra release fail\n", host->id);
+	}
 
 	/* release spm request to avoid infra can not keep off */
 	if (host->dev_comp->infra_check.enable)
@@ -3794,6 +3942,13 @@ static int __maybe_unused msdc_runtime_resume(struct device *dev)
 	 * ensure infra keep on during msdc ip work.
 	 * sw flow: send spm request -> ungating cg -> polling infra ack -> ip work
 	 */
+
+	if (host->dev_comp->sw_infra_check) {
+		ret = mmc_sw_infra_req(host);
+		if (ret)
+			pr_info("mmc%d sw infra req fail\n", host->id);
+	}
+
 	if (host->dev_comp->infra_check.enable) {
 		ret = infra_req_ack_check(host);
 		if (ret)

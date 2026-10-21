@@ -39,6 +39,14 @@ enum teeperf_cpu_group {
 	CPU_LITTLE_GROUP = 3
 };
 
+struct teeperf_cpu_index {
+	uint32_t cpu_little_index;
+	uint32_t cpu_big_index;
+	uint32_t cpu_super_index;
+};
+
+extern struct teeperf_cpu_index g_teeperf_cpu_index;
+
 int teeperf_user_init(struct cdev *cdev);
 static inline void teeperf_user_exit(void)
 {

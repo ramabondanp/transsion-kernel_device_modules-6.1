@@ -328,25 +328,17 @@ EXPORT_SYMBOL(clkchk_pvdck_is_prepared);
 
 bool clkchk_pvdck_is_enabled(struct provider_clk *pvdck)
 {
-	struct clk_hw *hw, *p_hw;
+	struct clk_hw *hw;
 
-	if (clkchk_pvdck_is_on(pvdck) == 1) {
-		hw = __clk_get_hw(pvdck->ck);
-		p_hw = clk_hw_get_parent(hw);
+	if (!pvdck)
+		return false;
 
-		if (IS_ERR_OR_NULL(hw))
-			return false;
+	hw = __clk_get_hw(pvdck->ck);
 
-		if (IS_ERR_OR_NULL(p_hw))
-			return false;
+	if (IS_ERR_OR_NULL(hw))
+		return false;
 
-		if (!clk_hw_is_enabled(p_hw))
-			return false;
-
-		return clk_hw_is_enabled(hw);
-	}
-
-	return false;
+	return clk_hw_is_enabled(hw);
 }
 EXPORT_SYMBOL(clkchk_pvdck_is_enabled);
 
@@ -370,8 +362,10 @@ static void dump_enabled_clks(struct provider_clk *pvdck)
 	struct clk_hw *c_hw = __clk_get_hw(pvdck->ck);
 	struct clk_hw *p_hw;
 
-	if (!clkchk_pvdck_is_prepared(pvdck) && !clkchk_pvdck_is_enabled(pvdck))
+	/* If SW ref_count=0 (PLL/CG) or HW disabled (Mux), skip dump clk. */
+	if (!clkchk_pvdck_is_enabled(pvdck))
 		return;
+
 
 	if (clkchk_ops == NULL || clkchk_ops->get_off_pll_names == NULL)
 		return;

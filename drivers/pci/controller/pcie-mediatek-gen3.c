@@ -15,6 +15,7 @@
 #include <linux/irqchip/chained_irq.h>
 #include <linux/irqdomain.h>
 #include <linux/kernel.h>
+#include <linux/kmemleak.h>
 #include <linux/kthread.h>
 #include <linux/module.h>
 #include <linux/msi.h>
@@ -34,6 +35,7 @@
 #include <trace/hooks/traps.h>
 #endif
 
+#include "pcie-mediatek-gen3.h"
 #include "../pci.h"
 #include "../../misc/mediatek/clkbuf/src/clkbuf-ctrl.h"
 
@@ -309,6 +311,7 @@ struct mtk_msi_set {
  * @clks: PCIe clocks
  * @num_clks: PCIe clocks count for this port
  * @data: special init data of each SoC
+ * @rc_pdev: The pci_dev of root complex
  * @port_num: serial number of pcie port
  * @suspend_mode: pcie enter low poer mode when the system enter suspend
  * @dvfs_req_en: pcie wait request to reply ack when pcie exit from P2 state
@@ -340,11 +343,13 @@ struct mtk_pcie_port {
 	int max_link_speed;
 
 	struct mtk_pcie_data *data;
+	struct pci_dev *rc_pdev;
 	int port_num;
 	u32 suspend_mode;
 	bool dvfs_req_en;
 	bool peri_reset_en;
 	bool soft_off;
+	bool aer_detect;
 	int irq;
 	u32 saved_irq_state;
 	raw_spinlock_t irq_lock;
@@ -523,6 +528,30 @@ static void mtk_pcie_clkbuf_control(struct device *dev, bool enable)
 		dev_info(dev, "PCIe fail to request BBCK2\n");
 }
 
+static void mtk_pcie_set_cmpltto_val(struct mtk_pcie_port *port, u32 to_val)
+{
+	u16 devctl2;
+
+	if (!port->rc_pdev) {
+		writel_relaxed(PCIE_RC_CFG, port->base + PCIE_CFGNUM_REG);
+		devctl2 = readw_relaxed(port->base + PCIE_CONF_DEV2_CTL_STS);
+		devctl2 &= ~PCIE_DCR2_CPL_TO;
+		devctl2 |= to_val;
+		writew_relaxed(devctl2, port->base + PCIE_CONF_DEV2_CTL_STS);
+
+		devctl2 = readw_relaxed(port->base + PCIE_CONF_DEV2_CTL_STS);
+	} else {
+		pcie_capability_read_word(port->rc_pdev, PCI_EXP_DEVCTL2, &devctl2);
+		devctl2 &= ~PCIE_DCR2_CPL_TO;
+		devctl2 |= to_val;
+		pcie_capability_write_word(port->rc_pdev, PCI_EXP_DEVCTL2, devctl2);
+
+		pcie_capability_read_word(port->rc_pdev, PCI_EXP_DEVCTL2, &devctl2);
+	}
+
+	dev_info(port->dev, "PCIe RC control 2 register=%#x\n", devctl2);
+}
+
 static int mtk_pcie_set_link_speed(struct mtk_pcie_port *port)
 {
 	u32 val;
@@ -659,18 +688,9 @@ static int mtk_pcie_startup_port(struct mtk_pcie_port *port)
 
 	mtk_pcie_enable_msi(port);
 
-	if (port->pextpcfg) {
-		/* PCIe port0 read completion timeout is adjusted to 4ms */
-		val = PCIE_CFG_FORCE_BYTE_EN | PCIE_CFG_BYTE_EN(0xf) |
-		      PCIE_CFG_HEADER(0, 0);
-		writel_relaxed(val, port->base + PCIE_CFGNUM_REG);
-		val = readl_relaxed(port->base + PCIE_CONF_DEV2_CTL_STS);
-		val &= ~PCIE_DCR2_CPL_TO;
-		val |= PCIE_CPL_TIMEOUT_4MS;
-		writel_relaxed(val, port->base + PCIE_CONF_DEV2_CTL_STS);
-		dev_info(port->dev, "PCIe RC control 2 register=%#x",
-			readl_relaxed(port->base + PCIE_CONF_DEV2_CTL_STS));
-	}
+	/* PCIe port0 read completion timeout is adjusted to 4ms */
+	if (port->pextpcfg)
+		mtk_pcie_set_cmpltto_val(port, PCIE_CPL_TIMEOUT_4MS);
 
 	/* Set PCIe translation windows */
 	resource_list_for_each_entry(entry, &host->windows) {
@@ -754,7 +774,6 @@ static struct msi_domain_info mtk_msi_domain_info = {
 static void mtk_compose_msi_msg(struct irq_data *data, struct msi_msg *msg)
 {
 	struct mtk_msi_set *msi_set = irq_data_get_irq_chip_data(data);
-	struct mtk_pcie_port *port = data->domain->host_data;
 	unsigned long hwirq;
 
 	hwirq =	data->hwirq % PCIE_MSI_IRQS_PER_SET;
@@ -762,8 +781,6 @@ static void mtk_compose_msi_msg(struct irq_data *data, struct msi_msg *msg)
 	msg->address_hi = upper_32_bits(msi_set->msg_addr);
 	msg->address_lo = lower_32_bits(msi_set->msg_addr);
 	msg->data = hwirq;
-	dev_dbg(port->dev, "msi#%#lx address_hi %#x address_lo %#x data %d\n",
-		hwirq, msg->address_hi, msg->address_lo, msg->data);
 }
 
 static void mtk_msi_bottom_irq_ack(struct irq_data *data)
@@ -1041,10 +1058,12 @@ static void mtk_pcie_irq_handler(struct irq_desc *desc)
 
 	status = readl_relaxed(port->base + PCIE_INT_STATUS_REG);
 	if (status & PCIE_AER_EVT) {
+		mtk_pcie_dump_link_info(port->port_num);
+
 		writel_relaxed(PCIE_RC_CFG, port->base + PCIE_CFGNUM_REG);
-		val = readl_relaxed(port->base  + PCIE_AER_CO_STATUS);
-		if (val & AER_CO_RE)
-			mtk_pcie_dump_link_info(port->port_num);
+		val = readl_relaxed(port->base + PCIE_AER_UNC_STATUS);
+		if ((val & PCI_ERR_UNC_COMP_TIME) && port->aer_detect)
+			mtk_pcie_disable_data_trans(port->port_num);
 	}
 
 	for_each_set_bit_from(irq_bit, &status, PCI_NUM_INTX +
@@ -1333,6 +1352,27 @@ err_setup:
 	return err;
 }
 
+static int __maybe_unused avoid_kmemleak_false_alarm(struct pci_dev *dev,
+						     void *data)
+{
+	kmemleak_not_leak(dev);
+	return 0;
+}
+
+static void mtk_pcie_avoid_kmemleak_false_alarm(struct pci_host_bridge *host)
+{
+	struct pci_bus_resource *bus_res;
+
+	kmemleak_not_leak(host);
+	kmemleak_not_leak(&host->dev);
+	kmemleak_not_leak(host->bus);
+
+	list_for_each_entry(bus_res, &host->bus->resources, list)
+		kmemleak_not_leak(bus_res);
+
+	pci_walk_bus(host->bus, avoid_kmemleak_false_alarm, NULL);
+}
+
 static int mtk_pcie_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
@@ -1363,6 +1403,9 @@ static int mtk_pcie_probe(struct platform_device *pdev)
 		mtk_pcie_power_down(port);
 		goto err_probe;
 	}
+
+	mtk_pcie_avoid_kmemleak_false_alarm(host);
+	port->rc_pdev = pci_get_slot(host->bus, 0);
 
 	return 0;
 
@@ -1443,6 +1486,28 @@ int mtk_pcie_remove_port(int port)
 }
 EXPORT_SYMBOL(mtk_pcie_remove_port);
 
+void mtk_pcie_set_aer_detect(int port, bool detect)
+{
+	struct platform_device *pdev;
+	struct mtk_pcie_port *pcie_port;
+
+	pdev = mtk_pcie_find_pdev_by_port(port);
+	if (!pdev) {
+		pr_info("PCIe platform device not found!\n");
+		return;
+	}
+
+	pcie_port = platform_get_drvdata(pdev);
+	if (!pcie_port) {
+		pr_info("PCIe port not found!\n");
+		return;
+	}
+
+	pcie_port->aer_detect = detect;
+	pr_info("AER detect is %s\n", detect ? "enabled" : "disabled");
+}
+EXPORT_SYMBOL(mtk_pcie_set_aer_detect);
+
 /* Set partition when use PCIe MAC debug probe table */
 static void mtk_pcie_mac_dbg_set_partition(struct mtk_pcie_port *port, u32 partition)
 {
@@ -1507,7 +1572,7 @@ static void mtk_pcie_monitor_mac(struct mtk_pcie_port *port)
 
 	/* Dump RC configuration space */
 	writel_relaxed(PCIE_RC_CFG, port->base + PCIE_CFGNUM_REG);
-	pr_info("aer_cor(1204)=%#x, aer_unc(1210)=%#x, hw_sta(1488)=%#x, fw_sta(148c)=%#x\n",
+	pr_info("aer_unc(1204)=%#x, aer_cor(1210)=%#x, hw_sta(1488)=%#x, fw_sta(148c)=%#x\n",
 		readl_relaxed(port->base + PCIE_AER_UNC_STATUS),
 		readl_relaxed(port->base + PCIE_AER_CO_STATUS),
 		readl_relaxed(port->base + PCIE_VENDOR_STS_0),
@@ -1727,13 +1792,7 @@ int mtk_pcie_disable_data_trans(int port)
 	 * and will cause bus tracker timeout.
 	 * (note: bus tracker timeout = 5ms).
 	 */
-	val = PCIE_CFG_FORCE_BYTE_EN | PCIE_CFG_BYTE_EN(0xf) |
-	      PCIE_CFG_HEADER(0, 0);
-	writel_relaxed(val, pcie_port->base + PCIE_CFGNUM_REG);
-	val = readl_relaxed(pcie_port->base + PCIE_CONF_DEV2_CTL_STS);
-	val &= ~PCIE_DCR2_CPL_TO;
-	val |= PCIE_CPL_TIMEOUT_64US;
-	writel_relaxed(val, pcie_port->base + PCIE_CONF_DEV2_CTL_STS);
+	mtk_pcie_set_cmpltto_val(pcie_port, PCIE_CPL_TIMEOUT_64US);
 
 	pr_info("reset control signal(0x148)=%#x, IP config control(0x84)=%#x\n",
 		readl_relaxed(pcie_port->base + PCIE_RST_CTRL_REG),
@@ -1933,8 +1992,7 @@ EXPORT_SYMBOL(mtk_pcie_hw_control_vote);
 static int __maybe_unused mtk_pcie_suspend_noirq(struct device *dev)
 {
 	struct mtk_pcie_port *port = dev_get_drvdata(dev);
-	struct pci_host_bridge *host = pci_host_bridge_from_priv(port);
-	struct pci_dev *pdev = pci_get_slot(host->bus, 0);
+	struct pci_dev *pdev = port->rc_pdev;
 	int err;
 	u32 val;
 
@@ -2004,8 +2062,7 @@ static int __maybe_unused mtk_pcie_suspend_noirq(struct device *dev)
 static int __maybe_unused mtk_pcie_resume_noirq(struct device *dev)
 {
 	struct mtk_pcie_port *port = dev_get_drvdata(dev);
-	struct pci_host_bridge *host = pci_host_bridge_from_priv(port);
-	struct pci_dev *pdev = pci_get_slot(host->bus, 0);
+	struct pci_dev *pdev = port->rc_pdev;
 	int err;
 	u32 val;
 
@@ -2255,6 +2312,8 @@ static int mtk_pcie_pre_init_6989(struct mtk_pcie_port *port)
 	val &= ~PCIE_P2_SLEEP_TIME_MASK;
 	val |= PCIE_P2_SLEEP_TIME_4US;
 	writel_relaxed(val, port->base + PCIE_ASPM_CTRL);
+
+	port->aer_detect = false;
 
 	return 0;
 }
