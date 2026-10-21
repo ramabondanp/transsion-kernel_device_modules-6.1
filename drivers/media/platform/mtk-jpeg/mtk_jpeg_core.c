@@ -26,7 +26,6 @@
 #include <media/videobuf2-dma-contig.h>
 #include <soc/mediatek/mmdvfs_v3.h>
 #include <soc/mediatek/smi.h>
-#include <linux/delay.h>
 
 #include "mtk-interconnect.h"
 #include "mtk_jpeg_enc_hw.h"
@@ -202,6 +201,7 @@ static int mtk_jpeg_enc_ctrls_setup(struct mtk_jpeg_ctx *ctx)
 
 	if (handler->error) {
 		v4l2_ctrl_handler_free(&ctx->ctrl_hdl);
+		pr_info("mtk_jpeg_enc_ctrl_setup fail");
 		return handler->error;
 	}
 
@@ -327,6 +327,10 @@ static int mtk_jpeg_try_fmt_mplane(struct v4l2_pix_format_mplane *pix_mp,
 			pfmt->bytesperline = stride;
 			pfmt->sizeimage = round_up((block_count << 4), 1024) +
 					(block_count * round_up((block_w * block_h  * bitsPP / 8), 128));
+		} else if (pix_mp->pixelformat == V4L2_PIX_FMT_YUYV) {
+			stride = round_up(pix_mp->width * 2, 32);
+			pfmt->bytesperline = stride;
+			pfmt->sizeimage = stride * h;
 		} else {
 			pfmt->bytesperline = stride;
 			pfmt->sizeimage = stride * h;
@@ -1164,6 +1168,7 @@ static void mtk_jpeg_enc_device_run(void *priv)
 	}
 
 	ret = pm_runtime_get_sync(jpeg->dev);
+	v4l2_info(&jpeg->v4l2_dev, "jpeg_enc_device_run ret: %d", ret);
 	if (ret < 0)
 		goto enc_end;
 
@@ -1310,13 +1315,7 @@ static int mtk_jpeg_queue_init(void *priv, struct vb2_queue *src_vq,
 static void mtk_jpeg_clk_on(struct mtk_jpeg_dev *jpeg)
 {
 	int ret, i;
-	struct slbc_data test_d;
 
-	test_d.uid = UID_MM_VENC;
-	test_d.type = TP_BUFFER;
-	slbc_request(&test_d);
-	pr_info("%s %d slbc request\n", __func__, __LINE__);
-	udelay(1000);
 	for (i = 0; i < jpeg->variant->num_clks; i++) {
 		ret = pm_runtime_resume_and_get(jpeg->larb[i]);
 		if (ret)
@@ -1326,6 +1325,7 @@ static void mtk_jpeg_clk_on(struct mtk_jpeg_dev *jpeg)
 	pr_info("%s %d jpeg->variant->num_clks %d\n", __func__, __LINE__, jpeg->variant->num_clks);
 	ret = clk_bulk_prepare_enable(jpeg->variant->num_clks,
 				      jpeg->variant->clks);
+	v4l2_info(&jpeg->v4l2_dev, "jpeg_clk_on ret: %d", ret);
 	if (ret)
 		dev_err(jpeg->dev, "Failed to open jpeg clk: %d\n", ret);
 }
@@ -1333,21 +1333,12 @@ static void mtk_jpeg_clk_on(struct mtk_jpeg_dev *jpeg)
 static void mtk_jpeg_clk_off(struct mtk_jpeg_dev *jpeg)
 {
 	int i;
-	struct slbc_data test_d;
-
+	v4l2_info(&jpeg->v4l2_dev, "mtk_jpeg_clk_off");
 	clk_bulk_disable_unprepare(jpeg->variant->num_clks,
 				   jpeg->variant->clks);
 
 	for (i = 0; i < jpeg->variant->num_clks; i++)
 		pm_runtime_put_sync(jpeg->larb[i]);
-
-	udelay(1000);
-	pr_info("%s %d slbc release before\n", __func__, __LINE__);
-	test_d.uid = UID_MM_VENC;
-	test_d.type = TP_BUFFER;
-	slbc_release(&test_d);
-	pr_info("%s %d slbc release\n", __func__, __LINE__);
-
 }
 
 static irqreturn_t mtk_jpeg_enc_done(struct mtk_jpeg_dev *jpeg)
@@ -1564,6 +1555,7 @@ static int mtk_jpeg_release(struct file *file)
 	if (ctx->state == MTK_JPEG_RUNNING) {
 		mtk_jpeg_dvfs_end(ctx);
 		mtk_jpeg_end_bw_request(ctx);
+		v4l2_info(&jpeg->v4l2_dev, "jpeg_release call to pm_runtime_put");
 		pm_runtime_put(ctx->jpeg->dev);
 	}
 	mutex_lock(&jpeg->lock);
@@ -1667,7 +1659,7 @@ static void mtk_jpeg_job_timeout_work(struct work_struct *work)
 	}
 
 	jpeg->variant->hw_reset(jpeg->reg_base);
-
+	v4l2_info(&jpeg->v4l2_dev, "jpeg_job_timeout_work call to pm_runtime_put");
 	pm_runtime_put(jpeg->dev);
 
 	v4l2_m2m_buf_done(src_buf, VB2_BUF_STATE_ERROR);
@@ -1828,6 +1820,7 @@ err_req_irq:
 static int mtk_jpeg_remove(struct platform_device *pdev)
 {
 	struct mtk_jpeg_dev *jpeg = platform_get_drvdata(pdev);
+	v4l2_info(&jpeg->v4l2_dev, "mtk_jpeg_remove call to mtk_jpeg_clk_release");
 
 	pm_runtime_disable(&pdev->dev);
 	video_unregister_device(jpeg->vdev);
@@ -1842,7 +1835,7 @@ static int mtk_jpeg_remove(struct platform_device *pdev)
 static __maybe_unused int mtk_jpeg_pm_suspend(struct device *dev)
 {
 	struct mtk_jpeg_dev *jpeg = dev_get_drvdata(dev);
-
+	v4l2_info(&jpeg->v4l2_dev, "mtk_jpeg_pm_suspend call to mtk_jpeg_clk_off");
 	mtk_jpeg_clk_off(jpeg);
 
 	return 0;
@@ -1851,7 +1844,7 @@ static __maybe_unused int mtk_jpeg_pm_suspend(struct device *dev)
 static __maybe_unused int mtk_jpeg_pm_resume(struct device *dev)
 {
 	struct mtk_jpeg_dev *jpeg = dev_get_drvdata(dev);
-
+	v4l2_info(&jpeg->v4l2_dev, "mtk_jpeg_pm_resume call to mtk_jpeg_clk_on");
 	mtk_jpeg_clk_on(jpeg);
 
 	return 0;

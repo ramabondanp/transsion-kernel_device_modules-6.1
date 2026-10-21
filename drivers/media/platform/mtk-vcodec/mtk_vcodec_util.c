@@ -516,8 +516,7 @@ static void mtk_vcodec_set_uclamp(bool enable, int ctx_id, int pid)
 		for_each_thread(p, task_child) {
 			if(task_child) {
 				get_task_struct(task_child);
-				if(try_get_task_stack(task_child))
-					ret = sched_setattr_nocheck(task_child, &attr);
+				ret = sched_setattr_nocheck(task_child, &attr);
 				put_task_struct(task_child);
 			}
 		}

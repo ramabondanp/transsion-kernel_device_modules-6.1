@@ -934,6 +934,7 @@ struct mtk_vcodec_dev {
 	struct list_head prop_param_list;
 	struct mutex log_param_mutex;
 	struct mutex prop_param_mutex;
+
 	struct device *smmu_dev;
 };
 
