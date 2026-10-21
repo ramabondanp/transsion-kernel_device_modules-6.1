@@ -1,6 +1,9 @@
 ccflags-y += -I$(DEVICE_MODULES_PATH)/drivers/misc/mediatek/sensor/2.0/core
 ccflags-y += -I$(DEVICE_MODULES_PATH)/drivers/misc/mediatek/sensor/2.0/sensorhub
 ccflags-y += -I$(DEVICE_MODULES_PATH)/drivers/misc/mediatek/scp/include
+ccflags-y += -I$(DEVICE_MODULES_PATH)/drivers/gpu/drm/mediatek/mediatek_v2
+ccflags-$(CONFIG_DRM_MEDIATEK_V2) += -I$(DEVICE_MODULES_PATH)/drivers/gpu/drm/mediatek/mediatek_v2
+
 
 obj-$(CONFIG_MTK_SENSORHUB) += sensorhub.o
 sensorhub-objs += tiny_crc8.o
@@ -14,7 +17,10 @@ sensorhub-objs += timesync.o
 sensorhub-objs += debug.o
 sensorhub-objs += custom_cmd.o
 sensorhub-objs += sensor_freq.o
-
+sensorhub-objs += tran_sensor_cust.o
+sensorhub-objs += tran_sensor_cwb.o
 sensorhub-$(CONFIG_MTK_TINYSYS_SAP_SUPPORT) += sap_custom_cmd.o
 
+
 #obj-y += test/
+

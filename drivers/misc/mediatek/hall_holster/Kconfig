@@ -1,0 +1,10 @@
+# SPDX-License-Identifier: GPL-2.0
+
+config TRAN_HALL_HOLSTER
+    tristate "Support holster hall"
+    default n
+    help
+      Say Y here if you have holster hall.
+      If unsure, say N.
+      To compile this dirver as a module, choose M here: the
+      module will be called.

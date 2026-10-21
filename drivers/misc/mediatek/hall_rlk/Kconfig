@@ -1,0 +1,18 @@
+# SPDX-License-Identifier: GPL-2.0
+
+config MTK_LINE_HALL
+    tristate "CONFIG_MTK_LINE_HALL"
+    default n
+    help
+      Say Y here if you have line hall.
+      If unsure, say N.
+      To compile this dirver as a module, choose M here: the
+      module will be called.
+config HOLSTER_HALL
+    tristate "CONFIG_HOLSTER_HALL"
+    default n
+    help
+      Say Y here if you have line hall.
+      If unsure, say N.
+      To compile this dirver as a module, choose M here: the
+      module will be called.

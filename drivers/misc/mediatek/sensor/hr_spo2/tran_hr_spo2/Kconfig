@@ -1,0 +1,5 @@
+config TRAN_HR_SPO2
+    tristate "CONFIG_TRAN_HR_SPO2"
+    default n
+    help
+       transsion hr_spo2 driver

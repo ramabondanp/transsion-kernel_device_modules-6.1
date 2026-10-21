@@ -1,0 +1,10 @@
+&i2c_10 {
+	status = "ok";
+	aw95016_ex@20 {
+		compatible = "awinic,aw95016";
+		reg = <0x20>;
+		reset-gpio = <&pio 15 0>; //rst gpio
+		irq-gpio = <&pio 8 0>; //irq gpio
+		status = "okay";
+	};
+};

@@ -22,6 +22,19 @@ enum sensor_comm_ctrl_cmd {
 	SENS_COMM_CTRL_TIMESYNC_CMD,
 	SENS_COMM_CTRL_SHARE_MEMORY_CMD,
 	SENS_COMM_CTRL_DEBUG_CMD,
+
+	SENS_COMM_CTRL_CUST_PARAM_CMD,
+
+
+	SENS_COMM_CTRL_ONCHANGE_CMD,
+
+
+	SENS_COMM_CTRL_TRAN_DEBUG_CMD,
+
+
+	SENS_COMM_CTRL_CUST_ENABLE_TRACKING_CMD,
+	SENS_COMM_CTRL_CUST_DISABLE_TRACKING_CMD,
+
 	MAX_SENS_COMM_CTRL_CMD,
 };
 
@@ -94,6 +107,12 @@ struct sensor_comm_notify {
 	uint8_t crc8;
 	int32_t value[5] __aligned(4);
 } __packed __aligned(4);
+
+
+struct sensor_param {
+    uint32_t cust_param[4] __aligned(4);
+}__packed __aligned(4);
+
 
 int sensor_comm_ctrl_send(struct sensor_comm_ctrl *ctrl, unsigned int size);
 int sensor_comm_notify(struct sensor_comm_notify *notify);

@@ -5,3 +5,50 @@ config MTK_SENSORHUB
 	  If this option is set,
 	  it will support
 	  mediatek sensorhub architecture.
+config TRAN_GET_BRIGHTNESS_LEVEL_SUPPORT
+	tristate "For SCP get brightness level function"
+	help
+		Select for SCP get brightness level function.
+		Set Y or to select this feature for the item,
+		and set N to disable.
+
+config TRAN_CWB_SUPPORT
+	tristate "For SCP enabel CWB async enable function"
+	help
+		Select for SCP enabel CWB async enable function.
+		Set M or to select this feature for the item,
+		and set N to disable.
+
+config TRAN_SCP_EE_SUPPORT
+	tristate "For SCP ee"
+	help
+		Select for SCP ee function.
+		Set Y or to select this feature for the item,
+		and set N to disable.
+
+config TRAN_GET_VREFRESH_SUPPORT
+	tristate "For SCP get vrefresh function"
+	help
+		Select for SCP  get vrefresh function.
+		Set M or to select this feature for the item,
+		and set N to disable.
+
+config SENSOR_GET_SCREEN_POWER_STATE
+	tristate "For SCP get screen state function"
+	help
+		Select for SCP  get screen state function.
+		Set M or to select this feature for the item,
+		and set N to disable.
+config TRAN_CHARGER_POLL
+	tristate "For SCP charger function"
+	help
+		Select for SCP charger function.
+		Set Y or to select this feature for the item,
+		and set N to disable.
+
+config SENSOR_GET_LCM_INFO
+	tristate "For SCP get screen state function"
+	help
+		Select for SCP  get screen state function.
+		Set Y or to select this feature for the item,
+		and set N to disable.

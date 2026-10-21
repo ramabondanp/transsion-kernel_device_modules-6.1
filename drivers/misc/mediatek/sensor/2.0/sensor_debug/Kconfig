@@ -1,0 +1,8 @@
+config TRAN_SENSOR_DEBUG
+    tristate "For sensor debug support"
+    help
+        Select for sensor debug function.
+        Set m or to select this feature for the item,
+        and set n to disable.
+
+
