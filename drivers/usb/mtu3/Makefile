@@ -7,6 +7,14 @@ ccflags-y += -I$(srctree)/drivers/usb/typec/
 ccflags-$(CONFIG_DEVICE_MODULES_USB_MTU3_DEBUG)	+= -DDEBUG
 ccflags-y += -I$(DEVICE_MODULES_PATH)/drivers/usb/mtu3/
 
+subdir-ccflags-y += -I$(DEVICE_MODULES_PATH)/drivers/misc/mediatek/typec/inc
+
+subdir-ccflags-y += -I$(DEVICE_MODULES_PATH)/drivers/misc/mediatek/typec/tcpc/inc
+
+ifneq ($(filter m y, $(CONFIG_TC_CHARGER)),)
+ccflags-y += -I$(DEVICE_MODULES_PATH)/drivers/power/supply/transsion
+endif
+
 # define_trace.h needs to know how to find our header
 CFLAGS_mtu3_trace.o	:= -I$(srctree)/$(src)
 

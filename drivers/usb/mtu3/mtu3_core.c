@@ -25,6 +25,10 @@
 #include <linux/usb/typec.h>
 #include "class.h"
 
+#if IS_ENABLED(CONFIG_TC_CHARGER)
+#include "tc_charger.h"
+#endif
+
 static int ep_fifo_alloc(struct mtu3_ep *mep, u32 seg_size)
 {
 	struct mtu3_fifo_info *fifo = mep->fifo;
@@ -72,26 +76,70 @@ static void ep_fifo_free(struct mtu3_ep *mep)
 		__func__, mep->fifo_seg_size, mep->fifo_size, start_bit);
 }
 
+static void mtu3_suspend_reset_work(struct work_struct *data)
+{
+	struct mtu3 *mtu = container_of(data, struct mtu3, reset_work.work);
+	union power_supply_propval val;
+
+	mtu->suspend_flag = 0;
+	mtu->reset_flag = 0;
+	mtu->usb_current_lmt = false;
+
+	val.intval = USB_CURRENT_MASK | UNLIMIT_CURRENT_MASK; /* unlimited */
+	power_supply_set_property(mtu->usb_psy,
+			POWER_SUPPLY_PROP_CHARGE_CONTROL_LIMIT, &val);
+
+	dev_info(mtu->dev, "%s : clear current limt flag\n", __func__);
+}
+
 static void mtu3_vbus_draw_work(struct work_struct *data)
 {
 	struct mtu3 *mtu = container_of(data, struct mtu3, draw_work);
 	union power_supply_propval val;
+	__maybe_unused bool dis_pp_flag = 0;
 	int ret;
 
-	val.intval = mtu->is_active &&	!(mtu->vbus_draw > USB_SELF_POWER_VBUS_MAX_DRAW) &&
-			!mtu3_is_usb_pd(mtu);
-
-	if (mtu->is_power_limit != val.intval) {
-		ret = power_supply_set_property(mtu->usb_psy,
-			POWER_SUPPLY_PROP_CHARGE_CONTROL_LIMIT, &val);
-		if (!ret)
-			mtu->is_power_limit = val.intval;
+	dev_info(mtu->dev, "%s is_active:%d, is_power_limt:%d  vbus_draw:%d\n",
+			__func__, mtu->is_active, mtu->is_power_limit, mtu->vbus_draw);
+#if IS_ENABLED(CONFIG_TC_CHARGER)
+	dis_pp_flag = mtu->suspend_flag | mtu->reset_flag;
+	if (mtu->is_active) {
+		if (mtu->vbus_draw < USB_SELF_POWER_VBUS_MAX_DRAW && dis_pp_flag)
+			val.intval = 0; /* 0 mA*/
+		else if (mtu->vbus_draw == USB_SELF_POWER_VBUS_MAX_DRAW)
+			val.intval = 100; /* 100 mA*/
 		else
-			dev_info(mtu->dev, "%s set property error:%d\n", __func__, ret);
+			val.intval = UNLIMIT_CURRENT_MASK; /* unlimited */
+	} else
+		val.intval = UNLIMIT_CURRENT_MASK; /* unlimited */
+
+	if (!(val.intval & UNLIMIT_CURRENT_MASK)){
+		if (mtu->usb_current_lmt)
+			schedule_delayed_work(&mtu->reset_work, 5*HZ);
+		else
+			goto out;
 	}
 
-	dev_info(mtu->dev, "%s %d mA, is_limit %d\n",
-		__func__, mtu->vbus_draw, mtu->is_power_limit);
+	val.intval |= USB_CURRENT_MASK;
+	ret = power_supply_set_property(mtu->usb_psy,
+			POWER_SUPPLY_PROP_CHARGE_CONTROL_LIMIT, &val);
+	if (ret)
+		dev_info(mtu->dev, "%s set property error:%d\n", __func__, ret);
+#else
+	val.intval = mtu->is_active &&	!(mtu->vbus_draw > USB_SELF_POWER_VBUS_MAX_DRAW);
+	if (mtu->is_power_limit != val.intval) {
+			dev_info(mtu->dev, "%s set val:%d\n", __func__, val.intval);
+			ret = power_supply_set_property(mtu->usb_psy,
+				POWER_SUPPLY_PROP_CHARGE_CONTROL_LIMIT, &val);
+			if (!ret)
+				mtu->is_power_limit = val.intval;
+			else
+				dev_info(mtu->dev, "%s set property error:%d\n", __func__, ret);
+	}
+#endif
+out:
+	dev_info(mtu->dev, "%s %d mA, is_limit %d dis_pp_flag %d\n",
+		__func__, mtu->vbus_draw, mtu->is_power_limit, dis_pp_flag);
 }
 
 int mtu3_gadget_vbus_draw(struct usb_gadget *g, unsigned int mA)
@@ -546,7 +594,7 @@ void mtu3_start(struct mtu3 *mtu)
 {
 	void __iomem *mbase = mtu->mac_base;
 
-	dev_dbg(mtu->dev, "%s devctl 0x%x\n", __func__,
+	dev_info(mtu->dev, "%s devctl 0x%x\n", __func__,
 		mtu3_readl(mbase, U3D_DEVICE_CONTROL));
 
 	mtu3_clrbits(mtu->ippc_base, U3D_SSUSB_IP_PW_CTRL2, SSUSB_IP_DEV_PDN);
@@ -564,6 +612,13 @@ void mtu3_start(struct mtu3 *mtu)
 	mtu3_intr_enable(mtu);
 	mtu->is_active = 1;
 
+	mtu->suspend_flag = 0;
+	if (mtu->usb_psy_name != NULL) {
+		cancel_delayed_work(&mtu->reset_work);
+		flush_delayed_work(&mtu->reset_work);
+	}
+	mtu->usb_current_lmt = true;
+
 	if (mtu->softconnect)
 		mtu3_dev_on_off(mtu, 1);
 
@@ -573,7 +628,7 @@ void mtu3_start(struct mtu3 *mtu)
 
 void mtu3_stop(struct mtu3 *mtu)
 {
-	dev_dbg(mtu->dev, "%s\n", __func__);
+	dev_info(mtu->dev, "%s\n", __func__);
 
 	mtu3_intr_disable(mtu);
 
@@ -1168,6 +1223,7 @@ int ssusb_gadget_init(struct ssusb_mtk *ssusb)
 	if (device_property_read_string(mtu->dev, "usb-psy-name", &mtu->usb_psy_name) >= 0) {
 		dev_info(mtu->dev, "usb psy: %s\n", mtu->usb_psy_name);
 		INIT_WORK(&mtu->draw_work, mtu3_vbus_draw_work);
+		INIT_DELAYED_WORK(&mtu->reset_work, mtu3_suspend_reset_work);
 	}
 
 	if (device_property_read_string(mtu->dev, "typec-name", &mtu->typec_name) >= 0)
