@@ -1,0 +1,11 @@
+config TC_LEDS_CLASS
+        tristate "enable tc leds class"
+    help
+        For legacy aal project to set aal_enable when first set backlight.
+        If you need this func, set it to Y.
+
+source "$(KCONFIG_EXT_PREFIX)drivers/power/supply/transsion/leds/leds-aw22xxx/Kconfig"
+source "$(KCONFIG_EXT_PREFIX)drivers/power/supply/transsion/leds/tran_leds_aw2023/Kconfig"
+source "$(KCONFIG_EXT_PREFIX)drivers/power/supply/transsion/leds/tran_leds_aw20144/Kconfig"
+source "$(KCONFIG_EXT_PREFIX)drivers/power/supply/transsion/leds/tran_leds_aw210xx/Kconfig"
+source "$(KCONFIG_EXT_PREFIX)drivers/power/supply/transsion/leds/tran_leds_hk32f0301/Kconfig"

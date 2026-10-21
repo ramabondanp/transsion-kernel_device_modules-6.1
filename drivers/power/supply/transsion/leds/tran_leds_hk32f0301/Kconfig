@@ -1,0 +1,8 @@
+config TC_LEDS_HK320F0301
+	tristate "LED Support for HK320F0301"
+	depends on LEDS_CLASS && I2C
+	help
+	  this option enables support for the HK320F0301 RGB LED connected
+	  through I2C. Say Y to enable support for the HK320F0301 LED
+	  light automatically.
+

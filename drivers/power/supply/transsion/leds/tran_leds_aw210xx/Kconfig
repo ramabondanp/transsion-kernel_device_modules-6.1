@@ -1,0 +1,7 @@
+config TC_LEDS_AW210XX
+	tristate "LED Support for AW210XX"
+	help
+	  this option enables support for the AW210XXRGB LED connected
+	  through I2C. Say Y to enable support for the AW210XX LED
+	  light automatically.
+

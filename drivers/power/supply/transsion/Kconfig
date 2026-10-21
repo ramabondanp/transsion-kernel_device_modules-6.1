@@ -1,0 +1,273 @@
+# SPDX-License-Identifier: GPL-2.0-only
+
+config TC_CHARGER
+	tristate "transsion charger support"
+	default m
+	help
+	Say Y or N
+
+config TC_CHARGER_TYPE_DETECT
+	tristate "Mediatek Charger Type Detect Driver"
+	depends on TCPC_CLASS
+	help
+	  Say Y here to enable Mediatek Charger Type Detect.
+	  Support enable charger type detect when receiving
+	  typec attach notify.
+	  Say N to disable.
+
+config TC_PE20
+	tristate "MediaTek PUMP EXPRESS PLUS 2.0"
+	depends on TC_CHARGER
+	help
+	  Fast charging technology using switch charger and current pattern
+	  to achive better charging ability. It has higher charging efficiency
+	  and has better thermal performance than PE+.
+	  Set Yes to enable PE+2.0
+	  Set No to disable PE+2.0
+
+config TC_PD
+	tristate "Transsion PD FIX protocol"
+	depends on TC_CHARGER
+	help
+	  Set Yes to enable PD
+	  Set No to disable PD
+
+config TC_PUMP_EXPRESS_50_SUPPORT
+	tristate "MediaTek PUMP EXPRESS PLUS 2.0"
+	depends on TC_CHARGER
+	help
+	  Fast charging technology using switch charger and current pattern
+	  to achive better charging ability. It has higher charging efficiency
+	  and has better thermal performance than PE+.
+	  Set Yes to enable PE50
+	  Set No to disable PE50
+
+config TC_TA_CLASS
+	tristate "Charger Driver for transsion adapter class"
+	default n
+
+config TCHARGER_HL7138
+	tristate "HL7138 charger pump IC driver"
+	default n
+
+config TCHARGER_HL7139A
+	tristate "HL7139A charger pump IC driver"
+	default n
+
+config TCHARGER_SC8565
+	tristate "Charger Driver for sc8565 Charger Pump IC"
+	default n
+
+config TCHARGER_SC8548
+	tristate "Charger Driver for sc8565 Charger Pump IC"
+	default n
+
+config TC_GAUGE
+	tristate "mid hal transsion gauge driver"
+	default n
+	help
+		Say Yes to enable TC GAUGE driver.
+		Provides mid hal for gauge.
+
+config TC_BATTERY
+	tristate "third battery driver"
+	default n
+	help
+		Say Yes to enable TRAN_BATTERY driver.
+		Provides mid hal for gauge.
+
+config TC_PMIC
+	tristate "mid hal transsion gauge driver"
+	default n
+	help
+		Say Yes to enable TC PMIC driver.
+		Provides mid hal for PMIC.
+
+config TC_AUDIO
+	tristate "mid hal transsion audio driver"
+	default n
+	help
+		Say Yes to enable TC audio driver.
+		Provides mid hal for audio.
+
+config TCHARGER_RT9471
+	tristate "Charger Driver for Richtek RT9471 Charger IC"
+	default n
+	depends on TC_CHARGER
+	help
+		Say Yes to enable Richtek RT9471 driver.
+		It is mainly used as cap divider charger
+		for Mediatek Pump Express 5.0.
+		It depends on config TC_CHARGER
+
+config TCHARGER_USB_SWITCH
+	tristate "Charger Driver for transsion usb switch driver"
+	default n
+
+config TC_CLASS_SUPPORT
+	tristate "Transsion class interface"
+	default n
+	depends on TC_CHARGER
+
+config TC_MISC_INTF
+	tristate "Misc interface"
+	default n
+	depends on TC_CHARGER
+	help
+		Say Yes to enable TC MISC driver.
+		Provides are called by other modules.
+		It depends on config TC_CHARGER
+
+config TC_LCD_NOTIFY
+	tristate "LCD NOTIFY"
+	default n
+	help
+		Say Yes to enable LCD NOTIFY driver.
+		Provides are called by other modules.
+
+config TC_AMBIENT_DETECTION
+	tristate "TC_AMBIENT_DETECTION"
+	default n
+	help
+		Say Yes to enable TC_AMBIENT_DETECTION driver.
+		Provides are called by other modules.
+
+config TC_PID_CHARGER
+	tristate "TC_PID_CHARGER"
+	default n
+	help
+		Say Yes to enable TC_PID_CHARGER driver.
+		Provides are called by other modules.
+
+config TC_TEMP_FORECAST
+	tristate "TC_TEMP_FORECAST"
+	default n
+	help
+		Say Yes to enable TC_TEMP_FORECAST driver.
+		Provides are called by other modules.
+
+config TC_USB_CONTROL
+	tristate "Transsion USB Controllerl"
+	default n
+	depends on TC_CHARGER
+
+config TC_OTG_CONTROL
+	tristate "Transsion OTG Controllerl"
+	default n
+	depends on TC_CHARGER && TCPC_CLASS
+
+config TCHARGER_SC8950
+	tristate "Charger Driver for SC8950 Charger IC"
+	default n
+	depends on TC_CHARGER
+	help
+		This is southchip switch ic.
+
+config TCHARGER_SGM41516D
+	tristate "Charger Driver for sgm41516d Charger IC"
+	default n
+	depends on TC_CHARGER
+	help
+		This is SGMICRO switch ic.
+
+config TC_BQ27Z561
+	tristate "Gauge Driver for bq27z561 IC"
+	default n
+	depends on TC_CHARGER
+	help
+		This is TI ic.
+
+config TC_FUEL_GAUGE_NFG1000
+	tristate "tran battery gauge system for NFG"
+	default n
+	depends on TC_CHARGER
+	help
+		This is TI ic.
+
+config TC_FUEL_GAUGE_NFG1000_OTA
+	tristate "tran battery gauge system for NFG upgrade"
+	default n
+        depends on TC_FUEL_GAUGE_NFG1000
+	help
+	  Say Y to enable support for transsion fuel gauge system
+
+config TC_SC760X
+	tristate "Gauge Driver for TC_SC760X IC"
+	default n
+	depends on TC_CHARGER
+	help
+		This is TI ic.
+
+config TC_CHARGE_TRANSFER
+	tristate "Transsion Charge Transfer"
+	default n
+	depends on TC_CHARGER
+	
+config TC_AUTO_TEST
+	tristate "TC_AUTO_TEST"
+	default n
+	depends on TC_CHARGER
+	help
+		Say Yes to enable TC_AUTO_TEST driver.
+		Provides are called by other modules.
+
+config TC_ADAPTER_CONTROL
+	tristate "TC_ADAPTER_CONTROL"
+	default n
+	depends on TC_CHARGER
+	help
+		Say Yes to enable TC_ADAPTER_CONTROL driver.
+		Provides are called by other modules.
+
+config TC_PORT_CORROSION
+	tristate "TypeC port Corrosion Prevention"
+	default n
+	help
+          Select this to port Corrosion
+
+config TC_PORT_BURNING
+	tristate "CONFIG_PORT_BURNING"
+	default n
+	help
+	  This is port burn function.
+
+config TC_PHY_INSERT_DET
+	tristate "CONFIG_PHY_INSERT_DET"
+	default n
+	help
+	  This is phy det function.
+
+config TC_WATER_DETECTION
+	tristate "Transsion Water Detection"
+	default n
+	depends on TC_CHARGER
+
+config TC_WIRELESS_CHARGER
+	tristate "TC_WIRELESS_CHARGER"
+	default n
+	depends on TC_CHARGER
+
+config TC_CHARGER_MT6375
+	tristate "Transsion Charger mt6375"
+	default n
+	depends on TC_CHARGER
+
+config TRAN_BOOST_HL7603
+	tristate "TRAN_BOOST_HL7603"
+	default n
+	depends on TC_CHARGER
+	help
+		This is tran low battery  boost IC support.
+
+config TRAN_AGING_KOM
+	bool "add tran kom control charger"
+	default n
+
+config BAT_AUTHON
+	tristate "BAT_AUTHON"
+	default n
+	help
+		This is tran battery authon.
+
+source "$(KCONFIG_EXT_PREFIX)drivers/power/supply/transsion/wireless/Kconfig"
+source "$(KCONFIG_EXT_PREFIX)drivers/power/supply/transsion/leds/Kconfig"
