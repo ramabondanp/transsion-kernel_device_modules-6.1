@@ -17,7 +17,7 @@ include $(LOCAL_PATH)/kenv.mk
 
 ifeq ($(wildcard $(TARGET_PREBUILT_KERNEL)),)
 KERNEL_MAKE_DEPENDENCIES := $(shell find $(KERNEL_DIR) -name .git -prune -o -type f | sort)
-KERNEL_MAKE_DEPENDENCIES += $(shell find vendor/mediatek/kernel_modules -name .git -prune -o -type f | sort)
+KERNEL_MAKE_DEPENDENCIES += $(shell find -L vendor/mediatek/kernel_modules -name .git -prune -o -type f | sort)
 ifdef MTK_GKI_PREBUILTS_DIR
 KERNEL_MAKE_DEPENDENCIES += $(wildcard $(MTK_GKI_PREBUILTS_DIR)/*)
 endif

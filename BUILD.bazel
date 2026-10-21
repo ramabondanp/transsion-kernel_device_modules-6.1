@@ -49,7 +49,7 @@ load("//kernel_device_modules-6.1:kernel/kleaf/mgk_64_k61.bzl",
      "mgk_64_k61_device_userdebug_modules",
      "mgk_64_k61_platform_device_userdebug_modules",
      "mgk_64_k61_device_user_modules",
-     "mgk_64_k61_platform_device_user_modules"
+     "mgk_64_k61_platform_device_user_modules",
 )
 
 define_mgk(
