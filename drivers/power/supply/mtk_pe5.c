@@ -1276,12 +1276,6 @@ static int pe50_calculate_rcable_by_swchg(struct pe50_algo_info *info)
 		return ret;
 	}
 
-	ret = pe50_set_ta_cap_cv(info, 8000, 1000);
-	if (ret < 0) {
-		PE50_ERR("set ta cap fail(%d)\n", ret);
-		return ret;
-	}
-
 	ret = pe50_hal_enable_charging(info->alg, CHG1, true);
 	if (ret < 0) {
 		PE50_ERR("en swchg fail(%d)\n", ret);
@@ -1587,12 +1581,6 @@ static int pe50_algo_init_with_ta_cv(struct pe50_algo_info *info)
 		PE50_ERR("enable ta charging fail(%d)\n", ret);
 		sinfo.hardreset_ta = true;
 		goto err;
-	}
-
-	ret = pe50_hal_set_aicr(info->alg, CHG1, data->ita_setting);
-	if (ret < 0) {
-		PE50_ERR("set aicr fail(%d)\n", ret);
-		return ret;
 	}
 
 	ret = pe50_hal_enable_hz(info->alg, CHG1, false);
@@ -3262,27 +3250,6 @@ static bool pe50_is_ta_rdy(struct pe50_algo_info *info)
 	return true;
 }
 
-static int pe50_update_ta_cap(struct pe50_algo_info *info)
-{
-	int ret = 0;
-	struct pe50_algo_desc *desc = info->desc;
-	struct pe50_algo_data *data = info->data;
-	struct pe50_ta_auth_data *auth_data = &data->ta_auth_data;
-
-	if (data->ta_ready && data->is_dvchg_exist[PE50_DVCHG_SLAVE]) {
-		auth_data->vcap_min = desc->vta_cap_min;
-		auth_data->vcap_max = desc->vta_cap_max;
-		auth_data->icap_min = desc->ita_cap_min;
-		ret = pe50_hal_update_apdo_cap(info->alg, auth_data);
-		if (ret < 0)
-			return false;
-
-		pe50_select_ita_lmt_by_r(info, true);
-		return true;
-	}
-	return false;
-}
-
 static inline void pe50_wakeup_algo_thread(struct pe50_algo_data *data)
 {
 	PE50_DBG("++\n");
@@ -3450,15 +3417,6 @@ static int pe50_notify_vbusovp_alarm_hdlr(struct pe50_algo_info *info)
 	return 0;
 }
 
-static int pe50_notify_vdm_verify_hdlr(struct pe50_algo_info *info)
-{
-	struct pe50_algo_data *data = info->data;
-	PE50_INFO("%s VDM verify\n", __func__);
-	if(!pe50_update_ta_cap(info))
-		data->notify |= BIT(EVT_VDM_VERIFY);
-	return 0;
-}
-
 static int
 (*pe50_notify_pre_hdlr[EVT_MAX])(struct pe50_algo_info *info) = {
 	[EVT_DETACH] = pe50_notify_detach_hdlr,
@@ -3472,7 +3430,6 @@ static int
 	[EVT_VOUTOVP] = pe50_notify_hwerr_hdlr,
 	[EVT_VDROVP] = pe50_notify_hwerr_hdlr,
 	[EVT_VBATOVP_ALARM] = pe50_notify_vbatovp_alarm_hdlr,
-	[EVT_VDM_VERIFY] = pe50_notify_vdm_verify_hdlr,
 };
 
 static int
@@ -3489,7 +3446,6 @@ static int
 	[EVT_VDROVP] = pe50_notify_hwerr_hdlr,
 	[EVT_VBATOVP_ALARM] = pe50_notify_vbatovp_alarm_hdlr,
 	[EVT_VBUSOVP_ALARM] = pe50_notify_vbusovp_alarm_hdlr,
-	[EVT_VDM_VERIFY] = pe50_notify_vdm_verify_hdlr,
 };
 
 static int pe50_handle_notify_evt(struct pe50_algo_info *info,
@@ -3785,7 +3741,7 @@ static int pe50_is_algo_ready(struct chg_alg_device *alg)
 	}
 
 	if (!pe50_is_ta_rdy(info)) {
-		ret = pe50_hal_is_pd_adapter_ready(alg);
+		ret = pe50_hal_is_adapter_ready(alg);
 		goto out;
 	}
 	ret = ALG_READY;
@@ -3868,7 +3824,7 @@ static int pe50_notifier_call(struct chg_alg_device *alg,
 	struct pe50_algo_data *data = info->data;
 
 	mutex_lock(&data->notify_lock);
-	if (data->state == PE50_ALGO_STOP && notify->evt != EVT_VDM_VERIFY) {
+	if (data->state == PE50_ALGO_STOP) {
 		if (notify->evt == EVT_DETACH || notify->evt == EVT_HARDRESET) {
 			PE50_INFO("detach/hardreset after stop\n");
 			data->notify |= BIT(notify->evt);
@@ -3889,7 +3845,6 @@ static int pe50_notifier_call(struct chg_alg_device *alg,
 	case EVT_VDROVP:
 	case EVT_VBATOVP_ALARM:
 	case EVT_VBUSOVP_ALARM:
-	case EVT_VDM_VERIFY:
 		data->notify |= BIT(notify->evt);
 		break;
 	default:

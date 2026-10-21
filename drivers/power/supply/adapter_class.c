@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-2.0
+// SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2019 MediaTek Inc.
  * Author Wy Chuang<wy.chuang@mediatek.com>
@@ -100,17 +100,6 @@ int adapter_dev_authentication(struct adapter_device *adapter_dev,
 }
 EXPORT_SYMBOL(adapter_dev_authentication);
 
-int adapter_dev_update_apdo_cap(struct adapter_device *adapter_dev,
-			       struct adapter_auth_data *data)
-{
-	if (adapter_dev != NULL && adapter_dev->ops != NULL &&
-	    adapter_dev->ops->update_apdo_cap)
-		return adapter_dev->ops->update_apdo_cap(adapter_dev, data);
-
-	return -EOPNOTSUPP;
-}
-EXPORT_SYMBOL(adapter_dev_update_apdo_cap);
-
 int adapter_dev_is_cc(struct adapter_device *adapter_dev, bool *cc)
 {
 	if (adapter_dev != NULL && adapter_dev->ops != NULL &&
@@ -160,6 +149,16 @@ int adapter_dev_send_hardreset(struct adapter_device *adapter_dev)
 	return -EOPNOTSUPP;
 }
 EXPORT_SYMBOL(adapter_dev_send_hardreset);
+
+int adapter_dev_exit_mode(struct adapter_device *adapter_dev)
+{
+	if (adapter_dev != NULL && adapter_dev->ops != NULL &&
+	    adapter_dev->ops->exit_mode)
+		return adapter_dev->ops->exit_mode(adapter_dev);
+
+	return -EOPNOTSUPP;
+}
+EXPORT_SYMBOL(adapter_dev_exit_mode);
 
 static DEVICE_ATTR_RO(name);
 

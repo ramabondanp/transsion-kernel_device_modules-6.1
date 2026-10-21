@@ -85,8 +85,10 @@ static bool is_typec_adapter(struct mtk_charger *info)
 {
 	int rp;
 
-	rp = adapter_dev_get_property(info->pd_adapter, TYPEC_RP_LEVEL);
-	if (info->pd_type == MTK_PD_CONNECT_TYPEC_ONLY_SNK &&
+	if (info->select_adapter_idx != PD || !info->select_adapter)
+		return false;
+	rp = adapter_dev_get_property(info->select_adapter, TYPEC_RP_LEVEL);
+	if (info->ta_status[info->select_adapter_idx] != TA_HARD_RESET &&
 			rp != 500 &&
 			info->chr_type != POWER_SUPPLY_TYPE_USB &&
 			info->chr_type != POWER_SUPPLY_TYPE_USB_CDP)
@@ -112,8 +114,9 @@ static bool support_fast_charging(struct mtk_charger *info)
 
 		chg_alg_set_current_limit(alg, &info->setting);
 		state = chg_alg_is_algo_ready(alg);
-		chr_debug("%s %s ret:%s\n", __func__, dev_name(&alg->dev),
-			chg_alg_state_to_str(state));
+		chr_debug("%s %s ret:%s, prtocol_state:%d\n",
+			__func__, dev_name(&alg->dev),
+			chg_alg_state_to_str(state), info->protocol_state);
 
 		if (state == ALG_READY || state == ALG_RUNNING) {
 			ret = true;
@@ -226,11 +229,12 @@ static bool select_charging_current_limit(struct mtk_charger *info,
 					info->data.max_dmivr_charger_current;
 		}
 		if (is_typec_adapter(info)) {
-			if (adapter_dev_get_property(info->pd_adapter, TYPEC_RP_LEVEL)
+			if (adapter_dev_get_property(info->adapter_dev[PD]
+			, TYPEC_RP_LEVEL)
 				== 3000) {
 				pdata->input_current_limit = 3000000;
 				pdata->charging_current_limit = 3000000;
-			} else if (adapter_dev_get_property(info->pd_adapter,
+			} else if (adapter_dev_get_property(info->adapter_dev[PD],
 				TYPEC_RP_LEVEL) == 1500) {
 				pdata->input_current_limit = 1500000;
 				pdata->charging_current_limit = 2000000;
@@ -241,8 +245,8 @@ static bool select_charging_current_limit(struct mtk_charger *info,
 			}
 
 			chr_err("type-C:%d current:%d\n",
-				info->pd_type,
-				adapter_dev_get_property(info->pd_adapter,
+				info->ta_status[PD],
+				adapter_dev_get_property(info->adapter_dev[PD],
 					TYPEC_RP_LEVEL));
 		}
 	}
@@ -352,7 +356,7 @@ done:
 		info->sc.pre_ibat,
 		info->sc.sc_ibat,
 		info->sc.solution,
-		info->chr_type, info->pd_type,
+		info->chr_type, info->ta_status[info->select_adapter_idx],
 		info->usb_unlimited,
 		IS_ENABLED(CONFIG_USBIF_COMPLIANCE), info->usb_state,
 		pdata->input_current_limit_by_aicl, info->atm_enabled,

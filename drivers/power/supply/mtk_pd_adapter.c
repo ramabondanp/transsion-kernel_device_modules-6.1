@@ -31,23 +31,6 @@ struct mtk_pd_adapter_info {
 	struct adapter_device *adapter;
 };
 
-static enum adapter_event pd_connect_tbl[] = {
-	MTK_PD_CONNECT_NONE,
-	MTK_PD_CONNECT_TYPEC_ONLY_SNK,
-	MTK_PD_CONNECT_TYPEC_ONLY_SNK,
-	MTK_PD_CONNECT_NONE,
-	MTK_PD_CONNECT_PE_READY_SNK,
-	MTK_PD_CONNECT_NONE,
-	MTK_PD_CONNECT_PE_READY_SNK_PD30,
-	MTK_PD_CONNECT_NONE,
-	MTK_PD_CONNECT_PE_READY_SNK_APDO,
-	MTK_PD_CONNECT_HARD_RESET,
-	MTK_PD_CONNECT_SOFT_RESET,
-	MTK_PD_CONNECT_NEW_SRC_CAP,
-	MTK_PD_CONNECT_TYPEC_ONLY_SNK,
-	MTK_PD_CONNECT_TYPEC_ONLY_SNK,
-};
-
 struct apdo_pps_range {
 	u32 prog_mv;
 	u32 min_mv;
@@ -77,11 +60,72 @@ static inline int to_mtk_adapter_ret(int tcpm_ret)
 	}
 }
 
+enum mtk_pd_connect_type {
+	MTK_PD_CONNECT_NONE,
+	MTK_PD_CONNECT_HARD_RESET,
+	MTK_PD_CONNECT_SOFT_RESET,
+	MTK_PD_CONNECT_PE_READY_SNK,
+	MTK_PD_CONNECT_PE_READY_SNK_PD30,
+	MTK_PD_CONNECT_PE_READY_SNK_APDO,
+	MTK_PD_CONNECT_TYPEC_ONLY_SNK,
+	MTK_PD_CONNECT_NEW_SRC_CAP,
+};
+
+static enum mtk_pd_connect_type pd_connect_tbl[] = {
+	MTK_PD_CONNECT_NONE,
+	MTK_PD_CONNECT_TYPEC_ONLY_SNK,
+	MTK_PD_CONNECT_TYPEC_ONLY_SNK,
+	MTK_PD_CONNECT_NONE,
+	MTK_PD_CONNECT_PE_READY_SNK,
+	MTK_PD_CONNECT_NONE,
+	MTK_PD_CONNECT_PE_READY_SNK_PD30,
+	MTK_PD_CONNECT_NONE,
+	MTK_PD_CONNECT_PE_READY_SNK_APDO,
+	MTK_PD_CONNECT_HARD_RESET,
+	MTK_PD_CONNECT_SOFT_RESET,
+	MTK_PD_CONNECT_NEW_SRC_CAP,
+	MTK_PD_CONNECT_TYPEC_ONLY_SNK,
+	MTK_PD_CONNECT_TYPEC_ONLY_SNK,
+};
+
+static int pd_type_to_adapter_event(int pd_type)
+{
+	switch (pd_type) {
+	case MTK_PD_CONNECT_TYPEC_ONLY_SNK:
+		return TA_DETECT_FAIL;
+	case MTK_PD_CONNECT_PE_READY_SNK:
+	case MTK_PD_CONNECT_PE_READY_SNK_PD30:
+	case MTK_PD_CONNECT_PE_READY_SNK_APDO:
+		return TA_ATTACH;
+	case MTK_PD_CONNECT_HARD_RESET:
+		return TA_HARD_RESET;
+	case MTK_PD_CONNECT_SOFT_RESET:
+		return TA_SOFT_RESET;
+	default:
+		return TA_DETACH;
+	}
+}
+
+static int pd_type_to_cap_type(int pd_type)
+{
+	switch (pd_type) {
+	case MTK_PD_CONNECT_PE_READY_SNK:
+	case MTK_PD_CONNECT_PE_READY_SNK_PD30:
+		return MTK_PD;
+	case MTK_PD_CONNECT_PE_READY_SNK_APDO:
+		return MTK_PD_APDO;
+	default:
+		break;
+	}
+	return MTK_CAP_TYPE_UNKNOWN;
+}
+
 static void find_active_idx_and_notification(struct mtk_pd_adapter_info *info,
 					     int report_idx)
 {
 	int i = 0, active_idx = 0, pre_active_idx = info->active_idx;
 	struct adapter_device *adapter = info->adapter;
+	unsigned long evt = pd_type_to_adapter_event(info->pd_type[active_idx]);
 
 	/* lower index has higher priority */
 	for (i = 0; i < info->nr_port; i++) {
@@ -102,13 +146,9 @@ static void find_active_idx_and_notification(struct mtk_pd_adapter_info *info,
 			srcu_notifier_call_chain(&adapter->evt_nh,
 						 MTK_PD_CONNECT_NONE,
 						 &pre_active_idx);
-		srcu_notifier_call_chain(&adapter->evt_nh,
-					 info->pd_type[active_idx],
-					 &active_idx);
+		srcu_notifier_call_chain(&adapter->evt_nh, evt, &active_idx);
 	} else if (report_idx == active_idx) {
-		srcu_notifier_call_chain(&adapter->evt_nh,
-					 info->pd_type[active_idx],
-					 &active_idx);
+		srcu_notifier_call_chain(&adapter->evt_nh, evt, &active_idx);
 	}
 
 	info->active_idx = active_idx;
@@ -170,13 +210,6 @@ static int pd_tcp_notifier_call(struct notifier_block *nb,
 		srcu_notifier_call_chain(&adapter->evt_nh,
 					 MTK_TYPEC_CC_HI_STATUS, &noti->cc_hi);
 		break;
-	case TCP_NOTIFY_PD_VDM_VERIFY:
-		pr_info("%s mmi pd vdm verify state = %d\n",
-					__func__, noti->pd_state.vdm_verify);
-		if (noti->pd_state.vdm_verify == true)
-			srcu_notifier_call_chain(&adapter->evt_nh,
-				MMI_PD30_VDM_VERIFY, NULL);
-		break;
 	}
 
 	return NOTIFY_OK;
@@ -186,10 +219,10 @@ static int pd_get_property(struct adapter_device *dev,
 			   enum adapter_property pro)
 {
 	struct mtk_pd_adapter_info *info = adapter_dev_get_drvdata(dev);
-	int ret = -EINVAL;
+	int ret;
 
 	if (info == NULL)
-		return ret;
+		return -EINVAL;
 
 	switch (pro) {
 	case TYPEC_RP_LEVEL:
@@ -198,13 +231,13 @@ static int pd_get_property(struct adapter_device *dev,
 				info->tcpc[info->active_idx]);
 		mutex_unlock(&info->idx_lock);
 		break;
-	case PD_TYPE:
+	case CAP_TYPE:
 		mutex_lock(&info->idx_lock);
-		ret = info->pd_type[info->active_idx];
+		ret = pd_type_to_cap_type(info->pd_type[info->active_idx]);
 		mutex_unlock(&info->idx_lock);
 		break;
 	default:
-		break;
+		return -EINVAL;
 	}
 
 	return ret;
@@ -511,7 +544,6 @@ stop_repeat:
 	    ita_meas == PPS_STATUS_ITA_NOTSUPP) {
 		data->support_meas_cap = false;
 		data->support_cc = false;
-		ret = MTK_ADAPTER_OK;
 	}
 	ret = pd_get_status(dev, &status);
 	if (ret == MTK_ADAPTER_NOT_SUPPORT) {
@@ -527,107 +559,6 @@ out:
 	if (ret != MTK_ADAPTER_OK)
 		dev_notice(info->dev, "%s fail(%d)\n", __func__, ret);
 	return ret;
-}
-
-static int pd_update_apdo_cap(struct adapter_device *dev,
-			     struct adapter_auth_data *data)
-{
-	struct mtk_pd_adapter_info *info = adapter_dev_get_drvdata(dev);
-	int ret = MTK_ADAPTER_ERROR, active_idx = 0, i = 0;
-	int ret_tcpm = TCPM_ERROR_UNKNOWN;
-	int ret_tcp = TCP_DPM_RET_DENIED_UNKNOWN;
-	struct tcpm_power_cap_val apdo_cap, selected_apdo_cap;
-	uint8_t cap_idx = 0, apdo_idx = 0;
-	struct pd_source_cap_ext src_cap_ext;
-	u32 prog_mv = 0;
-
-	if (info == NULL)
-		return ret;
-
-	mutex_lock(&info->idx_lock);
-	active_idx = info->active_idx;
-
-	if (tcpm_inquire_typec_attach_state(info->tcpc[active_idx]) !=
-			TYPEC_ATTACHED_SNK) {
-		dev_notice(info->dev, "%s not Attached.SNK\n", __func__);
-		mutex_unlock(&info->idx_lock);
-		return ret;
-	}
-
-	if (info->pd_type[active_idx] != MTK_PD_CONNECT_PE_READY_SNK_APDO) {
-		dev_notice(info->dev, "%s pd type is not snk apdo\n", __func__);
-		mutex_unlock(&info->idx_lock);
-		return ret;
-	}
-	mutex_unlock(&info->idx_lock);
-
-	if (!tcpm_inquire_pd_pe_ready(info->tcpc[active_idx])) {
-		dev_notice(info->dev, "%s pd pe not ready\n", __func__);
-		return ret;
-	}
-
-repeat:
-	ret_tcpm = tcpm_inquire_pd_source_apdo(info->tcpc[active_idx],
-					  TCPM_POWER_CAP_APDO_TYPE_PPS,
-					  &cap_idx, &apdo_cap);
-	if (ret_tcpm != TCPM_SUCCESS) {
-		if (apdo_idx == 0)
-			dev_notice(info->dev, "%s inquire pd apdo fail(%d)\n",
-					      __func__, ret_tcpm);
-		goto stop_repeat;
-	}
-
-	dev_info(info->dev, "%s cap_idx[%d], %dmV ~ %dmV, %dmA pl:%d\n",
-			    __func__, cap_idx, apdo_cap.min_mv,
-			    apdo_cap.max_mv, apdo_cap.ma, apdo_cap.pwr_limit);
-
-	if (apdo_cap.min_mv > data->vcap_min ||
-	    apdo_cap.max_mv < data->vcap_max ||
-	    apdo_cap.ma < data->icap_min)
-		goto repeat;
-	if (apdo_idx == 0 || apdo_cap.ma > selected_apdo_cap.ma) {
-		selected_apdo_cap = apdo_cap;
-		apdo_idx = cap_idx;
-		dev_info(info->dev, "%s select potential cap_idx[%d]\n",
-				    __func__, cap_idx);
-	}
-	goto repeat;
-stop_repeat:
-	if (apdo_idx == 0) {
-		dev_notice(info->dev, "%s no suitable apdo\n", __func__);
-		return MTK_ADAPTER_ERROR;
-	}
-
-	data->vta_min = selected_apdo_cap.min_mv;
-	data->vta_max = selected_apdo_cap.max_mv;
-	data->ita_max = selected_apdo_cap.ma;
-	data->pwr_lmt = !!selected_apdo_cap.pwr_limit;
-	data->vta_step = 20;
-	data->ita_step = 50;
-	data->ita_gap_per_vstep = 200;
-	ret_tcp = tcpm_dpm_pd_get_source_cap_ext(info->tcpc[active_idx],
-					     NULL, &src_cap_ext);
-	if (ret_tcp == TCP_DPM_RET_SUCCESS) {
-		data->pdp = src_cap_ext.source_pdp;
-		if (data->pdp > 0 && !data->pwr_lmt)
-			data->pwr_lmt = true;
-	} else {
-		dev_info(info->dev, "%s inquire pdp fail(%d)\n", __func__, ret_tcp);
-		if (data->pwr_lmt) {
-			for (i = 0; i < ARRAY_SIZE(apdo_pps_tbl); i++) {
-				if (apdo_pps_tbl[i].max_mv < data->vta_max)
-					continue;
-				prog_mv = min_t(u32, apdo_pps_tbl[i].prog_mv,
-						data->vta_max);
-				data->pdp = prog_mv * data->ita_max / 1000000;
-			}
-		}
-	}
-
-	dev_info(info->dev, "%s select cap_idx[%d], power limit[%d,%dW]\n",
-			    __func__, apdo_idx, data->pwr_lmt, data->pdp);
-
-	return MTK_ADAPTER_OK;
 }
 
 static int pd_is_cc(struct adapter_device *dev, bool *cc)
@@ -685,7 +616,6 @@ static struct adapter_ops adapter_ops = {
 	.get_cap = pd_get_cap,
 	.get_output = pd_get_output,
 	.authentication = pd_authentication,
-	.update_apdo_cap = pd_update_apdo_cap,
 	.is_cc = pd_is_cc,
 	.set_wdt = pd_set_wdt,
 	.enable_wdt = pd_enable_wdt,
@@ -697,7 +627,7 @@ static void mtk_pd_adapter_remove_helper(struct mtk_pd_adapter_info *info)
 	int i = 0, ret = 0;
 
 	mutex_destroy(&info->idx_lock);
-	if (!info->tcpc)
+	if (!info->tcpc || !info->pd_nb)
 		return;
 	for (i = 0; i < info->nr_port; i++) {
 		if (!info->tcpc[i])

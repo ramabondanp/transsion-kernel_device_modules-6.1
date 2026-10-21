@@ -1080,11 +1080,11 @@ static void mt6375_chg_bc12_work_func(struct work_struct *work)
 	mutex_lock(&ddata->attach_lock);
 	active_idx = ddata->active_idx;
 	attach = atomic_read(&ddata->attach[active_idx]);
-	mt_dbg(ddata->dev, "attach=%d\n", attach);
+	dev_err(ddata->dev, "attach=%d\n", attach);
 
 	if (attach > ATTACH_TYPE_NONE && pdata->boot_mode == 5) {
 		/* skip bc12 to speed up ADVMETA_BOOT */
-		dev_notice(ddata->dev, "force SDP in meta mode\n");
+		dev_err(ddata->dev, "force SDP in meta mode\n");
 		ddata->psy_desc.type = POWER_SUPPLY_TYPE_USB;
 		ddata->psy_type[active_idx] = POWER_SUPPLY_TYPE_USB;
 		ddata->psy_usb_type[active_idx] = POWER_SUPPLY_USB_TYPE_SDP;
@@ -1165,17 +1165,22 @@ static void mt6375_chg_bc12_work_func(struct work_struct *work)
 		dev_info(ddata->dev, "Unknown port stat %d\n", val);
 		goto out;
 	}
-	mt_dbg(ddata->dev, "port stat = %s\n", mt6375_port_stat_names[val]);
+	dev_err(ddata->dev, "port stat = %s\n", mt6375_port_stat_names[val]);
 out:
 	mutex_unlock(&ddata->attach_lock);
 	if (bc12_ctrl) {
 		mt6375_chg_check_dpdm_ov(ddata, attach);
 		if (mt6375_chg_enable_bc12(ddata, bc12_en) < 0)
-			dev_notice(ddata->dev, "failed to set bc12 = %d\n",
+			dev_err(ddata->dev, "failed to set bc12 = %d\n",
 					       bc12_en);
 	}
-	if (rpt_psy)
-		power_supply_changed(ddata->psy);
+	if (rpt_psy){
+             ddata->psy_desc.type = POWER_SUPPLY_TYPE_USB;
+             ddata->psy_type[active_idx] = POWER_SUPPLY_TYPE_USB;
+             ddata->psy_usb_type[active_idx] = POWER_SUPPLY_USB_TYPE_SDP;
+             power_supply_changed(ddata->psy);
+    }
+		//power_supply_changed(ddata->psy);
 }
 
 static enum power_supply_usb_type mt6375_chg_psy_usb_types[] = {
@@ -2701,7 +2706,6 @@ static int mt6375_chg_get_pdata(struct device *dev)
 static int mt6375_chg_init_setting(struct mt6375_chg_data *ddata)
 {
 	int ret;
-	u32 val;
 	struct mt6375_chg_platform_data *pdata = dev_get_platdata(ddata->dev);
 
 	mt_dbg(ddata->dev, "%s: entry. Init setting now.\n", __func__);
@@ -2748,12 +2752,7 @@ static int mt6375_chg_init_setting(struct mt6375_chg_data *ddata)
 		dev_err(ddata->dev, "failed to disable WDT\n");
 		return ret;
 	}
-
-	/* if get failed, just ignore it */
-	ret = mt6375_chg_field_get(ddata, F_PP_PG_FLAG, &val);
-	if (ret >= 0 && val)
-		dev_warn(ddata->dev, "BATSYSUV occurred\n");
-	return mt6375_chg_field_set(ddata, F_PP_PG_FLAG, 1);
+	return 0;
 }
 
 static int mt6375_chg_get_iio_adc(struct mt6375_chg_data *ddata)

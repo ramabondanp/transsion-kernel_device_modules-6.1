@@ -220,47 +220,6 @@ int pe50_hal_authenticate_ta(struct chg_alg_device *alg,
 	return -EINVAL;
 }
 
-int pe50_hal_update_apdo_cap(struct chg_alg_device *alg,
-			     struct pe50_ta_auth_data *data)
-{
-	int ret, i;
-	struct pe50_hal *hal = chg_alg_dev_get_drv_hal_data(alg);
-	struct adapter_auth_data _data = {
-		.vcap_min = data->vcap_min,
-		.vcap_max = data->vcap_max,
-		.icap_min = data->icap_min,
-	};
-
-	for (i = 0; i < hal->support_ta_cnt; i++) {
-		if (!hal->adapters[i])
-			continue;
-		ret = adapter_dev_update_apdo_cap(hal->adapters[i], &_data);
-		if (ret < 0 || ret != MTK_ADAPTER_OK) {
-			PE50_DBG("authenticate fail(%d)\n", ret);
-			continue;
-		}
-		hal->adapter = hal->adapters[i];
-		data->vta_min = _data.vta_min;
-		data->vta_max = _data.vta_max;
-		data->ita_max = _data.ita_max;
-		data->pwr_lmt = _data.pwr_lmt;
-		data->pdp = _data.pdp;
-		data->support_meas_cap = _data.support_meas_cap;
-		data->support_status = _data.support_status;
-		data->support_cc = _data.support_cc;
-		data->vta_step = _data.vta_step;
-		data->ita_step = _data.ita_step;
-		data->ita_gap_per_vstep = _data.ita_gap_per_vstep;
-		PE50_INFO("lmt(%d,%dW),step(%d,%d),cc=%d,cap=%d,status=%d\n",
-			  data->pwr_lmt, data->pdp, data->vta_step,
-			  data->ita_step, data->support_cc,
-			  data->support_meas_cap,
-			  data->support_status);
-		return 0;
-	}
-	return -EINVAL;
-}
-
 int pe50_hal_send_ta_hardreset(struct chg_alg_device *alg)
 {
 	int ret;
@@ -549,11 +508,11 @@ out:
 	return ret;
 }
 
-int pe50_hal_is_pd_adapter_ready(struct chg_alg_device *alg)
+int pe50_hal_is_adapter_ready(struct chg_alg_device *alg)
 {
 	struct pe50_hal *hal;
-	int type = 0;
-	int i;
+	struct power_supply *chg_psy = NULL;
+	struct mtk_charger *info = NULL;
 
 	if (alg == NULL) {
 		pr_notice("%s: alg is null\n", __func__);
@@ -561,22 +520,21 @@ int pe50_hal_is_pd_adapter_ready(struct chg_alg_device *alg)
 	}
 
 	hal = chg_alg_dev_get_drv_hal_data(alg);
-	for (i = 0; i < hal->support_ta_cnt; i++) {
-		if (!hal->adapters[i])
-			continue;
-		type = adapter_dev_get_property(hal->adapters[i], PD_TYPE);
-		if (type < 0)
-			continue;
+	chg_psy = power_supply_get_by_name("mtk-master-charger");
+	if (chg_psy == NULL || IS_ERR(chg_psy))
+		pr_notice("%s Couldn't get chg_psy\n", __func__);
+	else {
+		info = (struct mtk_charger *)power_supply_get_drvdata(chg_psy);
+		if (info->select_adapter) {
+			pr_notice("%s ta_cap:%d\n", __func__, info->ta_capability);
+			hal->adapter = info->select_adapter;
+			if (info->ta_capability == APDO_TA ||
+				info->ta_capability == ONLY_APDO_TA)
+				return ALG_READY;
+			else
+				return ALG_TA_NOT_SUPPORT;
+		}
 	}
-
-	pr_notice("%s type:%d\n", __func__, type);
-
-	if (type == MTK_PD_CONNECT_PE_READY_SNK_APDO)
-		return ALG_READY;
-	else if (type == MTK_PD_CONNECT_TYPEC_ONLY_SNK ||
-			 type == MTK_PD_CONNECT_PE_READY_SNK ||
-			 type == MTK_PD_CONNECT_PE_READY_SNK_PD30)
-		return ALG_TA_NOT_SUPPORT;
 	return ALG_TA_CHECKING;
 }
 
