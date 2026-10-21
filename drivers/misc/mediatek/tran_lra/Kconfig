@@ -1,0 +1,22 @@
+#
+# TRANSSION LRA DRV CONFIG
+#
+config AAC_HAPTIC_HV
+    tristate "AAC high voltage LRA haptic driver"
+    depends on I2C
+    help
+      Say Y here if you have AAC high voltage haptic chip in your system.
+      If unsure, say N.
+      To compile this driver as a module, choose M here: the
+      module will be called haptic.
+
+config RICHTAP_HAPTIC_HV
+	tristate "AAC high voltage LRA haptic driver"
+	depends on I2C
+	help
+	  Say Y here if you have AAC high voltage haptic chip in your system.
+	  If unsure, say N.
+	  To compile this driver as a module, choose M here: the
+	  module will be called haptic.
+
+
