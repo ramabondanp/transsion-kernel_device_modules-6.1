@@ -1,0 +1,5 @@
+config TRAN_HIBER_SUPPORT
+	tristate "hiber additional support"
+        default m
+	help
+	  Enable hiber additional support
