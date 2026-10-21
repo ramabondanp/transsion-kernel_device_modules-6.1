@@ -2354,6 +2354,7 @@ static void wrot_debug_dump(struct mml_comp *comp)
 
 	/* Enable shadow read working */
 	shadow_ctrl = readl(base + VIDO_SHADOW_CTRL);
+	mml_err("VIDO_SHADOW_CTRL %#010x", shadow_ctrl);
 	shadow_ctrl |= 0x4;
 	writel(shadow_ctrl, base + VIDO_SHADOW_CTRL);
 

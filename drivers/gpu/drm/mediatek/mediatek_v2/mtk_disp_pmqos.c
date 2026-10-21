@@ -19,6 +19,8 @@
 #include <dt-bindings/interconnect/mtk,mmqos.h>
 #include <soc/mediatek/mmqos.h>
 #include <soc/mediatek/mmdvfs_v3.h>
+#include "mtk_disp_oddmr/mtk_disp_oddmr.h"
+
 
 #define CRTC_NUM		4
 static struct drm_crtc *dev_crtc;
@@ -135,6 +137,11 @@ static bool mtk_disp_check_segment_mt6878(struct mtk_drm_crtc *mtk_crtc,
 				struct mtk_drm_private *priv)
 {
 	bool ret = true;
+	bool efuse_status = false;
+
+	efuse_status = priv->seg_id == 0x0A || priv->seg_id == 0x09 || priv->seg_id == 0;
+	if (priv->is_iot && !efuse_status)
+		return false;
 
 	switch (priv->seg_id) {
 	case 1:
@@ -160,6 +167,11 @@ static bool mtk_disp_check_segment_mt6897(struct mtk_drm_crtc *mtk_crtc,
 	int hact = 0;
 	int vact = 0;
 	int vrefresh = 0;
+	bool efuse_status = false;
+
+	efuse_status = priv->seg_id == 0x09 || priv->seg_id == 0x0A || priv->seg_id == 0;
+	if (priv->is_iot && !efuse_status)
+		return false;
 
 	hact = mtk_crtc->base.state->adjusted_mode.hdisplay;
 	vact = mtk_crtc->base.state->adjusted_mode.vdisplay;
@@ -184,6 +196,22 @@ static bool mtk_disp_check_segment_mt6897(struct mtk_drm_crtc *mtk_crtc,
 	if (ret == false)
 		DDPPR_ERR("%s, check sement fail: segment:%d, mode(%d, %d, %d)\n",
 			__func__, priv->seg_id, hact, vact, vrefresh);
+
+	return ret;
+}
+
+static bool mtk_disp_check_segment_mt6989(struct mtk_drm_crtc *mtk_crtc,
+				struct mtk_drm_private *priv)
+{
+	bool ret = true;
+	bool efuse_status = false;
+
+	efuse_status = priv->seg_id == 0x08 || priv->seg_id == 0x05 || priv->seg_id == 0;
+	if (priv->is_iot && !efuse_status)
+		ret = false;
+
+	if(ret == false)
+		DDPINFO("%s, check sement fail: efuse_status=%d\n", __func__, efuse_status);
 
 	return ret;
 }
@@ -213,6 +241,8 @@ bool mtk_disp_check_segment(struct mtk_drm_crtc *mtk_crtc,
 			ret = mtk_disp_check_segment_mt6878(mtk_crtc, priv);
 		else if (priv->data->mmsys_id == MMSYS_MT6897)
 			ret = mtk_disp_check_segment_mt6897(mtk_crtc, priv);
+		else if (priv->data->mmsys_id == MMSYS_MT6989)
+			ret = mtk_disp_check_segment_mt6989(mtk_crtc, priv);
 	}
 
 	return ret;
@@ -243,9 +273,10 @@ static unsigned int mtk_disp_larb_hrt_bw_MT6989(struct mtk_drm_crtc *mtk_crtc,
 	int max_sub_comm = 4; // 6989 sub common num
 	int max_ovl_phy_layer = 12; // 6989 phy ovl layer num
 	unsigned int subcomm_bw_sum[4] = {0};
+	unsigned int oddmr_hrt = 0;
 	/* sub_comm0: layer0 + layer4 + layer9
 	 * sub_comm1: layer1 + layer5 + layer8
-	 * sub_comm2: layer2 + layer7 + layer11
+	 * sub_comm2: layer2 + layer7 + layer11 + dbi
 	 * sub_comm3: layer3 + layer6 + layer10
 	 */
 	for (i = 0; i < max_ovl_phy_layer; i++) {
@@ -260,6 +291,9 @@ static unsigned int mtk_disp_larb_hrt_bw_MT6989(struct mtk_drm_crtc *mtk_crtc,
 				subcomm_bw_sum[3] += bw_base * mtk_crtc->usage_ovl_fmt[i] / 4;
 		}
 	}
+
+	mtk_oddmr_hrt_cal(&oddmr_hrt);
+	subcomm_bw_sum[2] += bw_base * oddmr_hrt / 400;
 
 	return mtk_disp_getMaxBW(subcomm_bw_sum, max_sub_comm, total_bw);
 }
@@ -935,8 +969,10 @@ void mtk_drm_set_mmclk(struct drm_crtc *crtc, int level, bool lp_mode,
 
 	if (final_level >= 0)
 		freq = g_freq_steps[final_level];
-	else
+	else{
 		freq = g_freq_steps[0];
+		final_level = 0;
+	}
 
 	DDPINFO("%s[%d] final_level(freq=%d, %lu) final_lp_mode:%d\n",
 		__func__, __LINE__, final_level, freq, final_lp_mode);

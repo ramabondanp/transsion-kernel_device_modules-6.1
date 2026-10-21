@@ -680,6 +680,7 @@ enum mtk_ddp_io_cmd {
 	DUAL_TE_INIT,
 	OVL_GET_SOURCE_BPC,
 	DSI_GET_LINE_TIME_NS,
+	DSI_GET_LINE_TIME_NS_BY_MODE,
 	DSI_DUMP_LCM_INFO,
 	DSI_SET_TARGET_LINE,
 	DSI_READ_PANELID,
@@ -1220,7 +1221,6 @@ void mt6985_mtk_sodi_config(struct drm_device *drm, enum mtk_ddp_comp_id id,
 			    struct cmdq_pkt *handle, void *data);
 void mt6878_mtk_sodi_config(struct drm_device *drm, enum mtk_ddp_comp_id id,
 			    struct cmdq_pkt *handle, void *data);
-void mt6878_mtk_dynamic_ovl_sodi_config(struct drm_crtc *crtc, struct cmdq_pkt *handle);
 void mt6989_mtk_sodi_config(struct drm_device *drm, enum mtk_ddp_comp_id id,
 			    struct cmdq_pkt *handle, void *data);
 void mt6895_mtk_sodi_config(struct drm_device *drm, enum mtk_ddp_comp_id id,

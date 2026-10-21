@@ -62,6 +62,7 @@ struct mtk_disp_ccorr_primary {
 	atomic_t ccorr_is_init_valid;
 	struct mutex ccorr_global_lock;
 	struct ccorr_backup backup;
+	atomic_t initialed;
 };
 
 struct mtk_disp_ccorr {

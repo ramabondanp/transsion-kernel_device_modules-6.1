@@ -27,6 +27,7 @@
 #include "mtk_drm_trace.h"
 #include "mtk_disp_vidle.h"
 #include "mtk_dsi.h"
+#include "mtk_drm_graphics_base.h"
 
 #define MAX_ENTER_IDLE_RSZ_RATIO 300
 #define MTK_DRM_CPU_MAX_COUNT 8
@@ -708,7 +709,7 @@ static void mtk_drm_vidle_control(struct drm_crtc *crtc, bool enable)
 		mtk_vidle_force_enable_mml(false);
 		vidle_status = true;
 	} else if (!enable && vidle_status) {
-		CRTC_MMP_MARK((int)drm_crtc_index(crtc), leave_vidle, 0x1d1e, enable);
+		CRTC_MMP_MARK((int)drm_crtc_index(crtc), leave_vidle, 0x1d1e0ff, enable);
 		mtk_vidle_force_enable_mml(true);
 		mtk_vidle_config_ff(false);
 		mtk_vidle_enable(false, priv);
@@ -1172,14 +1173,18 @@ void mtk_drm_idlemgr_kick(const char *source, struct drm_crtc *crtc,
 
 	/* get lock to protect idlemgr_last_kick_time and is_idle */
 	if (need_lock)
-		DDP_MUTEX_LOCK(&mtk_crtc->lock, __func__, __LINE__);
+		DDP_MUTEX_LOCK_CONDITION(&mtk_crtc->lock, __func__, __LINE__, false);
 
 	if (idlemgr_ctx->is_idle) {
 		DDPINFO("[LP] kick idle from [%s] time[%llu]\n", source,
 			local_clock() - idlemgr_ctx->enter_idle_ts);
 		if (mtk_crtc->esd_ctx)
 			atomic_set(&mtk_crtc->esd_ctx->target_time, 0);
+		if (mtk_crtc->enabled && need_lock)
+			mtk_vidle_user_power_keep(DISP_VIDLE_USER_HSIDLE);
 		mtk_drm_idlemgr_leave_idle_nolock(crtc);
+		if (mtk_crtc->enabled && need_lock)
+			mtk_vidle_user_power_release(DISP_VIDLE_USER_HSIDLE);
 		idlemgr_ctx->is_idle = 0;
 		/* wake up idlemgr process to monitor next idle state */
 		wake_up_interruptible(&idlemgr->idlemgr_wq);
@@ -1189,7 +1194,7 @@ void mtk_drm_idlemgr_kick(const char *source, struct drm_crtc *crtc,
 	idlemgr_ctx->idlemgr_last_kick_time = sched_clock();
 
 	if (need_lock)
-		DDP_MUTEX_UNLOCK(&mtk_crtc->lock, __func__, __LINE__);
+		DDP_MUTEX_UNLOCK_CONDITION(&mtk_crtc->lock, __func__, __LINE__, false);
 }
 
 unsigned int mtk_drm_set_idlemgr(struct drm_crtc *crtc, unsigned int flag,
@@ -1477,10 +1482,10 @@ static int mtk_drm_idlemgr_monitor_thread(void *data)
 
 		msleep_interruptible(idlemgr_ctx->idle_check_interval);
 
-		DDP_MUTEX_LOCK(&mtk_crtc->lock, __func__, __LINE__);
+		DDP_MUTEX_LOCK_CONDITION(&mtk_crtc->lock, __func__, __LINE__, false);
 
 		if (!mtk_crtc->enabled) {
-			DDP_MUTEX_UNLOCK(&mtk_crtc->lock, __func__, __LINE__);
+			DDP_MUTEX_UNLOCK_CONDITION(&mtk_crtc->lock, __func__, __LINE__, false);
 			mtk_crtc_wait_status(crtc, 1, MAX_SCHEDULE_TIMEOUT);
 			continue;
 		}
@@ -1488,15 +1493,15 @@ static int mtk_drm_idlemgr_monitor_thread(void *data)
 		if (mtk_crtc_is_frame_trigger_mode(crtc) &&
 				atomic_read(&priv->crtc_rel_present[crtc_id]) <
 				atomic_read(&priv->crtc_present[crtc_id])) {
-			DDP_MUTEX_UNLOCK(&mtk_crtc->lock, __func__, __LINE__);
+			DDP_MUTEX_UNLOCK_CONDITION(&mtk_crtc->lock, __func__, __LINE__, false);
 			continue;
 		}
 
 		if (crtc->state) {
 			mtk_state = to_mtk_crtc_state(crtc->state);
 			if (mtk_state->prop_val[CRTC_PROP_DOZE_ACTIVE]) {
-				DDP_MUTEX_UNLOCK(&mtk_crtc->lock, __func__,
-						__LINE__);
+				DDP_MUTEX_UNLOCK_CONDITION(&mtk_crtc->lock, __func__,
+						__LINE__, false);
 				continue;
 			}
 			/* do not enter VDO idle when rsz ratio >= 2.5;
@@ -1508,8 +1513,8 @@ static int mtk_drm_idlemgr_monitor_thread(void *data)
 				((mtk_drm_idlemgr_get_rsz_ratio(mtk_state) >=
 				MAX_ENTER_IDLE_RSZ_RATIO) ||
 				mtk_planes_is_yuv_fmt(crtc))) {
-				DDP_MUTEX_UNLOCK(&mtk_crtc->lock, __func__,
-						__LINE__);
+				DDP_MUTEX_UNLOCK_CONDITION(&mtk_crtc->lock, __func__,
+						__LINE__, false);
 				continue;
 			}
 		}
@@ -1518,15 +1523,17 @@ static int mtk_drm_idlemgr_monitor_thread(void *data)
 			|| mtk_crtc_is_dc_mode(crtc)
 			|| mtk_crtc->sec_on
 			|| !mtk_crtc->already_first_config
-			|| !(priv->usage[crtc_id] == DISP_ENABLE)) {
-			DDP_MUTEX_UNLOCK(&mtk_crtc->lock, __func__, __LINE__);
+			|| !(mtk_crtc->cur_usage == DISP_ENABLE)) {
+			DDP_MUTEX_UNLOCK_CONDITION(&mtk_crtc->lock, __func__,
+					__LINE__, false);
 			continue;
 		}
 
 		t_idle = local_clock() - idlemgr_ctx->idlemgr_last_kick_time;
 		if (t_idle < idlemgr_ctx->idle_check_interval * 1000 * 1000) {
 			/* kicked in idle_check_interval msec, it's not idle */
-			DDP_MUTEX_UNLOCK(&mtk_crtc->lock, __func__, __LINE__);
+			DDP_MUTEX_UNLOCK_CONDITION(&mtk_crtc->lock, __func__,
+					__LINE__, false);
 			continue;
 		}
 		/* double check if dynamic switch on/off */
@@ -1537,7 +1544,9 @@ static int mtk_drm_idlemgr_monitor_thread(void *data)
 			/* enter idle state */
 			if (!vblank || atomic_read(&vblank->refcount) == 0) {
 				DDPINFO("[LP] enter idle\n");
+				mtk_vidle_user_power_keep(DISP_VIDLE_USER_HSIDLE);
 				mtk_drm_idlemgr_enter_idle_nolock(crtc);
+				mtk_vidle_user_power_release(DISP_VIDLE_USER_HSIDLE);
 				idlemgr_ctx->is_idle = 1;
 				idlemgr_ctx->enter_idle_ts = local_clock();
 			} else {
@@ -1546,7 +1555,7 @@ static int mtk_drm_idlemgr_monitor_thread(void *data)
 			}
 		}
 
-		DDP_MUTEX_UNLOCK(&mtk_crtc->lock, __func__, __LINE__);
+		DDP_MUTEX_UNLOCK_CONDITION(&mtk_crtc->lock, __func__, __LINE__, false);
 
 		wait_event_interruptible(idlemgr->idlemgr_wq,
 					 !idlemgr_ctx->is_idle);
@@ -2236,9 +2245,11 @@ static void mtk_drm_idlemgr_wb_cmdq_cb(struct cmdq_cb_data data)
 	DDPINFO("after enter IDLEMGR_BY_WB_TRACE:0x%x\n", *trace);
 
 	if (*trace & BIT(4)) {
+		DDP_MUTEX_LOCK(&mtk_crtc->lock, __func__, __LINE__);
 		bw_base = mtk_drm_primary_frame_bw(crtc);
 		mtk_disp_set_hrt_bw(mtk_crtc, bw_base);
 		mtk_crtc->qos_ctx->last_hrt_req = bw_base;
+		DDP_MUTEX_UNLOCK(&mtk_crtc->lock, __func__, __LINE__);
 	}
 
 	cmdq_pkt_destroy(cb_data->cmdq_handle);
@@ -2407,6 +2418,8 @@ void mtk_drm_idlemgr_wb_reconfig(struct mtk_drm_crtc *mtk_crtc, struct cmdq_pkt 
 	struct mtk_ddp_comp *comp, *ovl_comp = NULL;
 	dma_addr_t status_pad, break_pad;
 	int i, j;
+	struct mtk_panel_params *params;
+	enum mtk_drm_color_mode lcm_cm;
 
 	GCE_COND_DECLARE;
 	struct cmdq_operand lop, rop;
@@ -2476,6 +2489,15 @@ void mtk_drm_idlemgr_wb_reconfig(struct mtk_drm_crtc *mtk_crtc, struct cmdq_pkt 
 	mtk_plane_state->crtc = crtc;
 	mtk_plane_state->base.crtc = crtc;
 	mtk_plane_state->base.alpha = ((0xFF << 8) | 0xFF);
+
+
+	params = mtk_drm_get_lcm_ext_params(crtc);
+	if (params) {
+		lcm_cm = params->lcm_color_mode;
+		if(lcm_cm == MTK_DRM_COLOR_MODE_DISPLAY_P3)
+			mtk_plane_state->pending.prop_val[PLANE_PROP_DATASPACE] = MTK_DRM_DATASPACE_DISPLAY_P3;
+	} else
+		mtk_plane_state->pending.prop_val[PLANE_PROP_DATASPACE] = MTK_DRM_DATASPACE_SRGB;
 
 	mtk_ddp_comp_layer_config(ovl_comp, 0, mtk_plane_state, cmdq_handle);
 

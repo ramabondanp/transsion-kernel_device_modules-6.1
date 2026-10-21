@@ -2239,10 +2239,12 @@ void mhal_DPTx_PHYSetting(struct mtk_dp *mtk_dp)
 		DP_TX_TOP_PWR_STATE,
 		0x3 << DP_PWR_STATE_FLDMASK_POS, DP_PWR_STATE_FLDMASK);
 
-	msWrite4Byte(mtk_dp, 0x2000, 0x00000001);
-	msWrite4Byte(mtk_dp, 0x103C, 0x00000000);
+	//msWrite4Byte(mtk_dp, 0x2000, 0x00000001);
+	msWrite4Byte(mtk_dp, 0x1010, 0x00000003); // power on TPLL and Lane;
+	//msWrite4Byte(mtk_dp, 0x103C, 0x00000000);
 	msWrite4Byte(mtk_dp, 0x2000, 0x00000003);
-
+	msWrite4Byte(mtk_dp, 0x1010, 0x00000007); // power on TPLL and Lane;
+	mhal_DPTx_PHYD_Reset(mtk_dp);
 
 	value = (mtk_dp->phy_params[0].C0 & mask)
 		| ((mtk_dp->phy_params[1].C0 & mask) << 8)
@@ -2302,8 +2304,8 @@ void mhal_DPTx_PHYSetting(struct mtk_dp *mtk_dp)
 void mhal_DPTx_SSCOnOffSetting(struct mtk_dp *mtk_dp, bool bENABLE)
 {
 	DPTXMSG("SSC_enable = %d\n", bENABLE);
-
-	msWrite4ByteMask(mtk_dp, 0x2000, BIT(0), BITMASK(1:0));
+	msWrite4Byte(mtk_dp, 0x1010, 0x00000003); // power off TPLL and Lane;
+	//msWrite4ByteMask(mtk_dp, 0x2000, BIT(0), BITMASK(1:0));
 
 	msWrite4ByteMask(mtk_dp, 0x1014, 0x0, BIT(3));
 
@@ -2329,6 +2331,7 @@ void mhal_DPTx_SSCOnOffSetting(struct mtk_dp *mtk_dp, bool bENABLE)
 	else
 		msWrite4ByteMask(mtk_dp, 0x1014, 0x0, BIT(3));
 
+	msWrite4Byte(mtk_dp, 0x1010, 0x00000007); // power on TPLL and Lane;
 	msWrite4ByteMask(mtk_dp, 0x2000, BIT(0)|BIT(1), BITMASK(1:0));
 
 	udelay(50);
@@ -2450,9 +2453,20 @@ void mhal_DPTx_SetAuxSwap(struct mtk_dp *mtk_dp, bool enable)
 
 void mhal_DPTx_SetTxRate(struct mtk_dp *mtk_dp, int Value)
 {
+	uint32_t phyd_rdy_bmp = 0x9;
+	uint32_t phyd_rdy_status;
+	uint32_t i;
+
 	DPTXFUNC();
 
-	msWrite4Byte(mtk_dp, 0x2000, 0x00000001); // power off TPLL and Lane;
+	//msWrite4Byte(mtk_dp, 0x2000, 0x00000001); // power off TPLL and Lane;
+	msWrite4Byte(mtk_dp, 0x1010, 0x00000003); // power off TPLL and Lane;
+	//msWrite4Byte(mtk_dp, 0x1038, 0x00000001); // reset phy-d;
+	//msWrite4Byte(mtk_dp, 0x1038, 0x00000000); // release reset phy-d;
+	msWriteByteMask(mtk_dp, 0x1038, 0, BIT(0));
+	msWriteByteMask(mtk_dp, 0x1038, BIT(0), BIT(0));
+	mdelay(10);
+
 	/// Set gear : 0x0 : RBR, 0x1 : HBR, 0x2 : HBR2, 0x3 : HBR3
 	msWrite4ByteMask(mtk_dp, 0x003C, 0x001 << 23, BITMASK(23:23));
 	switch (Value) {
@@ -2487,6 +2501,20 @@ void mhal_DPTx_SetTxRate(struct mtk_dp *mtk_dp, int Value)
 	msWrite4Byte(mtk_dp,
 		0x2000,
 		0x00000003); // power on BandGap, TPLL and Lane;
+	msWrite4Byte(mtk_dp, 0x1010, 0x00000007); // power on TPLL and Lane;
+
+
+	for (i = 0; i < 10; i++) {
+		phyd_rdy_status = msRead4Byte(mtk_dp, 0x1088);
+		phyd_rdy_status &= phyd_rdy_bmp;
+
+		if (phyd_rdy_status == phyd_rdy_bmp) {
+			DPTXMSG("DPTX PHYD power on\n");
+			return;
+		}
+		DPTXMSG("Polling BIAS status %x\n", phyd_rdy_status);
+	}
+	DPTXERR("Polling BIAS status fail %x\n", phyd_rdy_status);
 }
 
 void mhal_DPTx_SetTxTrainingPattern(struct mtk_dp *mtk_dp, int  Value)
@@ -2744,6 +2772,8 @@ void mhal_DPTx_AnalogPowerOnOff(struct mtk_dp *mtk_dp, bool enable)
 		msWrite2Byte(mtk_dp, 0x0034, 0x4AA);
 		msWrite2Byte(mtk_dp, 0x1040, 0x0);
 		msWrite2Byte(mtk_dp, 0x0038, 0x555);
+		//msWrite2Byte(mtk_dp, 0x2000, 0x0);
+		msWrite4Byte(mtk_dp, 0x1010, 0x00000001); // power on TPLL and Lane;
 	}
 }
 

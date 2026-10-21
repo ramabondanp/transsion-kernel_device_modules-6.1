@@ -151,6 +151,7 @@ typedef void (*dcs_grp_write_gce) (struct mtk_dsi *dsi, struct cmdq_pkt *handle,
 typedef int (*panel_tch_rst) (void);
 typedef int (*ddic_dsi_send_cmd)(struct mtk_ddic_dsi_msg *cmd_msg, bool blocking);
 typedef int (*dic_dsi_read_cmd)(struct mtk_ddic_dsi_msg *cmd_msg);
+typedef int (*tran_lcm_read)(struct mtk_ddic_dsi_msg *cmd_msg);
 
 enum MTK_PANEL_BASE_VOLTAGE {
 	MTK_PANEL_ANODE_BASE_VOLTAGE,
@@ -395,8 +396,6 @@ struct dynamic_fps_params {
 	unsigned int data_rate;
 	unsigned int data_rate_khz;
 	struct dfps_switch_cmd dfps_cmd_table[MAX_DYN_CMD_NUM];
-	struct mtk_panel_para_table dfps_cmd_grp_table[MAX_DYN_CMD_NUM];
-	unsigned int dfps_cmd_grp_size;
 };
 
 struct mtk_bl_ext_config {
@@ -498,12 +497,26 @@ enum DISPLAY_MODE {
 	DISPLAY_MODE_NUM,
 };
 
+typedef struct lcm_doze_backlight {
+	unsigned int doze_backlight_num;
+	unsigned int doze_backlight_level1;
+	unsigned int doze_backlight_level2;
+	unsigned int doze_backlight_level3;
+} tran_lcm_doze_backlight;
+
+struct tran_panel_driver_params {
+	bool panel_hbm_state;
+	unsigned int dimming_status;
+	unsigned int lcm_low_backlight;
+	struct lcm_doze_backlight * lcm_doze_backlight;
+};
+
 struct mtk_panel_params {
-	unsigned int change_fps_by_vfp_send_cmd;
 	unsigned int pll_clk;
 	unsigned int data_rate;
 	unsigned int data_rate_khz;
 	unsigned int vdo_per_frame_lp_enable; /* Enable video mode per frame lp */
+	unsigned int change_fps_by_vfp_send_cmd;
 	struct mtk_dsi_phy_timcon phy_timcon;
 	unsigned int vfp_low_power;
 	struct dynamic_mipi_params dyn;
@@ -578,6 +591,7 @@ struct mtk_panel_params {
 
 	bool dual_swap;
 	unsigned int mode_switch_delay;
+	struct tran_panel_driver_params *tran_panel_params;
 };
 
 struct mtk_panel_ext {
@@ -618,8 +632,6 @@ struct mtk_panel_funcs {
 	int (*set_backlight_grp_cmdq)(void *dsi_drv, dcs_grp_write_gce cb,
 		void *handle, unsigned int level);
 	int (*reset)(struct drm_panel *panel, int on);
-	int (*init_power)(struct drm_panel *panel);
-	int (*power_down)(struct drm_panel *panel);
 	int (*ata_check)(struct drm_panel *panel);
 	int (*ext_param_set)(struct drm_panel *panel,
 		struct drm_connector *connector, unsigned int mode);
@@ -722,6 +734,9 @@ struct mtk_panel_funcs {
 		dcs_write_gce cb, void *handle,
 		unsigned int x, unsigned int y, unsigned int w, unsigned int h);
 	int (*get_lcm_power_state)(struct drm_panel *panel);
+	int (*lcm_power_set)(struct drm_panel *panel, int on);
+	int (*hbm_set_cmdq_switch)(struct drm_panel *panel, void *dsi,
+		    dcs_write_gce cb, void *handle, bool en);
 };
 
 void mtk_panel_init(struct mtk_panel_ctx *ctx);

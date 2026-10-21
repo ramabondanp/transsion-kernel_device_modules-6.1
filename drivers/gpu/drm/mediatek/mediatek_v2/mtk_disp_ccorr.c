@@ -1350,6 +1350,7 @@ static void ddp_ccorr_backup(struct mtk_ddp_comp *comp)
 
 	primary_data->backup.REG_CCORR_CFG =
 			readl(comp->regs + DISP_REG_CCORR_CFG);
+	atomic_set(&primary_data->initialed, 1);
 }
 
 static void ddp_ccorr_restore(struct mtk_ddp_comp *comp)
@@ -1357,6 +1358,8 @@ static void ddp_ccorr_restore(struct mtk_ddp_comp *comp)
 	struct mtk_disp_ccorr *ccorr_data = comp_to_ccorr(comp);
 	struct mtk_disp_ccorr_primary *primary_data = ccorr_data->primary_data;
 
+	if (atomic_read(&primary_data->initialed) != 1)
+		return;
 	writel(primary_data->backup.REG_CCORR_CFG,
 			comp->regs + DISP_REG_CCORR_CFG);
 }
@@ -1426,6 +1429,7 @@ static void mtk_ccorr_primary_data_init(struct mtk_ddp_comp *comp)
 	spin_lock_init(&primary_data->ccorr_clock_lock);
 	spin_lock_init(&primary_data->pq_bl_change_lock);
 	mutex_init(&primary_data->ccorr_global_lock);
+	atomic_set(&primary_data->initialed, 0);
 }
 
 static int mtk_ccorr_io_cmd(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle,

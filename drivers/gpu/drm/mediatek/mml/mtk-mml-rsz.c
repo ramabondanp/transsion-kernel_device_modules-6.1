@@ -679,6 +679,7 @@ static void rsz_debug_dump(struct mml_comp *comp)
 
 	/* Enable shadow read working */
 	shadow_ctrl = readl(base + RSZ_SHADOW_CTRL);
+	mml_err("RSZ_SHADOW_CTRL %#010x", shadow_ctrl);
 	shadow_ctrl |= 0x4;
 	writel(shadow_ctrl, base + RSZ_SHADOW_CTRL);
 

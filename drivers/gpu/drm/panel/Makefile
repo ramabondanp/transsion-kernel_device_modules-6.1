@@ -41,6 +41,7 @@ obj-$(CONFIG_DRM_PANEL_BOE_TS127QFMLL1DKP0) += panel-boe-ts127qfmll1dkp0.o
 obj-$(CONFIG_DRM_PANEL_BOE_TS127QFMLL1DKP0_120HZ) += panel-boe-ts127qfmll1dkp0-120hz.o
 obj-$(CONFIG_DRM_PANEL_NT37707_677_FHDP_DPHY_CMD) += panel-nt37707-667-fhdp-dphy-cmd.o
 obj-$(CONFIG_DRM_PANEL_NT37705_1056_1068_DPHY_CMD) += panel-nt37705-1056-1068-dphy-cmd.o
+obj-$(CONFIG_DRM_PANEL_VDTR6130_CMD_120HZ_CSOT) += panel-vdtr6130-fhdp-dsi-cmd-dphy-120hz-csot.o
 ifneq ($(wildcard $(srctree)/$(src)/k6985v1_64),)
 obj-$(CONFIG_DRM_TD2204_WQHD_AMB678ZY01_S6E3HC3_CMD) += k6985v1_64/td2204-wqhd-amb678zy01-s6e3hc3-cmd.o
 endif
@@ -63,6 +64,26 @@ endif
 ifneq ($(wildcard $(srctree)/$(src)/k6878v1_64_alpha),)
 obj-$(CONFIG_DRM_PANEL_MOT_CSOT_NT37705_DPHY_CMD) += k6878v1_64_alpha/dsi-panel-mot-csot-nt37705-1056x1068-dphy-cmd-cli.o
 obj-$(CONFIG_DRM_PANEL_MOT_CSOT_NT37707_FHDP_DPHY_CMD) += k6878v1_64_alpha/dsi-panel-mot-csot-nt37707-667-fhdp-dphy-cmd.o
+endif
+obj-$(CONFIG_NT37703A_FHDP_DSI_VDO_TM_TM_D8300) += nt37703a_fhdp_dsi_vdo_tm_tm_d8300.o
+obj-$(CONFIG_NT37900_WQHD_DSI_CMD_CSOT_120HZ_D9300) += nt37900_wqhd_dsi_cmd_csot_120hz_d9300.o
+#obj-$(CONFIG_ILI7838E_FHDP_DSI_CMD_TM_TM_120HZ_D9300) += ili7838e_fhdp_dsi_cmd_tm_tm_120hz_d9300.o
+obj-$(CONFIG_NT37703A_FHDP_DSI_VDO_TM_TM_144HZ_X6856) += nt37703a_fhdp_dsi_vdo_tm_tm_144hz_x6856.o
+obj-$(CONFIG_RM692J0_FHDP_DSI_CMD_DSC_BOE_BOE_144HZ_CM8) += rm692j0_fhdp_dsi_cmd_dsc_boe_boe_144hz_cm8.o
+obj-$(CONFIG_NT37703A_FHDP_DSI_VDO_TM_TM_144HZ_CM7) += nt37703a_fhdp_dsi_vdo_tm_tm_144hz_cm7.o
+obj-$(CONFIG_TRAN_PANEL_I2C_LCD_BIAS_SUPPORT) += tran_drm_i2c_drv/tran_drm_panel_i2c.o
+obj-$(CONFIG_TD4160_HDP_DSI_VDO_TXD_INX_120HZ_X6857) += td4160_hdp_dsi_vdo_txd_inx_120hz_x6857.o
+obj-$(CONFIG_NT37703A_FHDP_DSI_VDO_TM_TM_144HZ_X6870) += nt37703a_fhdp_dsi_vdo_tm_tm_144hz_x6870.o
+obj-$(CONFIG_VTDR6126A_FHDP1224X2720_DSI_VDO_TM_144HZ_X6873) += vtdr6126a_fhdp1224x2720_dsi_vdo_tm_144hz_x6873.o
+obj-$(CONFIG_NT37703A_FHDP_DSI_VDO_TM_TM_144HZ_LJ8K) += nt37703a_fhdp_dsi_vdo_tm_tm_144hz_lj8k.o
+obj-$(CONFIG_FT8725_FHDP_DSI_VDO_TXD_BOE_144HZ_LJ7) += ft8725_fhdp_dsi_vdo_txd_boe_144hz_lj7.o
+obj-$(CONFIG_RM692J0_FHDP_DSI_CMD_DSC_BOE_BOE_144HZ_LJ9) += rm692j0_fhdp_dsi_cmd_dsc_boe_boe_144hz_lj9.o
+obj-$(CONFIG_RM692J0_FHDP_DSI_CMD_DSC_BOE2_BOE_144HZ_LJ9) += rm692j0_fhdp_dsi_cmd_dsc_boe2_boe_144hz_lj9.o
+obj-$(CONFIG_VTDR6126A_FHDP1224X2720_DSI_VDO_TM_144HZ_LJ8) += vtdr6126a_fhdp1224x2720_dsi_vdo_tm_144hz_lj8.o
+obj-$(CONFIG_VTDR6126A_FHDP1224X2720_DSI_VDO_TM_144HZ_X6876) += vtdr6126a_fhdp1224x2720_dsi_vdo_tm_144hz_x6876.o
+
+ifneq ($(wildcard $(srctree)/$(src)/k6989v2_64_alpha),)
+obj-$(CONFIG_DRM_PANEL_NT37706A_BOE_FHDPLUS_VDO) += k6989v2_64_alpha/panel-nt37706a-boe-fhdplus-vdo.o
 endif
 
 mediatek-drm-gateic-y := mtk_drm_panel_i2c.o \

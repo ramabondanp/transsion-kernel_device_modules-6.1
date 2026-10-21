@@ -1332,7 +1332,7 @@ static void mtk_ufbc_wdma_config(struct mtk_ddp_comp *comp,
 	state = to_mtk_crtc_state(crtc->state);
 	temp_bw = (unsigned long long)w * h;
 	temp_bw *= mtk_get_format_bpp(comp->fb->format->format);
-	vrefresh = drm_mode_vrefresh(&crtc->state->adjusted_mode);
+	vrefresh = crtc->state ? drm_mode_vrefresh(&crtc->state->adjusted_mode) : 60;
 	/* COMPRESS ratio */
 	if (comp->fb->modifier == DRM_FORMAT_MOD_ARM_AFBC(
 	    AFBC_FORMAT_MOD_BLOCK_SIZE_32x8 | AFBC_FORMAT_MOD_SPARSE)) {
@@ -1458,7 +1458,7 @@ static void mtk_wdma_config(struct mtk_ddp_comp *comp,
 	mtk_ddp_write_mask(comp, 0xe0000000,
 			DISP_REG_WDMA_CFG, WDMA_DEBUG_SEL, handle);
 
-	if (priv->usage[crtc_idx] == DISP_OPENING)
+	if (comp->mtk_crtc->cur_usage == DISP_OPENING)
 		mtk_wdma_blank_output(comp, handle, 1);
 	else
 		mtk_wdma_blank_output(comp, handle, 0);
@@ -1581,7 +1581,10 @@ static void mtk_wdma_addon_config(struct mtk_ddp_comp *comp,
 		mtk_ufbc_wdma_config(comp, addon_config, handle);
 		goto golden_setting;
 	}
-
+#if IS_ENABLED(CONFIG_TRANSSION_CWB_API_SUPPORT)
+	DDPINFO("%s WDMA config iommu, CRTC%d\n", __func__, crtc_idx);
+	mtk_ddp_comp_iommu_enable(comp, handle);
+#endif
 	write_dst_addr(comp, handle, 0, addr);
 
 	con = wdma_fmt_convert(comp->fb->format->format);

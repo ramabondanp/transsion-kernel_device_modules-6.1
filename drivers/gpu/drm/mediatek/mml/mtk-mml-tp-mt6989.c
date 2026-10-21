@@ -29,6 +29,10 @@
 #define MML_DL_MAX_H		2176
 #define MML_DL_RROT_S_PX	(1920 * 1088)
 #define MML_MIN_SIZE		480
+#define MML_DL_FHD_W		1920
+#define MML_DL_FHD_H		1088
+#define MML_DL_720P_W		1280
+#define MML_DL_720P_H		720
 
 /* use OPP index 0(229Mhz) 1(273Mhz) 2(458Mhz) */
 #define MML_IR_MAX_OPP		2
@@ -920,11 +924,8 @@ static void tp_select_path(struct mml_topology_cache *cache,
 		goto check_rr;
 	}
 
-	en_rsz = tp_need_resize(&cfg->info, &can_binning);
-	if (mml_force_rsz)
-		en_rsz = true;
-	en_pq = en_rsz || cfg->info.dest[0].pq_config.en ||
-		(MML_FMT_ALPHA(dest_fmt) && MML_FMT_IS_YUV(dest_fmt));
+	en_rsz = tp_need_resize(&cfg->info, &can_binning) || mml_force_rsz;
+	en_pq = en_rsz || cfg->info.dest[0].pq_config.en || MML_FMT_IS_AYUV(dest_fmt);
 
 	if (cfg->info.mode == MML_MODE_DDP_ADDON) {
 		/* direct-link in/out for addon case */
@@ -1094,6 +1095,28 @@ static enum mml_mode tp_query_mode_dl(struct mml_dev *mml, struct mml_frame_info
 		goto decouple;
 	}
 
+	if (mml_dl_vdo(mml)) {
+		if (info->src.width > MML_DL_FHD_W ||
+			info->src.width < MML_DL_720P_W) {
+			*reason = mml_query_inwidth;
+			goto decouple;
+		}
+
+		if (info->src.height > MML_DL_FHD_H ||
+			info->src.height < MML_DL_720P_H) {
+			*reason = mml_query_inheight;
+			goto decouple;
+		}
+
+		if ((info->src.width > MML_DL_720P_W ||
+			info->src.height > MML_DL_720P_H) &&
+			(info->dest[0].rotate == MML_ROT_0 ||
+			info->dest[0].rotate == MML_ROT_180)) {
+			*reason = mml_query_rszratio;
+			goto decouple;
+		}
+	}
+
 	/* get mid opp frequency */
 	tp = mml_topology_get_cache(mml);
 	if (!tp || !tp->opp_cnt) {
@@ -1240,9 +1263,9 @@ static enum mml_mode tp_query_mode(struct mml_dev *mml, struct mml_frame_info *i
 	if (info->alpha) {
 		*reason = mml_query_alpha;
 		if (!MML_FMT_ALPHA(info->src.format) ||
-		    info->src.width <= 9 ||
+		    info->src.width <= 32 ||
 		    info->dest_cnt != 1 ||
-		    info->dest[0].crop.r.width <= 9 ||
+		    info->dest[0].crop.r.width <= 32 ||
 		    info->dest[0].compose.width <= 9)
 			goto not_support;
 		return MML_MODE_MML_DECOUPLE;

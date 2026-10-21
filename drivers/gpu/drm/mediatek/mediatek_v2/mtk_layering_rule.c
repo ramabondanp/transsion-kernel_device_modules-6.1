@@ -52,7 +52,11 @@ static int larb_bound_table[HRT_BOUND_NUM][HRT_LEVEL_NUM] = {
  * represent the layer mapping rule by the number of input layers.
  */
 static uint16_t layer_mapping_table[HRT_TB_NUM] = {
+#if IS_ENABLED(CONFIG_MTK_DISPLAY_DUAL_PIPE_DUAL_PORT_SUPPORT)
+	0x0003, 0x0078, 0x0078, 0x0001
+#else
 	0x0003, 0x007E, 0x007A, 0x0001
+#endif
 };
 static uint16_t layer_mapping_table_mt6985[HRT_TB_NUM] = {
 	0x0003, 0x007E, 0x007A, 0x0001
@@ -76,7 +80,11 @@ static uint16_t larb_mapping_tb_vds_switch[HRT_TB_NUM] = {
  * The bit value 1 means the position of the last layer in OVL engine.
  */
 static uint16_t ovl_mapping_table[HRT_TB_NUM] = {
+#if IS_ENABLED(CONFIG_MTK_DISPLAY_DUAL_PIPE_DUAL_PORT_SUPPORT)
+	0x0002, 0x0057, 0x0057, 0x0001
+#else
 	0x0002, 0x0045, 0x0045, 0x0001
+#endif
 };
 static uint16_t ovl_mapping_table_mt6985[HRT_TB_NUM] = {
 	0x0002, 0x0055, 0x0055, 0x0001
@@ -194,7 +202,7 @@ static void filter_2nd_display(struct drm_mtk_layering_info *disp_info)
 	unsigned int i, j, layer_cnt = 0;
 
 	for (i = HRT_SECONDARY; i < HRT_DISP_TYPE_NUM; i++) {
-		unsigned int max_layer_cnt = secondary_ovl_lye_num;
+		unsigned int max_layer_cnt = SECONDARY_OVL_LAYER_NUM;
 
 		if (is_triple_disp(disp_info) && i == HRT_SECONDARY)
 			max_layer_cnt = 1;
@@ -258,7 +266,11 @@ static bool is_ovl_standard(struct drm_device *dev, enum mtk_drm_dataspace ds,
 {
 	struct mtk_drm_private *priv = dev->dev_private;
 	enum mtk_drm_dataspace std = ds & MTK_DRM_DATASPACE_STANDARD_MASK;
+#if IS_ENABLED(CONFIG_TRAN_ALWAYS_NOTIFY_LCM_COLOR_MODE) || IS_ENABLED(CONFIG_TRAN_DYNAMIC_WCG)
+	bool ret = true;
+#else
 	bool ret = false; /* GPU handle */
+#endif
 
 	if (priv->data->not_support_csc) {
 		struct mtk_panel_params *panel_params = NULL;

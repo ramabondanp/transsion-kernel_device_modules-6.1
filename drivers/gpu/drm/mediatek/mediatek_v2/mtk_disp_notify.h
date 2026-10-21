@@ -20,6 +20,14 @@ enum {
 	MTK_DISP_BLANK_UNBLANK,
 	/* disp power off */
 	MTK_DISP_BLANK_POWERDOWN,
+	#if IS_ENABLED(CONFIG_TRAN_LHBM_NOTIFY_FINGERPRINT)
+	TRAN_DISP_BLANK_NOTIFY_FINGERPRINT,
+	#endif
+	/* if not aod state, notify normal display event */
+	TRAN_DISP_BLANK_AOD_NOTIFY,
+	TRAN_DISP_BLANK_ENTER_LCD_AOD_NOTIFY,
+	TRAN_DISP_BLANK_ENTER_DIMMING_ON_NOTIFY,
+	TRAN_DISP_BLANK_ENTER_DIMMING_OFF_NOTIFY,
 };
 
 int mtk_disp_notifier_register(const char *source, struct notifier_block *nb);

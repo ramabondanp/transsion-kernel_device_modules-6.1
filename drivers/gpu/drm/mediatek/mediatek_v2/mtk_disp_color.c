@@ -81,6 +81,7 @@ struct mtk_disp_color_primary {
 	struct color_backup color_backup;
 	struct DISP_AAL_DRECOLOR_PARAM drecolor_param;
 	struct mutex reg_lock;
+	atomic_t initialed;
 };
 
 /**
@@ -648,12 +649,6 @@ void DpEngine_COLORonConfig(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle)
 				(primary_data->color_index.LSP[6] << 8) |
 				(primary_data->color_index.LSP[5] << 16) |
 				(primary_data->color_index.LSP[4] << 23), 0x3FFF7F7F);
-
-			DDPMSG("%s: LSP: 0x%x, 0x%x, 0x%x, 0x%x, 0x%x, 0x%x, 0x%x, 0x%x\n",
-				__func__, primary_data->color_index.LSP[0], primary_data->color_index.LSP[1],
-				primary_data->color_index.LSP[2], primary_data->color_index.LSP[3],
-				primary_data->color_index.LSP[4], primary_data->color_index.LSP[5],
-				primary_data->color_index.LSP[6], primary_data->color_index.LSP[7]);
 		}
 	}
 
@@ -768,12 +763,6 @@ static void disp_color_write_drecolor_hw_reg(struct mtk_ddp_comp *comp,
 		(param->lsp_out_setting[6] << 8) |
 		(param->lsp_out_setting[5] << 16) |
 		(param->lsp_out_setting[4] << 23), 0x3FFF7F7F);
-
-	DDPMSG("%s: LSP: 0x%x, 0x%x, 0x%x, 0x%x, 0x%x, 0x%x, 0x%x, 0x%x\n",
-		__func__, param->lsp_out_setting[0], param->lsp_out_setting[1],
-		param->lsp_out_setting[2], param->lsp_out_setting[3],
-		param->lsp_out_setting[4], param->lsp_out_setting[5],
-		param->lsp_out_setting[6], param->lsp_out_setting[7]);
 }
 
 static void color_write_hw_reg(struct mtk_ddp_comp *comp,
@@ -1121,12 +1110,6 @@ static void color_write_hw_reg(struct mtk_ddp_comp *comp,
 				(primary_data->color_index.LSP[6] << 8) |
 				(primary_data->color_index.LSP[5] << 16) |
 				(primary_data->color_index.LSP[4] << 23), 0x3FFF7F7F);
-
-			DDPMSG("%s: LSP: 0x%x, 0x%x, 0x%x, 0x%x, 0x%x, 0x%x, 0x%x, 0x%x\n",
-				__func__, primary_data->color_index.LSP[0], primary_data->color_index.LSP[1],
-				primary_data->color_index.LSP[2], primary_data->color_index.LSP[3],
-				primary_data->color_index.LSP[4], primary_data->color_index.LSP[5],
-				primary_data->color_index.LSP[6], primary_data->color_index.LSP[7]);
 		}
 	}
 
@@ -1389,9 +1372,6 @@ int mtk_drm_color_cfg_set_pqindex(struct mtk_ddp_comp *comp,
 	pq_index = get_Color_index(comp);
 	memcpy(pq_index, (struct DISPLAY_PQ_T *)data,
 		sizeof(struct DISPLAY_PQ_T));
-	DDPMSG("%s: LSP: 0x%x, 0x%x, 0x%x, 0x%x, 0x%x, 0x%x, 0x%x, 0x%x\n",
-		__func__, pq_index->LSP[0], pq_index->LSP[1], pq_index->LSP[2], pq_index->LSP[3],
-		pq_index->LSP[4], pq_index->LSP[5], pq_index->LSP[6], pq_index->LSP[7]);
 
 	return ret;
 }
@@ -1406,10 +1386,6 @@ int mtk_drm_ioctl_set_pqindex_impl(struct mtk_ddp_comp *comp, void *data)
 	pq_index = get_Color_index(comp);
 	memcpy(pq_index, (struct DISPLAY_PQ_T *)data,
 		sizeof(struct DISPLAY_PQ_T));
-
-	DDPMSG("%s: LSP: 0x%x, 0x%x, 0x%x, 0x%x, 0x%x, 0x%x, 0x%x, 0x%x\n",
-		__func__, pq_index->LSP[0], pq_index->LSP[1], pq_index->LSP[2], pq_index->LSP[3],
-		pq_index->LSP[4], pq_index->LSP[5], pq_index->LSP[6], pq_index->LSP[7]);
 
 	return ret;
 }
@@ -1595,12 +1571,10 @@ void mtk_color_bypass(struct mtk_ddp_comp *comp, int bypass,
 
 	if (bypass) {
 		cmdq_pkt_write(handle, comp->cmdq_base,
-			       comp->regs_pa + DISP_COLOR_CFG_MAIN,
-			       COLOR_BYPASS_ALL | COLOR_SEQ_SEL, ~0);
+			       comp->regs_pa + DISP_COLOR_CFG_MAIN, COLOR_BYPASS_ALL, COLOR_BYPASS_ALL);
 	} else {
 		cmdq_pkt_write(handle, comp->cmdq_base,
-			comp->regs_pa + DISP_COLOR_CFG_MAIN,
-			(0 << 7), 0xFF); /* resume all */
+			comp->regs_pa + DISP_COLOR_CFG_MAIN, 0, COLOR_BYPASS_ALL); /* resume all */
 	}
 }
 
@@ -2593,7 +2567,7 @@ COLOR_3D :
 		color_data->primary_data = companion_data->primary_data;
 		return;
 	}
-
+	atomic_set(&primary_data->initialed, 0);
 	primary_data->legacy_color_cust = false;
 	primary_data->color_param.u4SHPGain = 2;
 	primary_data->color_param.u4SatGain = 4;
@@ -2654,8 +2628,6 @@ static void mtk_color_start(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle)
 	DpEngine_COLORonInit(comp, handle);
 
 	mutex_lock(&primary_data->reg_lock);
-	DDPMSG("%s: color_reg_valid: %d, drecolor_sel: %d\n",
-		__func__, primary_data->color_reg_valid, drecolor->drecolor_sel);
 	if (primary_data->color_reg_valid) {
 		color_write_hw_reg(comp, &primary_data->color_reg, handle);
 		if (drecolor->drecolor_sel)
@@ -2858,6 +2830,7 @@ static void ddp_color_backup(struct mtk_ddp_comp *comp)
 
 	primary_data->color_backup.COLOR_CFG_MAIN =
 		readl(comp->regs + DISP_COLOR_CFG_MAIN);
+	atomic_set(&primary_data->initialed, 1);
 }
 
 static void ddp_color_restore(struct mtk_ddp_comp *comp)
@@ -2865,6 +2838,8 @@ static void ddp_color_restore(struct mtk_ddp_comp *comp)
 	struct mtk_disp_color_primary *primary_data =
 		comp_to_color(comp)->primary_data;
 
+	if (atomic_read(&primary_data->initialed) != 1)
+		return;
 	writel(primary_data->color_backup.COLOR_CFG_MAIN, comp->regs + DISP_COLOR_CFG_MAIN);
 }
 

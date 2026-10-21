@@ -33,6 +33,9 @@ module_param(mml_pq_set_msg, int, 0644);
 int mml_pq_debug_mode;
 module_param(mml_pq_debug_mode, int, 0644);
 
+int mml_pq_buf_num;
+module_param(mml_pq_buf_num, int, 0644);
+
 int mml_pq_ir_log;
 module_param(mml_pq_ir_log, int, 0644);
 
@@ -57,7 +60,15 @@ struct mml_pq_mbox {
 	struct mml_pq_chan dc_readback_chan;
 };
 
-#define DMA_BUF_NUM_LIMIT (20)
+
+#define FG_PER_FRAME_NEED (4)
+#define RB_PER_FRAME_NEED (3)
+#define FRAME_TOLERANCE (5)
+
+#define DMA_BUF_LIMIT (FG_PER_FRAME_NEED * FRAME_TOLERANCE)
+#define RB_BUF_LIMIT (RB_PER_FRAME_NEED * FRAME_TOLERANCE)
+
+
 
 struct mml_pq_dev_data {
 	struct mutex aal_hist_mutex;
@@ -89,9 +100,28 @@ static u32 buffer_num;
 static u32 rb_buf_pool[TOTAL_RB_BUF_NUM];
 static struct mutex rb_buf_pool_mutex;
 static struct mml_pq_dev_data *dev_data[MML_MAX_OUTPUTS];
+static struct mml_pq_comp_config_result *last_result;
+static u32 *default_aal_curve;
 
 #define MML_CLARITY_RB_ENG_NUM (2)
 
+int check_pq_buf_limit(u32 buffer_num,int default_buf_limit)
+{
+	int exceed_flag = 0;
+	int buf_limit;
+
+	if (mml_pq_debug_mode & MML_PQ_BUFFER_CHECK)
+		buf_limit = mml_pq_buf_num;
+	else
+		buf_limit = default_buf_limit;
+
+	if (buffer_num > buf_limit) {
+		mml_pq_err("%s buf_num[%d] exceeds limit[%d]",
+			__func__, buffer_num, buf_limit);
+		exceed_flag = 1;
+	}
+	return exceed_flag;
+}
 static void init_pq_chan(struct mml_pq_chan *chan)
 {
 	init_waitqueue_head(&chan->msg_wq);
@@ -323,6 +353,12 @@ static void release_comp_config_result(void *data)
 {
 	struct mml_pq_comp_config_result *result = data;
 
+	if (result == last_result) {
+		mml_pq_msg("%s result == last_result",
+				__func__);
+		result = NULL;
+	}
+
 	if (!result)
 		return;
 	kfree(result->hdr_regs);
@@ -516,6 +552,8 @@ void mml_pq_get_readback_buffer(struct mml_task *task, u8 pipe,
 		}
 		INIT_LIST_HEAD(&temp_buffer->buffer_list);
 		buffer_num++;
+		check_pq_buf_limit(buffer_num, RB_BUF_LIMIT);
+
 		*hist = temp_buffer;
 		mml_pq_rb_msg("%s aal reallocate jobid[%d] va[%p] pa[%pad]", __func__,
 			task->job.jobid, temp_buffer->va, &temp_buffer->pa);
@@ -534,6 +572,10 @@ void mml_pq_get_readback_buffer(struct mml_task *task, u8 pipe,
 void mml_pq_put_readback_buffer(struct mml_task *task, u8 pipe,
 				struct mml_pq_readback_buffer **hist)
 {
+
+	struct cmdq_client *clt = task->config->path[pipe]->clt;
+	int is_buf_limit_exceed = 0;
+
 	if (!(*hist)) {
 		mml_pq_err("%s buffer hist is null jobid[%d]", __func__, task->job.jobid);
 		return;
@@ -542,7 +584,15 @@ void mml_pq_put_readback_buffer(struct mml_task *task, u8 pipe,
 	mml_pq_rb_msg("%s all end job_id[%d] hist_va[%p] hist_pa[%llx]",
 		__func__, task->job.jobid, (*hist)->va, (*hist)->pa);
 	mutex_lock(&rb_buf_list_mutex);
-	list_add_tail(&((*hist)->buffer_list), &rb_buf_list);
+
+	is_buf_limit_exceed = check_pq_buf_limit(buffer_num, RB_BUF_LIMIT);
+	if (is_buf_limit_exceed) {
+		cmdq_mbox_buf_free(clt, (*hist)->va, (*hist)->pa);
+		kfree(*hist);
+		buffer_num--;
+	} else {
+		list_add_tail(&((*hist)->buffer_list), &rb_buf_list);
+	}
 	mutex_unlock(&rb_buf_list_mutex);
 	*hist = NULL;
 }
@@ -584,10 +634,8 @@ void get_dma_buffer(struct mml_task *task, u8 pipe,
 		}
 		INIT_LIST_HEAD(&temp_buffer->buffer_list);
 		dma_buf_num++;
-		if (dma_buf_num > DMA_BUF_NUM_LIMIT) {
-			mml_pq_msg("%s dma_buf_num[%d] exceeds limit[%d]",
-				__func__, dma_buf_num, DMA_BUF_NUM_LIMIT);
-		}
+
+		check_pq_buf_limit(buffer_num, DMA_BUF_LIMIT);
 		*buf = temp_buffer;
 	}
 
@@ -612,6 +660,7 @@ void put_dma_buffer(struct mml_task *task, u8 pipe,
 	struct device *dev, struct mml_pq_dma_buffer **buf, u32 size)
 {
 	struct mutex *list_lock = NULL;
+	int is_buf_limit_exceed = 0;
 
 	if (!(*buf)) {
 		mml_pq_err("%s buffer buf is null jobid[%d]", __func__, task->job.jobid);
@@ -629,9 +678,8 @@ void put_dma_buffer(struct mml_task *task, u8 pipe,
 	if (list_lock)
 		mutex_lock(list_lock);
 
-	if (dma_buf_num > DMA_BUF_NUM_LIMIT) {
-		mml_pq_msg("%s dma_buf_num[%d] exceeds limit[%d]",
-			__func__, dma_buf_num, DMA_BUF_NUM_LIMIT);
+	is_buf_limit_exceed = check_pq_buf_limit(buffer_num, DMA_BUF_LIMIT);
+	if (is_buf_limit_exceed) {
 		dma_free_noncoherent(dev, size, (*buf)->va, (*buf)->pa, DMA_TO_DEVICE);
 		kfree(*buf);
 		dma_buf_num--;
@@ -998,7 +1046,7 @@ static int set_readback_sub_task(struct mml_pq_task *pq_task,
 
 static int get_sub_task_result(struct mml_pq_task *pq_task,
 			       struct mml_pq_sub_task *sub_task, u32 timeout_ms,
-			       void (*dump_func)(void *data))
+			       void (*dump_func)(void *data), bool is_comp_config)
 {
 	s32 ret;
 	u64 random_num = 0;
@@ -1030,8 +1078,11 @@ static int get_sub_task_result(struct mml_pq_task *pq_task,
 
 	if (ret)
 		return 0;
-	else
+	else {
+		if (is_comp_config && last_result)
+			sub_task->result = last_result;
 		return -EBUSY;
+	}
 }
 
 static void put_sub_task_result(struct mml_pq_sub_task *sub_task, struct mml_pq_chan *chan)
@@ -1112,7 +1163,7 @@ int mml_pq_get_tile_init_result(struct mml_task *task, u32 timeout_ms)
 	mml_pq_msg("%s called, %d job_id[%d]",
 		__func__, timeout_ms, task->job.jobid);
 	ret = get_sub_task_result(pq_task, &pq_task->tile_init, timeout_ms,
-				  dump_tile_init);
+				  dump_tile_init, false);
 	mml_pq_trace_ex_end();
 	return ret;
 }
@@ -1663,6 +1714,12 @@ int mml_pq_wrot_callback(struct mml_task *task)
 	return ret;
 }
 
+void mml_pq_init_comp_config_result(struct mml_pq_comp_config_result *result)
+{
+	if (default_aal_curve)
+		memcpy(result->aal_curve, default_aal_curve, sizeof(u32)*AAL_CURVE_NUM);
+}
+
 int mml_pq_get_comp_config_result(struct mml_task *task, u32 timeout_ms)
 {
 	struct mml_pq_task *pq_task = task->pq_task;
@@ -1673,7 +1730,7 @@ int mml_pq_get_comp_config_result(struct mml_task *task, u32 timeout_ms)
 		timeout_ms, task->job.jobid);
 
 	ret = get_sub_task_result(pq_task, &pq_task->comp_config, timeout_ms,
-				  dump_comp_config);
+				  dump_comp_config, true);
 	mml_pq_trace_ex_end();
 	return ret;
 }
@@ -1936,7 +1993,7 @@ static int mml_pq_tile_init_ioctl(unsigned long data)
 		goto wake_up_tile_init_task;
 	}
 	dump_sub_task(new_sub_task, new_job_id, 0, 0, 0);
-	mml_pq_msg("%s end", __func__);
+	mml_pq_msg("%s new_job_id[%d] end", __func__, new_job_id);
 	mml_pq_trace_ex_end();
 	return 0;
 
@@ -1945,6 +2002,42 @@ wake_up_tile_init_task:
 	mml_pq_msg("%s end %d", __func__, ret);
 	mml_pq_trace_ex_end();
 	return ret;
+}
+
+static void memcpy_last_result(struct mml_pq_comp_config_result *result,
+			       struct mml_pq_comp_config_result *cur_result)
+{
+	if (!last_result || !cur_result)
+		return;
+	last_result->param_cnt = cur_result->param_cnt;
+	memcpy(last_result->aal_curve, cur_result->aal_curve,
+		sizeof(u32)*AAL_CURVE_NUM);
+	memcpy(last_result->aal_param, cur_result->aal_param,
+		sizeof(struct mml_pq_aal_config_param));
+	if (cur_result->aal_reg_cnt <= MAX_REG_NUM) {
+		memcpy(last_result->aal_regs, cur_result->aal_regs,
+			sizeof(struct mml_pq_reg)*cur_result->aal_reg_cnt);
+		last_result->aal_reg_cnt = cur_result->aal_reg_cnt;
+	}
+	last_result->is_aal_need_readback = cur_result->is_aal_need_readback;
+	if (cur_result->color_reg_cnt <= MAX_REG_NUM) {
+		memcpy(last_result->color_regs, cur_result->color_regs,
+			sizeof(struct mml_pq_reg)*cur_result->color_reg_cnt);
+		last_result->color_reg_cnt = cur_result->color_reg_cnt;
+	}
+	if (cur_result->ds_reg_cnt <= MAX_REG_NUM) {
+		memcpy(last_result->ds_regs, cur_result->ds_regs,
+			sizeof(struct mml_pq_reg)*cur_result->ds_reg_cnt);
+		last_result->ds_reg_cnt = cur_result->ds_reg_cnt;
+	}
+	memcpy(last_result->hdr_curve, cur_result->hdr_curve,
+		sizeof(u32)*HDR_CURVE_NUM);
+	if (cur_result->hdr_reg_cnt <= MAX_REG_NUM) {
+		memcpy(last_result->hdr_regs, cur_result->hdr_regs,
+			sizeof(struct mml_pq_reg)*cur_result->hdr_reg_cnt);
+		last_result->hdr_reg_cnt = cur_result->hdr_reg_cnt;
+	}
+	last_result->is_hdr_need_readback = cur_result->is_hdr_need_readback;
 }
 
 static void handle_comp_config_result(struct mml_pq_chan *chan,
@@ -1965,6 +2058,45 @@ static void handle_comp_config_result(struct mml_pq_chan *chan,
 
 	mml_pq_trace_ex_begin("%s", __func__);
 	mml_pq_msg("%s called, %d", __func__, job->result_job_id);
+
+	if (!job->result_job_id) {
+		result = kmalloc(sizeof(*result), GFP_KERNEL);
+		if (unlikely(!result)) {
+			mml_pq_err("err: create result failed: %d", job->result_job_id);
+			return;
+		}
+
+		ret = copy_from_user(result, job->result, sizeof(*result));
+		if (unlikely(ret)) {
+			mml_pq_err("copy job result to last failed!: %d result_job_id[%d]",
+				ret, job->result_job_id);
+			kfree(result);
+			return;
+		}
+
+		ret = copy_from_user(default_aal_curve, result->aal_curve,
+			sizeof(u32)*AAL_CURVE_NUM);
+		if (unlikely(ret)) {
+			mml_pq_err("copy default_aal_curve!: %d result_job_id[%d]",
+				ret, job->result_job_id);
+			kfree(result);
+			return;
+		}
+
+		ret = copy_from_user(last_result->hdr_curve, result->hdr_curve,
+			sizeof(u32)*HDR_CURVE_NUM);
+		if (unlikely(ret)) {
+			mml_pq_err("copy default_hdr_curve!: %d result_job_id[%d]",
+				ret, job->result_job_id);
+			kfree(result);
+			return;
+		}
+
+		kfree(result);
+		mml_pq_trace_ex_end();
+		return;
+	}
+
 	ret = find_sub_task(chan, job->result_job_id, &sub_task);
 	if (unlikely(ret)) {
 		mml_pq_err("finish comp sub_task failed!: %d id: %d", ret,
@@ -2137,6 +2269,7 @@ static void handle_comp_config_result(struct mml_pq_chan *chan,
 	result->c3d_regs = c3d_regs;
 	result->c3d_lut = c3d_lut;
 
+	memcpy_last_result(last_result, result);
 	handle_sub_task_result(sub_task, result, release_comp_config_result);
 	mml_pq_msg("%s result end, result_id[%d] sub_task[%p]",
 		__func__, job->result_job_id, sub_task);
@@ -2201,8 +2334,7 @@ static int mml_pq_comp_config_ioctl(unsigned long data)
 	mml_pq_msg("%s new_job_id[%d] result_job_id[%d]", __func__,
 		job->new_job_id, job->result_job_id);
 
-	if (job->result_job_id)
-		handle_comp_config_result(chan, job);
+	handle_comp_config_result(chan, job);
 	kfree(job);
 	mml_pq_trace_ex_end();
 
@@ -2998,6 +3130,16 @@ int mml_pq_core_init(void)
 	init_pq_chan(&pq_mbox->dc_readback_chan);
 	buffer_num = 0;
 	dma_buf_num = 0;
+
+	default_aal_curve = kmalloc_array(AAL_CURVE_NUM, sizeof(u32), GFP_KERNEL);
+	last_result = kzalloc(sizeof(*last_result), GFP_KERNEL);
+	last_result->aal_curve = kzalloc(sizeof(u32)*AAL_CURVE_NUM, GFP_KERNEL);
+	last_result->aal_param = kzalloc(sizeof(struct mml_pq_aal_config_param), GFP_KERNEL);
+	last_result->aal_regs = kzalloc(sizeof(struct mml_pq_reg)*MAX_REG_NUM, GFP_KERNEL);
+	last_result->color_regs = kzalloc(sizeof(struct mml_pq_reg)*MAX_REG_NUM, GFP_KERNEL);
+	last_result->ds_regs = kzalloc(sizeof(struct mml_pq_reg)*MAX_REG_NUM, GFP_KERNEL);
+	last_result->hdr_curve = kzalloc(sizeof(u32)*HDR_CURVE_NUM, GFP_KERNEL);
+	last_result->hdr_regs = kzalloc(sizeof(struct mml_pq_reg)*MAX_REG_NUM, GFP_KERNEL);
 
 	for (buf_idx = 0; buf_idx < TOTAL_RB_BUF_NUM; buf_idx++)
 		rb_buf_pool[buf_idx] = buf_idx*4096;

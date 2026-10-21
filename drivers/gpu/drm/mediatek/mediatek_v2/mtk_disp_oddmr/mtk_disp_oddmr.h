@@ -354,6 +354,7 @@ int mtk_drm_ioctl_oddmr_ctl(struct drm_device *dev, void *data,
 void mtk_oddmr_timing_chg(struct mtk_oddmr_timing *timing, struct cmdq_pkt *handle);
 void mtk_oddmr_bl_chg(uint32_t bl_level, struct cmdq_pkt *handle);
 int mtk_oddmr_hrt_cal_notify(int *oddmr_hrt);
+int mtk_oddmr_hrt_cal(int *oddmr_hrt);
 void mtk_disp_oddmr_debug(const char *opt);
 void mtk_oddmr_ddren(struct cmdq_pkt *cmdq_handle,
 	struct drm_crtc *crtc, int en);
