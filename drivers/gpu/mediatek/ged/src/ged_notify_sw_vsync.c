@@ -90,6 +90,10 @@ static enum gpu_dvfs_policy_state g_prev_policy_state = POLICY_STATE_INIT;
 #define GED_APO_THRESHOLD_US 2000
 #define GED_APO_LP_THRESHOLD_US 4000
 
+#define GED_APO_THR_NS 2000000
+#define GED_APO_WAKEUP_THR_NS (GED_APO_THR_NS + 1000000)
+
+#define GED_APO_LONG_WAKEUP_THR_NS 100000000
 static spinlock_t g_sApoLock;
 
 static unsigned long long g_apo_threshold_us;
@@ -588,6 +592,25 @@ unsigned long long ged_get_apo_wakeup_us(void)
 }
 EXPORT_SYMBOL(ged_get_apo_wakeup_us);
 
+void ged_set_apo_wakeup_ns_nolock(unsigned long long apo_wakeup_ns)
+{
+	g_apo_wakeup_ns = apo_wakeup_ns;
+	g_apo_wakeup_us = apo_wakeup_ns / 1000;
+}
+EXPORT_SYMBOL(ged_set_apo_wakeup_ns_nolock);
+
+void ged_set_apo_wakeup_ns(unsigned long long apo_wakeup_ns)
+{
+	unsigned long ulIRQFlags;
+
+	spin_lock_irqsave(&g_sApoLock, ulIRQFlags);
+
+	ged_set_apo_wakeup_ns_nolock(apo_wakeup_ns);
+
+	spin_unlock_irqrestore(&g_sApoLock, ulIRQFlags);
+}
+EXPORT_SYMBOL(ged_set_apo_wakeup_ns);
+
 void ged_set_apo_wakeup_us(unsigned long long apo_wakeup_us)
 {
 	unsigned long ulIRQFlags;
@@ -672,14 +695,20 @@ void ged_check_power_duration(void)
 {
 	long long llDiff = 0;
 	unsigned long ulIRQFlags;
+	bool bforce = false;
 
 	spin_lock_irqsave(&g_sApoLock, ulIRQFlags);
+
+	bforce = ged_gpu_is_heavy();
+	if (true == bforce)
+		goto direct_check;
 
 	g_ns_gpu_off_duration =
 		(long long)(g_ns_gpu_active_ts - g_ns_gpu_idle_ts);
 	llDiff = g_ns_gpu_off_duration;
 
-	if ((llDiff > 0) && (llDiff < g_apo_threshold_ns))
+direct_check:
+	if (bforce || ((llDiff > 0) && (llDiff < g_apo_threshold_ns)))
 		g_bGPUAPO = true;
 	else {
 		g_bGPUAPO = false;
@@ -766,14 +795,22 @@ void ged_check_predict_power_duration(void)
 {
 	long long llDiff = 0;
 	unsigned long ulIRQFlags;
+	bool bPredict_force = false;
 
 	spin_lock_irqsave(&g_sApoLock, ulIRQFlags);
 
+	bPredict_force = ged_gpu_is_heavy();
+	if (true == bPredict_force) {
+		ged_set_apo_wakeup_ns_nolock(GED_APO_LONG_WAKEUP_THR_NS);
+		goto direct_check;
+	} else
+		ged_set_apo_wakeup_ns_nolock(GED_APO_WAKEUP_THR_NS);
 	g_ns_gpu_predict_off_duration =
 		(long long)(g_ns_gpu_predict_active_ts - g_ns_gpu_predict_idle_ts);
 	llDiff = g_ns_gpu_predict_off_duration;
 
-	if ((llDiff > 0) && (llDiff < g_apo_threshold_ns))
+direct_check:
+	if (bPredict_force || ((llDiff > 0) && (llDiff < g_apo_threshold_ns)))
 		g_bGPUPredictAPO = true;
 	else {
 		g_bGPUPredictAPO = false;

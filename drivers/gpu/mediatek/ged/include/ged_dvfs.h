@@ -151,6 +151,7 @@ unsigned int ged_dvfs_get_custom_ceiling_gpu_freq(void);
 unsigned int ged_dvfs_get_custom_boost_gpu_freq(void);
 
 unsigned long ged_query_info(GED_INFO eType);
+bool ged_gpu_is_heavy(void);
 
 void ged_dvfs_get_gpu_cur_freq(struct GED_DVFS_FREQ_DATA *psData);
 void ged_dvfs_get_gpu_pre_freq(struct GED_DVFS_FREQ_DATA *psData);

@@ -702,6 +702,26 @@ done:
 EXPORT_SYMBOL(gpufreq_get_dynamic_power);
 
 /***********************************************************************************
+ * Function Name      : gpufreq_get_cur_temperature
+ * Inputs             : -
+ * Outputs            : -
+ * Returns            : temper - Current temperature of GPU
+ * Description        : Query current temperature of GPU
+ ***********************************************************************************/
+int gpufreq_get_cur_temperature(void)
+{
+	int temper = -274;
+
+	if (g_shared_status)
+		temper = g_shared_status->temperature;
+	else
+		GPUFREQ_LOGE("null gpufreq shared memory (ENOENT)");
+
+	return temper;
+}
+EXPORT_SYMBOL(gpufreq_get_cur_temperature);
+
+/***********************************************************************************
  * Function Name      : gpufreq_power_control
  * Inputs             : power          - Target power state
  * Outputs            : -
@@ -1127,6 +1147,22 @@ void gpufreq_pdca_config(enum gpufreq_power_state power)
 	}
 }
 EXPORT_SYMBOL(gpufreq_pdca_config);
+
+/***********************************************************************************
+ * Function Name      : gpufreq_pdca_polling_ack
+ * Inputs             : power          - Target power state
+ * Outputs            : -
+ * Returns            : -
+ * Description        : Polling PDCA power on/off ACK
+ ***********************************************************************************/
+void gpufreq_pdca_polling_ack(enum gpufreq_power_state power)
+{
+	if (gpufreq_fp && gpufreq_fp->pdca_polling_ack)
+		gpufreq_fp->pdca_polling_ack(power);
+	else
+		GPUFREQ_LOGE("null gpufreq platform function pointer (ENOENT)");
+}
+EXPORT_SYMBOL(gpufreq_pdca_polling_ack);
 
 /***********************************************************************************
  * Function Name      : gpufreq_fake_mtcmos_control
@@ -1578,14 +1614,15 @@ static int gpufreq_validate_target(unsigned int *target)
 static void gpufreq_dump_infra_status_no_lock(char *log_buf, int *log_len, int log_size)
 {
 	gpueb_dump_status(log_buf, log_len, log_size);
-	gpufreq_dump_dvfs_status(log_buf, log_len, log_size);
-	gpufreq_dump_power_tracker_status();
 
 	/* implement on AP */
 	if (gpufreq_fp && gpufreq_fp->dump_infra_status)
 		gpufreq_fp->dump_infra_status(log_buf, log_len, log_size);
 	else
 		GPUFREQ_LOGE("null gpufreq platform function pointer (ENOENT)");
+
+	gpufreq_dump_dvfs_status(log_buf, log_len, log_size);
+	gpufreq_dump_power_tracker_status();
 }
 
 /***********************************************************************************
