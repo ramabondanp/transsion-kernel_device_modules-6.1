@@ -1,0 +1,159 @@
+# SPDX-License-Identifier: GPL-2.0-only
+#
+# Samsung NFC controller driver configuration
+#
+
+menu "Near Field Communication (NFC) devices"
+	depends on NFC
+
+config SEC_NFC
+	tristate "Samsung NFC driver"
+	default n
+	help
+	  Enable the Samsung NFC controller driver used by RN3, RN5
+	  and RNx products. The driver exposes a misc character device
+	  for user-space NFC HAL communication and GPIO power control.
+
+	  Select the matching product variant and host interface below.
+	  If unsure, say N.
+
+choice
+	prompt "SEC NFC Products"
+	depends on SEC_NFC
+	default SEC_NFC_PRODUCT_N5
+	help
+	  Choose the Samsung NFC silicon generation attached to the
+	  board. The product option changes firmware download handling
+	  and some GPIO or timing details in the driver.
+
+	  Keep the default unless the schematic uses a different chip.
+	  If unsure, choose RN5/RNx.
+
+config SEC_NFC_PRODUCT_N3
+	bool "RN3"
+	help
+	  Build the driver for Samsung RN3 NFC controllers. Use this
+	  when the platform schematic lists an RN3 device.
+
+	  Later RN5/RNx chips should not use this option.
+	  If unsure, say N.
+
+config SEC_NFC_PRODUCT_N5
+	bool "RN5/RNx"
+	help
+	  Build the driver for Samsung RN5 and later RNx NFC
+	  controllers. This is the common choice on current boards.
+
+	  Select RN3 instead only for older RN3 hardware.
+	  If unsure, say Y.
+
+endchoice
+
+choice
+	prompt "SEC NFC Interface"
+	depends on SEC_NFC
+	default SEC_NFC_IF_I2C
+	help
+	  Choose how the NFC controller is connected to the host SoC.
+	  Most phones use the hardware I2C controller. UART and
+	  bit-banged I2C-GPIO are for special board designs.
+
+	  Pick the bus described in the device tree.
+	  If unsure, choose I2C.
+
+config SEC_NFC_IF_UART
+	bool "UART"
+	help
+	  Communicate with the NFC controller over a UART link instead
+	  of I2C. Enable this only when the board routes NFC through a
+	  serial port.
+
+	  Hardware I2C boards should not select this.
+	  If unsure, say N.
+
+config SEC_NFC_IF_I2C
+	bool "I2C"
+	help
+	  Communicate with the NFC controller through the SoC I2C
+	  controller. This is the usual connection on mobile products.
+
+	  Requires a working I2C adapter and device-tree I2C node.
+	  If unsure, say Y.
+
+config SEC_NFC_IF_I2C_GPIO
+	bool "I2C-GPIO (S/W-I2C)"
+	select I2C_CHARDEV
+	select I2C_MUX
+	select I2C_MUX_GPIO
+	select I2C_ARB_GPIO_CHALLENGE
+	select I2C_ALGOBIT
+	select I2C_GPIO
+	help
+	  Bit-bang I2C to the NFC controller using GPIO pins instead of
+	  a hardware I2C engine. This also pulls in GPIO I2C helpers.
+
+	  Use only when the board has no dedicated NFC I2C controller.
+	  If unsure, say N.
+
+endchoice
+
+config SEC_NFC_GPIO_CLK
+	bool "SEC NFC GPIO CLK"
+	depends on SEC_NFC
+	default n
+	help
+	  Enable clock-request GPIO handling for Samsung NFC. The
+	  controller toggles a CLK_REQ pin so the host can enable or
+	  disable the NFC clock on demand.
+
+	  Select this when the schematic has an NFC clock-request GPIO.
+	  If unsure, say N.
+
+config SEC_NFC_DEDICATED_CLK
+	tristate "SEC NFC DEDICATED CLK"
+	depends on SEC_NFC
+	default m
+	help
+	  Map a SoC dedicated clock-control register for the NFC
+	  controller. Enable this when the platform provides an iomem
+	  clock gate used only by NFC.
+
+	  Boards that clock NFC from a standard clk provider can leave
+	  this unset. If unsure, say N.
+
+config SEC_NFC_LDO_EN
+	tristate "SEC NFC LDO"
+	depends on SEC_NFC
+	default m
+	help
+	  Drive an NFC load-switch or LDO-enable GPIO for PVDD power.
+	  Enable this when NFC power is gated by a dedicated GPIO.
+
+	  PMIC-regulator based designs should use SEC_NFC_PMIC_LDO
+	  instead. If unsure, say N.
+
+config SEC_NFC_PMIC_LDO
+	tristate "SEC NFC PMIC LDO"
+	depends on SEC_NFC
+	default m
+	help
+	  Use the regulator framework to enable a PMIC LDO that powers
+	  the NFC controller. Select this when NFC PVDD comes from a
+	  named regulator rather than a raw GPIO.
+
+	  GPIO-only power control should use SEC_NFC_LDO_EN instead.
+	  If unsure, say N.
+
+config SEC_ESE_COLDRESET
+	tristate "eSE Cold reset"
+	depends on SEC_NFC
+	default m
+	help
+	  Support an embedded SE cold-reset GPIO and ioctl. This is
+	  used when NFC and eSE share a reset path and the HAL must
+	  restart eSE without fully powering down NFC.
+
+	  Boards without eSE can leave this disabled.
+	  If unsure, say N.
+
+endmenu
