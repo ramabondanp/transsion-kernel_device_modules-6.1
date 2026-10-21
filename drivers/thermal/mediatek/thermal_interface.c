@@ -552,6 +552,69 @@ int set_cold_interrupt_enable_addr(int val)
 }
 EXPORT_SYMBOL(set_cold_interrupt_enable_addr);
 
+int thermal_get_ap_ntc_temp(void)
+{
+	struct thermal_zone_device *zone;
+        int ret, temp = 0;
+
+        zone = thermal_zone_get_zone_by_name("ap_ntc");
+        if (IS_ERR(zone)){
+		zone = thermal_zone_get_zone_by_name("mtktsAP");
+		if (IS_ERR(zone)){
+			pr_err("[%s] AP thermal zone get fail\n",__func__);
+			return 0;
+		}
+	}
+        ret = thermal_zone_get_temp(zone, &temp);
+        if (ret != 0){
+			pr_err("[%s]AP NTC temp get temp fail\n",__func__);
+                return 0;
+		}
+		pr_err("[%s] Get AP NTC temp from Thermal Zone =%d\n",__func__,temp);
+        return temp;
+}
+EXPORT_SYMBOL(thermal_get_ap_ntc_temp);
+
+int thermal_get_4g_md_pa_ntc_temp(void)
+{
+        struct thermal_zone_device *zone;
+        int ret, temp = 0;
+
+        zone = thermal_zone_get_zone_by_name("ltepa_ntc");
+        if (IS_ERR(zone)){
+			pr_err("[%s] 4G pa_ntc thermal zone get fail\n",__func__);
+                return 0;
+		}
+        ret = thermal_zone_get_temp(zone, &temp);
+        if (ret != 0){
+			pr_err("[%s]4G pa_ntc temp get temp fail\n",__func__);
+                return 0;
+		}
+		pr_err("[%s] 4G pa_ntc temp =%d\n",__func__,temp);
+        return temp;
+}
+EXPORT_SYMBOL(thermal_get_4g_md_pa_ntc_temp);
+
+int thermal_get_5g_md_pa_ntc_temp(void)
+{
+        struct thermal_zone_device *zone;
+        int ret, temp = 0;
+
+        zone = thermal_zone_get_zone_by_name("nrpa_ntc");
+        if (IS_ERR(zone)){
+			pr_err("[%s] 5G pa_ntc thermal zone get fail\n",__func__);
+                return 0;
+		}
+        ret = thermal_zone_get_temp(zone, &temp);
+        if (ret != 0){
+			pr_err("[%s]5G pa_ntc temp get temp fail\n",__func__);
+                return 0;
+		}
+		pr_err("[%s] 5G pa_ntc temp =%d\n",__func__,temp);
+        return temp;
+}
+EXPORT_SYMBOL(thermal_get_5g_md_pa_ntc_temp);
+
 static ssize_t headroom_info_show(struct kobject *kobj,
 	struct kobj_attribute *attr, char *buf)
 {
@@ -590,9 +653,8 @@ static void write_ttj(int user, unsigned int cpu_ttj, unsigned int gpu_ttj,
 	if (tm_data.tj_info.jatm_on == 1) {
 		if (tm_data.is_cputcm)
 			therm_intf_write_cputcm(cpu_ttj, TTJ_TCM_OFFSET);
-		else
-			therm_intf_write_csram(cpu_ttj, TTJ_OFFSET);
 
+		therm_intf_write_csram(cpu_ttj, TTJ_OFFSET);
 		therm_intf_write_csram(gpu_ttj, TTJ_OFFSET + 4);
 		therm_intf_write_csram(apu_ttj, TTJ_OFFSET + 8);
 		therm_intf_write_apu_mbox(apu_ttj, APU_MBOX_TTJ_OFFSET);
@@ -600,9 +662,9 @@ static void write_ttj(int user, unsigned int cpu_ttj, unsigned int gpu_ttj,
 		if (tm_data.is_cputcm)
 			therm_intf_write_cputcm(tm_data.tj_info.catm_cpu_ttj,
 				TTJ_TCM_OFFSET);
-		else
-			therm_intf_write_csram(tm_data.tj_info.catm_cpu_ttj,
-				TTJ_OFFSET);
+
+		therm_intf_write_csram(tm_data.tj_info.catm_cpu_ttj,
+			TTJ_OFFSET);
 
 		therm_intf_write_csram(tm_data.tj_info.catm_gpu_ttj, TTJ_OFFSET + 4);
 		therm_intf_write_csram(tm_data.tj_info.catm_apu_ttj, TTJ_OFFSET + 8);
@@ -891,9 +953,8 @@ static void write_power_budget(unsigned int cpu_pb, unsigned int gpu_pb,
 
 	if (tm_data.is_cputcm)
 		therm_intf_write_csram(cpu_pb, POWER_BUDGET_TCM_OFFSET);
-	else
-		therm_intf_write_csram(cpu_pb, POWER_BUDGET_OFFSET);
 
+	therm_intf_write_csram(cpu_pb, POWER_BUDGET_OFFSET);
 	therm_intf_write_csram(gpu_pb, POWER_BUDGET_OFFSET + 4);
 	therm_intf_write_csram(apu_pb, POWER_BUDGET_OFFSET + 8);
 
@@ -1129,8 +1190,8 @@ static ssize_t frs_info_store(struct kobject *kobj,
 		if ((ap_headroom >= -1000) && (ap_headroom <= 1000)) {
 			if (tm_data.is_cputcm)
 				therm_intf_write_cputcm(ap_headroom, AP_NTC_HEADROOM_TCM_OFFSET);
-			else
-				therm_intf_write_csram(ap_headroom, AP_NTC_HEADROOM_OFFSET);
+
+			therm_intf_write_csram(ap_headroom, AP_NTC_HEADROOM_OFFSET);
 			frs_data.ap_headroom = ap_headroom;
 		} else {
 			pr_info("[%s] invalid ap head room input\n", __func__);
@@ -1139,8 +1200,8 @@ static ssize_t frs_info_store(struct kobject *kobj,
 
 		if (tm_data.is_cputcm)
 			therm_intf_write_cputcm(tpcb, TPCB_TCM_OFFSET);
-		else
-			therm_intf_write_csram(tpcb, TPCB_OFFSET);
+
+		therm_intf_write_csram(tpcb, TPCB_OFFSET);
 
 		frs_data.enable = enable;
 		frs_data.activated = act;
@@ -1237,11 +1298,12 @@ static ssize_t target_tpcb_store(struct kobject *kobj,
 {
 	int target_tpcb = 0;
 
-	if (kstrtoint(buf, 10, &target_tpcb) == 0)
+	if (kstrtoint(buf, 10, &target_tpcb) == 0) {
 		if (tm_data.is_cputcm)
 			therm_intf_write_cputcm(target_tpcb, TARGET_TPCB_TCM_OFFSET);
-		else
-			therm_intf_write_csram(target_tpcb, TARGET_TPCB_OFFSET);
+
+		therm_intf_write_csram(target_tpcb, TARGET_TPCB_OFFSET);
+	}
 	else {
 		pr_info("[%s] invalid input\n", __func__);
 		return -EINVAL;

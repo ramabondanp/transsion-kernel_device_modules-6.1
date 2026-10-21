@@ -208,6 +208,9 @@ struct user_vsensor_info {
 	char user_vsensor_name[USER_VSENSOR_NAME];
 };
 
+extern int thermal_get_ap_ntc_temp(void);
+extern int thermal_get_4g_md_pa_ntc_temp(void);
+extern int thermal_get_5g_md_pa_ntc_temp(void);
 extern void update_ap_ntc_headroom(int temp, int polling_interval);
 extern int get_thermal_headroom(enum headroom_id id);
 extern int set_cpu_min_opp(int gear, int opp);
