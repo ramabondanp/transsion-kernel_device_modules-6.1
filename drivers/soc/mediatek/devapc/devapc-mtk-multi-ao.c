@@ -976,7 +976,7 @@ static void devapc_extra_handler(int slave_type, const char *vio_master,
 	}
 
 	/* Severity level */
-	if (dbg_stat->enable_KE && (ret_cb != DEVAPC_NOT_KE)) {
+	if (dbg_stat->enable_KE && (ret_cb != DEVAPC_NOT_KE) && !(!strncmp(vio_master, "UNKNOWN_MASTER_FROM_INFRA", 25) && !strncmp(dispatch_key, "SRAMROM", 7))) {
 		pr_info(PFX "Device APC Violation Issue/%s", dispatch_key);
 		BUG_ON(id != INFRA_SUBSYS_CONN && id != INFRA_SUBSYS_PCIE);
 

@@ -17,5 +17,6 @@ u32 mtk_pcie_dump_link_info(int port);
 int mtk_pcie_disable_data_trans(int port);
 int mtk_pcie_mask_msi_to_ap(int port, u32 msi_addr, u32 mask);
 int mtk_pcie_hw_control_vote(int port, bool hw_mode_en, u8 who);
+void mtk_pcie_set_aer_detect(int port, bool detect);
 
 #endif

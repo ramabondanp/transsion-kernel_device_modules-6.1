@@ -17,6 +17,8 @@
 u32 cpu_type;
 u32 cpu_map;
 
+struct teeperf_cpu_index g_teeperf_cpu_index;
+
 static struct {
 	dev_t device;
 	struct class *class;
@@ -105,6 +107,18 @@ static int teeperf_probe(struct platform_device *pdev)
 		pr_info(PFX "invalid cpu map\n");
 		return -EINVAL;
 	}
+
+	ret = of_property_read_u32(node, "cpu-little-index", &g_teeperf_cpu_index.cpu_little_index);
+	if (ret || g_teeperf_cpu_index.cpu_little_index == 0)
+		g_teeperf_cpu_index.cpu_little_index = LITTLE_CPU_FREQ_LEVEL_INDEX;
+
+	ret = of_property_read_u32(node, "cpu-big-index", &g_teeperf_cpu_index.cpu_big_index);
+	if (ret || g_teeperf_cpu_index.cpu_big_index == 0)
+		g_teeperf_cpu_index.cpu_big_index = BIG_CPU_FREQ_LEVEL_INDEX;
+
+	ret = of_property_read_u32(node, "cpu-super-index", &g_teeperf_cpu_index.cpu_super_index);
+	if (ret || g_teeperf_cpu_index.cpu_super_index == 0)
+		g_teeperf_cpu_index.cpu_super_index = SUPER_CPU_FREQ_LEVEL_INDEX;
 
 	ret = teeperf_device_common_init();
 	if (ret)
