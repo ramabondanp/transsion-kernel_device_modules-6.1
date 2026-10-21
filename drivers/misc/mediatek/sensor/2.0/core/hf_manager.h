@@ -36,6 +36,8 @@ struct sensor_state {
 	uint8_t temp : 1;
 	uint8_t test : 1;
 	uint8_t raw : 1;
+
+
 	uint8_t down_sample : 1;
 	uint8_t flush;
 	uint8_t down_sample_cnt;
@@ -70,6 +72,8 @@ struct hf_device {
 		int sensor_type, void *data, uint8_t length);
 	int (*selftest)(struct hf_device *hfdev, int sensor_type);
 	int (*rawdata)(struct hf_device *hfdev, int sensor_type, int en);
+
+
 	int (*debug)(struct hf_device *hfdev, int sensor_type,
 		uint8_t *buffer, unsigned int len);
 	int (*custom_cmd)(struct hf_device *hfdev, int sensor_type,

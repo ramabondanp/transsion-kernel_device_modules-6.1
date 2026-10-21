@@ -17,6 +17,9 @@ enum {
 	HF_MANAGER_SENSOR_CONFIG_CALI,
 	HF_MANAGER_SENSOR_SELFTEST,
 	HF_MANAGER_SENSOR_RAWDATA,
+
+	HF_MANAGER_SENSOR_TRACKING,
+
 	HF_MANAGER_SENSOR_MAX_ACTION,
 };
 
@@ -28,6 +31,7 @@ enum {
 	TEMP_ACTION,
 	TEST_ACTION,
 	RAW_ACTION,
+
 	MAX_ACTION,
 };
 
@@ -86,6 +90,21 @@ struct ioctl_packet {
 	};
 } __packed __aligned(4);
 
+
+#ifdef CONFIG_TRAN_SAR_DEBUG
+struct aw_i2c_data {
+	unsigned char len;
+	unsigned char flag;
+	unsigned char *buf;
+};
+
+struct SAR_SENSOR_DATA {
+	struct aw_i2c_data __user *data;
+	unsigned char num;
+};
+#endif
+
+
 #define HF_MANAGER_REQUEST_REGISTER_STATUS  _IOWR('a', 1, struct ioctl_packet)
 #define HF_MANAGER_REQUEST_BIAS_DATA        _IOW('a', 2, struct ioctl_packet)
 #define HF_MANAGER_REQUEST_CALI_DATA        _IOW('a', 3, struct ioctl_packet)
@@ -94,5 +113,10 @@ struct ioctl_packet {
 #define HF_MANAGER_REQUEST_SENSOR_INFO      _IOWR('a', 6, struct ioctl_packet)
 #define HF_MANAGER_REQUEST_CUST_DATA        _IOWR('a', 7, struct ioctl_packet)
 #define HF_MANAGER_REQUEST_READY_STATUS     _IOWR('a', 8, struct ioctl_packet)
+
+#ifdef CONFIG_TRAN_SAR_DEBUG
+#define HF_AW_MANAGER_REQUEST_READ_STATUS     _IOWR('a', 9, struct SAR_SENSOR_DATA)
+#endif
+
 
 #endif

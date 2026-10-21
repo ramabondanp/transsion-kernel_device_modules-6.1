@@ -22,6 +22,8 @@ static DEFINE_SPINLOCK(rx_notify_lock);
 static struct sensor_comm_notify rx_notify;
 static struct share_mem sensor_list_shm_reader;
 
+
+
 static void sensor_list_notify_handler(struct sensor_comm_notify *n,
 		void *private_data)
 {
@@ -111,6 +113,8 @@ static int sensor_list_seq_get_list(struct sensor_info *list,
 		list[i].gain = info.gain;
 		strscpy(list[i].name, info.name, sizeof(list[i].name));
 		strscpy(list[i].vendor, info.vendor, sizeof(list[i].vendor));
+
+
 		i++;
 	}
 	return i;
