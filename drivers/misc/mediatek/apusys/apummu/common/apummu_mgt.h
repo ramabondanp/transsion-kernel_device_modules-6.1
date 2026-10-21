@@ -55,6 +55,19 @@ struct apummu_session_tbl {
 	struct list_head list;
 };
 
+
+struct apummu_tbl {
+	struct list_head g_stable_head;
+	struct kref session_tbl_cnt;
+	struct mutex table_lock;
+	struct mutex DRAM_FB_lock;
+	bool is_stable_exist;
+	bool is_SLB_set;
+	bool is_work_canceled;
+	bool is_free_job_set;
+	bool is_SLB_alloc; // Since SLB state might not sync with APU
+};
+
 int addr_encode_and_write_stable(enum AMMU_BUF_TYPE type, uint64_t session,
 			uint64_t iova, uint32_t buf_size, uint64_t *eva);
 int apummu_eva_decode(uint64_t eva, uint64_t *iova, enum AMMU_BUF_TYPE type);

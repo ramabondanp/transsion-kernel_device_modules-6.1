@@ -513,9 +513,20 @@ error_put_power_dev:
 static int mt6897_apu_power_off(struct mtk_apu *apu)
 {
 	struct device *dev = apu->dev;
-	int ret, timeout, i;
+	int ret, timeout, i, retry_times;
 
 	ret = pm_runtime_put_sync(apu->dev);
+
+	/* retry */
+	retry_times = 0;
+	while (ret == -EAGAIN && retry_times++ < 30) {
+		dev_info(dev,
+			"%s: call to put_sync(dev) failed, ret=%d, retry_times=%d\n",
+			__func__, ret, retry_times);
+		mdelay(100);
+		ret = pm_runtime_put_sync(apu->dev);
+	}
+
 	if (ret) {
 		dev_info(dev,
 			 "%s: call to put_sync(dev) failed, ret=%d\n",

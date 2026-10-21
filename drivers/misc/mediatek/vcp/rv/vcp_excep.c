@@ -302,7 +302,6 @@ void vcp_dump_last_regs(int mmup_enable)
 	kfree(out);
 
 	/* mmup2infra RX and TX reg dump */
-	pr_notice("[VCP] mmup2infra tx: %08x\n", readl(VCP_TO_INFRA_TX));
 	if (mminfra_debug_dump && vcp_ao)
 		mminfra_debug_dump();
 }

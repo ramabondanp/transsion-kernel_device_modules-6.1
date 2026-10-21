@@ -52,7 +52,7 @@ const char *apu_dev_string(enum DVFS_USER user)
 		[APUMNOC] = "APUMNOC",
 	};
 
-	if (user < 0 || user >= ARRAY_SIZE(names))
+	if (user >= ARRAY_SIZE(names))
 		return NULL;
 
 	return names[user];
@@ -125,8 +125,12 @@ enum DVFS_USER apu_dev_user(const char *name)
 int apu_add_devfreq(struct apu_dev *ad)
 {
 
-	if (!ad || ad->user < 0 || ad->user > APUSYS_POWER_USER_NUM) {
-		apower_err(ad->dev, "%s: Invalid parameters.\n", __func__);
+	if (!ad)
+		return -EINVAL;
+
+	if (ad->user > APUSYS_POWER_USER_NUM) {
+		if (ad->dev)
+			apower_err(ad->dev, "%s: Invalid parameters.\n", __func__);
 		return -EINVAL;
 	}
 
