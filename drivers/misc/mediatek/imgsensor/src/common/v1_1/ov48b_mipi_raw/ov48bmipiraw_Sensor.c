@@ -646,7 +646,6 @@ static kal_uint16 set_gain(kal_uint16 gain)
 	return gain;
 }
 
-/* ITD: Modify Dualcam By Jesse 190924 Start */
 static void set_shutter_frame_length(kal_uint16 shutter, kal_uint16 target_frame_length)
 {
 
@@ -658,7 +657,6 @@ static void set_shutter_frame_length(kal_uint16 shutter, kal_uint16 target_frame
 	spin_unlock(&imgsensor_drv_lock);
 	set_shutter(shutter);
 }
-/* ITD: Modify Dualcam By Jesse 190924 End */
 
 static void ihdr_write_shutter_gain(kal_uint16 le,
 				kal_uint16 se, kal_uint16 gain)
@@ -673,11 +671,9 @@ static void sensor_init(void)
 {
 	write_cmos_sensor(0x0103, 0x01);//SW Reset, need delay
 	mdelay(5);
-	LOG_INF("%s start\n", __func__);
 	ov48b2q_table_write_cmos_sensor(
 		addr_data_pair_init_ov48b2q,
 		sizeof(addr_data_pair_init_ov48b2q) / sizeof(kal_uint16));
-	LOG_INF("%s end\n", __func__);
 }
 
 static void preview_setting(void)
@@ -704,7 +700,6 @@ static void preview_setting(void)
 			sizeof(addr_data_pair_preview_ov48b2q));
 		_size_to_write += _length;
 	}
-	pr_debug("%s end\n", __func__);
 }
 
 static void capture_setting(kal_uint16 currefps)
@@ -815,7 +810,6 @@ static void slim_video_setting(void)
 
 }
 
-/* ITD: Modify Dualcam By Jesse 190924 Start */
 static void custom1_setting(void)
 {
 	int _length = 0;
@@ -841,7 +835,6 @@ static void custom1_setting(void)
 		_size_to_write += _length;
 	}
 
-	pr_debug("%s end\n", __func__);
 }	/*	custom1_setting  */
 
 static void custom2_setting(void)
@@ -955,7 +948,6 @@ static void custom5_setting(void)
 
 }	/*	custom5_setting  */
 
-/* ITD: Modify Dualcam By Jesse 190924 End */
 static kal_uint16 read_cmos_eeprom_8(kal_uint16 addr)
 {
 	kal_uint16 get_byte = 0;
@@ -1180,7 +1172,6 @@ static kal_uint32 slim_video(
 	return ERROR_NONE;
 }
 
-/* ITD: Modify Dualcam By Jesse 190924 Start */
 static kal_uint32 Custom1(MSDK_SENSOR_EXPOSURE_WINDOW_STRUCT *image_window,
 					  MSDK_SENSOR_CONFIG_STRUCT *sensor_config_data)
 {
@@ -1268,10 +1259,9 @@ static kal_uint32 Custom5(MSDK_SENSOR_EXPOSURE_WINDOW_STRUCT *image_window,
 	custom5_setting();
 	return ERROR_NONE;
 } /*	Custom5 */
-/* ITD: Modify Dualcam By Jesse 190924 End */
 
 static kal_uint32 get_resolution(
-		MSDK_SENSOR_RESOLUTION_INFO_STRUCT *sensor_resolution)
+		MSDK_SENSOR_RESOLUTION_INFO_STRUCT * sensor_resolution)
 {
 	sensor_resolution->SensorFullWidth =
 		imgsensor_info.cap.grabwindow_width;
@@ -1299,7 +1289,6 @@ static kal_uint32 get_resolution(
 	sensor_resolution->SensorSlimVideoHeight =
 		imgsensor_info.slim_video.grabwindow_height;
 
-/* ITD: Modify Dualcam By Jesse 190924 Start */
 	sensor_resolution->SensorCustom1Width =
 		imgsensor_info.custom1.grabwindow_width;
 	sensor_resolution->SensorCustom1Height =
@@ -1326,7 +1315,6 @@ static kal_uint32 get_resolution(
 		imgsensor_info.custom5.grabwindow_height;
 
 
-/* ITD: Modify Dualcam By Jesse 190924 End */
 
 	return ERROR_NONE;
 }   /*  get_resolution  */
@@ -1358,13 +1346,11 @@ static kal_uint32 get_info(enum MSDK_SCENARIO_ID_ENUM scenario_id,
 	sensor_info->SlimVideoDelayFrame =
 		imgsensor_info.slim_video_delay_frame;
 
-/* ITD: Modify Dualcam By Jesse 190924 Start */
 	sensor_info->Custom1DelayFrame = imgsensor_info.custom1_delay_frame;
 	sensor_info->Custom2DelayFrame = imgsensor_info.custom2_delay_frame;
 	sensor_info->Custom3DelayFrame = imgsensor_info.custom3_delay_frame;
 	sensor_info->Custom4DelayFrame = imgsensor_info.custom4_delay_frame;
 	sensor_info->Custom5DelayFrame = imgsensor_info.custom5_delay_frame;
-/* ITD: Modify Dualcam By Jesse 190924 End */
 
 	sensor_info->SensorMasterClockSwitch = 0; /* not use */
 	sensor_info->SensorDrivingCurrent = imgsensor_info.isp_driving_current;
@@ -1444,7 +1430,6 @@ static kal_uint32 get_info(enum MSDK_SCENARIO_ID_ENUM scenario_id,
 		sensor_info->MIPIDataLowPwr2HighSpeedSettleDelayCount =
 			imgsensor_info.slim_video.mipi_data_lp2hs_settle_dc;
 	break;
-/* ITD: Modify Dualcam By Jesse 190924 Start */
 	case MSDK_SCENARIO_ID_CUSTOM1:
 		sensor_info->SensorGrabStartX =
 			imgsensor_info.custom1.startx;
@@ -1486,7 +1471,6 @@ static kal_uint32 get_info(enum MSDK_SCENARIO_ID_ENUM scenario_id,
 		sensor_info->MIPIDataLowPwr2HighSpeedSettleDelayCount =
 			imgsensor_info.custom5.mipi_data_lp2hs_settle_dc;
 	break;
-/* ITD: Modify Dualcam By Jesse 190924 End */
 	default:
 		sensor_info->SensorGrabStartX = imgsensor_info.pre.startx;
 		sensor_info->SensorGrabStartY = imgsensor_info.pre.starty;
@@ -1524,7 +1508,6 @@ static kal_uint32 control(enum MSDK_SCENARIO_ID_ENUM scenario_id,
 	case MSDK_SCENARIO_ID_SLIM_VIDEO:
 		slim_video(image_window, sensor_config_data);
 	break;
-/* ITD: Modify Dualcam By Jesse 190924 Start */
 	case MSDK_SCENARIO_ID_CUSTOM1:
 		Custom1(image_window, sensor_config_data);
 	break;
@@ -1540,7 +1523,6 @@ static kal_uint32 control(enum MSDK_SCENARIO_ID_ENUM scenario_id,
 	case MSDK_SCENARIO_ID_CUSTOM5:
 		Custom5(image_window, sensor_config_data);
 	break;
-/* ITD: Modify Dualcam By Jesse 190924 End */
 	default:
 		pr_debug("Error ScenarioId setting");
 		preview(image_window, sensor_config_data);
@@ -1669,7 +1651,6 @@ static kal_uint32 set_max_framerate_by_scenario(
 		if (imgsensor.frame_length > imgsensor.shutter)
 			set_dummy();
 	break;
-/* ITD: Modify Dualcam By Jesse 190924 Start */
 	case MSDK_SCENARIO_ID_CUSTOM1:
 	    frameHeight = imgsensor_info.custom1.pclk / framerate * 10 /
 			imgsensor_info.custom1.linelength;
@@ -1740,7 +1721,6 @@ static kal_uint32 set_max_framerate_by_scenario(
 		if (imgsensor.frame_length > imgsensor.shutter)
 			set_dummy();
 	break;
-/* ITD: Modify Dualcam By Jesse 190924 End */
 	default:  //coding with  preview scenario by default
 	    frameHeight = imgsensor_info.pre.pclk / framerate * 10 /
 			imgsensor_info.pre.linelength;
@@ -1781,7 +1761,6 @@ static kal_uint32 get_default_framerate_by_scenario(
 	case MSDK_SCENARIO_ID_SLIM_VIDEO:
 		*framerate = imgsensor_info.slim_video.max_framerate;
 	break;
-/* ITD: Modify Dualcam By Jesse 190924 Start */
 	case MSDK_SCENARIO_ID_CUSTOM1:
 	    *framerate = imgsensor_info.custom1.max_framerate;
 	break;
@@ -1797,7 +1776,6 @@ static kal_uint32 get_default_framerate_by_scenario(
 	case MSDK_SCENARIO_ID_CUSTOM5:
 	    *framerate = imgsensor_info.custom5.max_framerate;
 	break;
-/* ITD: Modify Dualcam By Jesse 190924 End */
 	default:
 	break;
 	}
@@ -2220,7 +2198,6 @@ static kal_uint32 feature_control(MSDK_SENSOR_FEATURE_ENUM feature_id,
 				(void *)&imgsensor_winsize_info[4],
 				sizeof(struct SENSOR_WINSIZE_INFO_STRUCT));
 		break;
-/* ITD: Modify Dualcam By Jesse 190924 Start */
 		case MSDK_SCENARIO_ID_CUSTOM1:
 			memcpy((void *)wininfo,
 				(void *)&imgsensor_winsize_info[5],
@@ -2246,7 +2223,6 @@ static kal_uint32 feature_control(MSDK_SENSOR_FEATURE_ENUM feature_id,
 				(void *)&imgsensor_winsize_info[9],
 				sizeof(struct SENSOR_WINSIZE_INFO_STRUCT));
 		break;
-/* ITD: Modify Dualcam By Jesse 190924 End */
 		case MSDK_SCENARIO_ID_CAMERA_PREVIEW:
 		default:
 			memcpy((void *)wininfo,
@@ -2281,7 +2257,6 @@ static kal_uint32 feature_control(MSDK_SENSOR_FEATURE_ENUM feature_id,
 				*(MUINT32 *)(uintptr_t)(*(feature_data + 1)) =
 					imgsensor_info.slim_video.mipi_pixel_rate;
 				break;
-/* ITD: Modify Dualcam By Jesse 190924 Start */
 			case MSDK_SCENARIO_ID_CUSTOM1:
 				*(MUINT32 *)(uintptr_t)(*(feature_data + 1)) =
 					imgsensor_info.custom1.mipi_pixel_rate;
@@ -2302,7 +2277,6 @@ static kal_uint32 feature_control(MSDK_SENSOR_FEATURE_ENUM feature_id,
 				*(MUINT32 *)(uintptr_t)(*(feature_data + 1)) =
 					imgsensor_info.custom5.mipi_pixel_rate;
 				break;
-/* ITD: Modify Dualcam By Jesse 190924 End */
 			case MSDK_SCENARIO_ID_CAMERA_PREVIEW:
 			default:
 				*(MUINT32 *)(uintptr_t)(*(feature_data + 1)) =
@@ -2399,12 +2373,10 @@ static kal_uint32 feature_control(MSDK_SENSOR_FEATURE_ENUM feature_id,
 		*feature_return_para_i32 = get_sensor_temperature();
 		*feature_para_len = 4;
 	break;
-/* ITD: Modify Dualcam By Jesse 190924 Start */
 	case SENSOR_FEATURE_SET_SHUTTER_FRAME_TIME:
 		pr_debug("SENSOR_FEATURE_SET_SHUTTER_FRAME_TIME\n");
 		set_shutter_frame_length((UINT16)*feature_data, (UINT16)*(feature_data+1));
 		break;
-/* ITD: Modify Dualcam By Jesse 190924 End */
 	case SENSOR_FEATURE_SET_STREAMING_SUSPEND:
 		streaming_control(KAL_FALSE);
 		break;

@@ -20,7 +20,6 @@
 
 #define BU63169_CTRL_DELAY_US			5000
 
-/* bu63169 device structure */
 struct bu63169_device {
 	struct v4l2_ctrl_handler ctrls;
 	struct v4l2_subdev sd;
@@ -32,11 +31,10 @@ struct bu63169_device {
 	struct pinctrl_state *vcamaf_off;
 };
 
-
 #define OIS_DATA_NUMBER 32
 struct OisInfo {
 	int32_t is_ois_supported;
-	int32_t data_mode;  /* ON/OFF */
+	int32_t data_mode;
 	int32_t samples;
 	int32_t x_shifts[OIS_DATA_NUMBER];
 	int32_t y_shifts[OIS_DATA_NUMBER];
@@ -47,11 +45,9 @@ struct mtk_ois_pos_info {
 	struct OisInfo *p_ois_info;
 };
 
-/* Control commnad */
 #define VIDIOC_MTK_S_OIS_MODE _IOW('V', BASE_VIDIOC_PRIVATE + 2, int32_t)
 
 #define VIDIOC_MTK_G_OIS_POS_INFO _IOWR('V', BASE_VIDIOC_PRIVATE + 3, struct mtk_ois_pos_info)
-
 
 static inline struct bu63169_device *to_bu63169_ois(struct v4l2_ctrl *ctrl)
 {
@@ -70,11 +66,9 @@ static int bu63169_release(struct bu63169_device *bu63169)
 
 static int bu63169_init(struct bu63169_device *bu63169)
 {
-	/* struct i2c_client *client = v4l2_get_subdevdata(&bu63169->sd); */
 	return 0;
 }
 
-/* Power handling */
 static int bu63169_power_off(struct bu63169_device *bu63169)
 {
 	int ret;
@@ -121,10 +115,6 @@ static int bu63169_power_on(struct bu63169_device *bu63169)
 	if (ret < 0)
 		return ret;
 
-	/*
-	 * TODO(b/139784289): Confirm hardware requirements and adjust/remove
-	 * the delay.
-	 */
 	usleep_range(BU63169_CTRL_DELAY_US, BU63169_CTRL_DELAY_US + 100);
 
 	ret = bu63169_init(bu63169);
@@ -146,7 +136,6 @@ fail:
 
 static int bu63169_set_ctrl(struct v4l2_ctrl *ctrl)
 {
-	/* struct bu63169_device *bu63169 = to_bu63169_ois(ctrl); */
 
 	return 0;
 }
@@ -203,8 +192,6 @@ static long bu63169_ops_core_ioctl(struct v4l2_subdev *sd, unsigned int cmd, voi
 
 		memset(&pos_info, 0, sizeof(struct OisInfo));
 
-		/* To Do */
-
 		if (copy_to_user((void *)info->p_ois_info, &pos_info, sizeof(pos_info)))
 			ret = -EFAULT;
 	}
@@ -243,7 +230,6 @@ static void bu63169_subdev_cleanup(struct bu63169_device *bu63169)
 static int bu63169_init_controls(struct bu63169_device *bu63169)
 {
 	struct v4l2_ctrl_handler *hdl = &bu63169->ctrls;
-	/* const struct v4l2_ctrl_ops *ops = &bu63169_ois_ctrl_ops; */
 
 	v4l2_ctrl_handler_init(hdl, 1);
 

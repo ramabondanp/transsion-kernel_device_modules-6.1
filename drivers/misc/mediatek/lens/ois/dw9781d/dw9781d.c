@@ -16,12 +16,6 @@
 #include <aee.h>
 #endif
 
-/* OIS Workqueue */
-// #include <linux/hrtimer.h>
-// #include <linux/init.h>
-// #include <linux/ktime.h>
-/* ------------------------- */
-
 #include "hf_manager.h"
 
 #define DRIVER_NAME "dw9781d"
@@ -31,7 +25,6 @@
 
 #define DW9781D_NAME				"dw9781d"
 
-// #define FOR_DEBUG
 #define FW_UPDATE
 
 #ifdef FW_UPDATE
@@ -45,24 +38,24 @@
 #define DW9781D_REG_OIS_DSP_CTRL           0xD001
 #define DW9781D_REG_OIS_LOGIC_RESET        0xD002
 #define DW9781D_REG_OIS_USER_WRITE_PROTECT 0xEBF1
-#define DW9781D_REG_OIS_PANTILT_DERGEEX    0x725C   // Pan-tilt Limit value X
-#define DW9781D_REG_OIS_PANTILT_DERGEEY    0x725D   // Pan-tilt Limit value Y
-#define DW9781D_REG_IMU_SELECT             0x7012   // Select the gyro filter, depending on the gyro sensor model
+#define DW9781D_REG_OIS_PANTILT_DERGEEX    0x725C
+#define DW9781D_REG_OIS_PANTILT_DERGEEY    0x725D
+#define DW9781D_REG_IMU_SELECT             0x7012
 #define DW9781D_REG_GYRO_INIT              0x7018
 #define DW9781D_REG_OIS_CTRL               0x7015
 #define DW9781D_REG_OIS_MODE               0x7014
 #define DW9781D_REG_OIS_CMD_STATUS         0x73E5
-#define DW9781D_REG_OIS_GYROX              0x70F0   // X_GYRO
-#define DW9781D_REG_OIS_GYROY              0x70F1   // Y_GYRO
-#define DW9781D_REG_OIS_TARGETX            0x7274   // X_TARGET
-#define DW9781D_REG_OIS_TARGETY            0x7275   // Y_TARGET
-#define DW9781D_REG_OIS_LENS_POSX          0x7049   // X_LENS_POS
-#define DW9781D_REG_OIS_LENS_POSY          0x704A   // Y_LENS_POS
+#define DW9781D_REG_OIS_GYROX              0x70F0
+#define DW9781D_REG_OIS_GYROY              0x70F1
+#define DW9781D_REG_OIS_TARGETX            0x7274
+#define DW9781D_REG_OIS_TARGETY            0x7275
+#define DW9781D_REG_OIS_LENS_POSX          0x7049
+#define DW9781D_REG_OIS_LENS_POSY          0x704A
 #define DW9781D_REG_OIS_CL_TARGETX         0x7025
 #define DW9781D_REG_OIS_CL_TARGETY         0x7026
-#define OIS_ON                   0x0000   // OIS ON/SERVO ON
-#define SERVO_ON                 0x0001   // OIS OFF/SERVO ON
-#define SERVO_OFF                0x0002   // OIS OFF/SERVO OFF
+#define OIS_ON                   0x0000
+#define SERVO_ON                 0x0001
+#define SERVO_OFF                0x0002
 #define ON                       0x0001
 #define OFF                      0x0000
 #define USER_WRITE_EN            0x56FA
@@ -77,27 +70,12 @@ static const char * const ldo_names[] = {
 	"rst",
 };
 
-/* power  on stage : idx = 0, 2, 4, ... */
-/* power off stage : idx = 1, 3, 5, ... */
 static const char * const pio_names[] = {
-	//"mclk_4mA",
-	//"mclk_off",
-	//"oisen_off",
-	//"oisen_on",
-	// "vdd_on",
-	// "vdd_off",
-	// "rst_low",
-	// "rst_high",
 };
 
-/* set TG   : idx = 0, 2, 4, ... */
-/* set Freq : idx = 1, 3, 5, ... */
 static const char * const clk_names[] = {
-	// "mclk",
-	// "24",
 };
 
-/* dw9781d device structure */
 struct dw9781d_device {
 	struct v4l2_ctrl_handler ctrls;
 	struct v4l2_subdev sd;
@@ -112,7 +90,7 @@ struct dw9781d_device {
 #define OIS_DATA_NUMBER 32
 struct OisInfo {
 	int32_t is_ois_supported;
-	int32_t data_mode;  /* ON/OFF */
+	int32_t data_mode;
 	int32_t samples;
 	int32_t x_shifts[OIS_DATA_NUMBER];
 	int32_t y_shifts[OIS_DATA_NUMBER];
@@ -134,7 +112,6 @@ enum DW9781D_IMU {
 };
 enum DW9781D_mode {
 	DW9781D_STILL_MODE       = 0x8000,
-	// OIS locks to center position
 	DW9781D_CENTERING_MODE   = 0x8003,
 };
 
@@ -179,13 +156,11 @@ static u16 dw_ois_mode;
 
 static struct hf_manager_event hf_mgr_event;
 
-/* OIS Workqueue */
 static struct workqueue_struct *ois_init_wq;
 static struct work_struct ois_init_work;
 static int32_t ois_init_done;
 static struct dw9781d_device *g_dw9781d;
 
-/* Control commnad */
 #define VIDIOC_MTK_S_OIS_MODE _IOW('V', BASE_VIDIOC_PRIVATE + 2, int32_t)
 
 #define VIDIOC_MTK_G_OIS_POS_INFO _IOWR('V', BASE_VIDIOC_PRIVATE + 3, struct mtk_ois_pos_info)
@@ -295,16 +270,13 @@ static void fixmode(u16 code_x, u16 code_y)
 {
 	int ret = 0;
 
-	// set ic servo on / ois off
 	ret = ois_i2c_wr_u16(m_client, DW9781D_REG_OIS_CTRL, SERVO_ON);
 	ois_ctrl_data = SERVO_ON;
 	LOG_INF("targetX (%d), targetY (%d)", code_x, code_y);
 
-	// set targetX
 	ret = ois_i2c_wr_u16(m_client, DW9781D_REG_OIS_CL_TARGETX, code_x);
 	I2C_OPERATION_CHECK(ret);
 
-	// set targetY
 	ret = ois_i2c_wr_u16(m_client, DW9781D_REG_OIS_CL_TARGETY, code_y);
 	I2C_OPERATION_CHECK(ret);
 }
@@ -335,7 +307,6 @@ static void set_mode_for_FW_download(void)
 	I2C_OPERATION_CHECK(ret);
 
 	LOG_INF("[dw9781c_all_protection_release] execution\r\n");
-	/* release all protection */
 	ret = ois_i2c_wr_u16(m_client, 0xFAFA, 0x98AC);
 	I2C_OPERATION_CHECK(ret);
 	mdelay(1);
@@ -344,7 +315,6 @@ static void set_mode_for_FW_download(void)
 	I2C_OPERATION_CHECK(ret);
 	mdelay(1);
 
-	//wait 5ms
 	ois_i2c_rd_u16(m_client, 0xDE01, &FMCret);
 	LOG_INF("FMC register (%d)", FMCret);
 	mdelay(5);
@@ -353,34 +323,23 @@ static void set_mode_for_FW_download(void)
 static void erase_FW_flash_sector(void)
 {
 	LOG_INF("[dw9781c_erase_mtp] start erasing firmware flash\r\n");
-	/* 12c level adjust */
 	ois_i2c_wr_u16(m_client, 0xd005, 0x0001);
 	ois_i2c_wr_u16(m_client, 0xdd03, 0x0002);
 	ois_i2c_wr_u16(m_client, 0xdd04, 0x0002);
 
-	/* 4k Sector_0 */
 	ois_i2c_wr_u16(m_client, 0xde03, 0x0000);
-	/* 4k Sector Erase */
 	ois_i2c_wr_u16(m_client, 0xde04, 0x0002);
 	mdelay(10);
-	/* 4k Sector_1 */
 	ois_i2c_wr_u16(m_client, 0xde03, 0x0008);
-	/* 4k Sector Erase */
 	ois_i2c_wr_u16(m_client, 0xde04, 0x0002);
 	mdelay(10);
-	/* 4k Sector_2 */
 	ois_i2c_wr_u16(m_client, 0xde03, 0x0010);
-	/* 4k Sector Erase */
 	ois_i2c_wr_u16(m_client, 0xde04, 0x0002);
 	mdelay(10);
-	/* 4k Sector_3 */
 	ois_i2c_wr_u16(m_client, 0xde03, 0x0018);
-	/* 4k Sector Erase */
 	ois_i2c_wr_u16(m_client, 0xde04, 0x0002);
 	mdelay(10);
-	/* 4k Sector_4 */
 	ois_i2c_wr_u16(m_client, 0xde03, 0x0020);
-	/* 4k Sector Erase */
 	ois_i2c_wr_u16(m_client, 0xde04, 0x0002);
 	mdelay(10);
 	LOG_INF("[dw9781c_erase_mtp] complete erasing firmware flash\r\n");
@@ -397,7 +356,6 @@ static void ois_reset(void)
 	ois_i2c_wr_u16(m_client, 0xEBF1, 0x56FA);
 }
 
-//#define DATPKT_SIZE 256
 #define DATPKT_SIZE 1
 #define MTP_START_ADDRESS 0x8000
 
@@ -413,7 +371,7 @@ struct FirmwareContex g_firmwareContext;
 void GenerateFirmwareContexts(void)
 {
 	g_firmwareContext.version = 0x0624;
-	g_firmwareContext.size = 10240; /* size: word */
+	g_firmwareContext.size = 10240;
 	g_firmwareContext.driverIc = 0x9781;
 	g_firmwareContext.fwContentPtr = DW9781_Flash_Buf;
 }
@@ -429,46 +387,37 @@ static int FlashDownload_Seq(void)
 	memset(buf_temp, 0, g_firmwareContext.size * sizeof(unsigned short));
 	GenerateFirmwareContexts();
 
-	// set mode for FW download
 	set_mode_for_FW_download();
 
-	// Erase FW flash sector
 	erase_FW_flash_sector();
 
 	LOG_INF("[dw9781c_download_fw] start firmware download\r\n");
 
-	// Write FW data
 	for (i = 0; i < g_firmwareContext.size; i += DATPKT_SIZE) {
 		addr = MTP_START_ADDRESS + i;
 		ois_i2c_wr_u16(m_client, addr, *(g_firmwareContext.fwContentPtr + i));
-		// i2c_block_write_reg(addr, g_firmwareContext.fwContentPtr + i, DATPKT_SIZE);
 
 	}
 	LOG_INF("[dw9781c_download_fw] write firmware to flash\r\n");
 
-	// Read FW data
 	for (i = 0; i <  g_firmwareContext.size; i += DATPKT_SIZE) {
 		addr = MTP_START_ADDRESS + i;
 		ois_i2c_rd_u16(m_client, addr, buf_temp + i);
-		// i2c_block_read_reg(addr, buf_temp + i, DATPKT_SIZE);
 	}
 	LOG_INF("[dw9781c_download_fw] read firmware from flash");
 
-	// Verify FW data
 	for (i = 0; i < g_firmwareContext.size; i++) {
 		if (g_firmwareContext.fwContentPtr[i] != buf_temp[i]) {
 			LOG_INF("firmware verify NG!!! ADDR:%04X, firmware:%04x, READ:%04x\n",
 				MTP_START_ADDRESS+i,
 				g_firmwareContext.fwContentPtr[i],
 				buf_temp[i]);
-			// shutdown mode
 			ret = ois_i2c_wr_u16(m_client, DW9781D_REG_CHIP_CTRL, OFF);
 			I2C_OPERATION_CHECK(ret);
 			return -1;
 		}
 	}
 
-	// IC reset
 	ois_reset();
 
 	return 0;
@@ -477,7 +426,6 @@ static int FlashDownload_Seq(void)
 
 static int dw9781d_init(struct dw9781d_device *dw9781d)
 {
-	// Initial parameters
 	int ret = 0;
 	struct i2c_client *client = v4l2_get_subdevdata(&dw9781d->sd);
 	u16 i2c_readvalue = 0;
@@ -487,11 +435,9 @@ static int dw9781d_init(struct dw9781d_device *dw9781d)
 	dw_ois_mode = OIS_MODEINIT;
 
 	client->addr = DW9781OIS_I2C_SLAVE_ADDR >> 1;
-	// set chip enable
 	ret = ois_i2c_wr_u16(client, DW9781D_REG_CHIP_CTRL, ON);
 	I2C_OPERATION_CHECK(ret);
 	mdelay(10);
-	// OIS RESET
 	ret = ois_i2c_wr_u16(client, DW9781D_REG_OIS_LOGIC_RESET, ON);
 	I2C_OPERATION_CHECK(ret);
 	mdelay(4);
@@ -501,16 +447,13 @@ static int dw9781d_init(struct dw9781d_device *dw9781d)
 	ret = ois_i2c_wr_u16(client, DW9781D_REG_OIS_USER_WRITE_PROTECT, USER_WRITE_EN);
 	mdelay(10);
 
-	// -------------------------------- read firmware version -------------------------
 	ret = ois_i2c_rd_u16(client, 0x7001, &i2cret_ver);
 	ret = ois_i2c_rd_u16(client, 0x7002, &i2cret_date);
 	LOG_INF("FW_VER (0x%x), FW_DATE (0x%x)", i2cret_ver, i2cret_date);
 
 #ifdef FW_UPDATE
 	if (ois_fw_update > 0) {
-		// firmware update
 		if (i2cret_date != 0x0601) {
-			// Update firmware
 			if (FlashDownload_Seq() < 0) {
 				LOG_INF("FlashDownload_Seq fail!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
 				return -1;
@@ -524,18 +467,14 @@ static int dw9781d_init(struct dw9781d_device *dw9781d)
 	}
 #endif
 
-	// check is master or intercept
 	ret = ois_i2c_rd_u16(client, DW9781D_REG_GYRO_INIT, &i2c_readvalue);
 	LOG_INF("after reset, REG_GYRO_INIT = 0x%x\n", i2c_readvalue);
 
-	// if the default value isn't intercept mode, modify to intercept mode
 	if (i2c_readvalue != 0x0000) {
-		// open gyro data reading and set intercept
 		ret = ois_i2c_wr_u16(client, DW9781D_REG_GYRO_INIT, 0x0000);
 		I2C_OPERATION_CHECK(ret);
 		mdelay(2);
 
-		// Store start =======================================
 		LOG_INF("do store\n");
 		ret = ois_i2c_wr_u16(client, 0x7015, 0x0002);
 		I2C_OPERATION_CHECK(ret);
@@ -552,9 +491,7 @@ static int dw9781d_init(struct dw9781d_device *dw9781d)
 		ret = ois_i2c_wr_u16(client, 0x7010, 0x8000);
 		I2C_OPERATION_CHECK(ret);
 		mdelay(200);
-		// Store end =======================================
 
-		// OIS RESET
 		LOG_INF("do reset\n");
 		ret = ois_i2c_wr_u16(client, DW9781D_REG_OIS_LOGIC_RESET, ON);
 		I2C_OPERATION_CHECK(ret);
@@ -566,24 +503,20 @@ static int dw9781d_init(struct dw9781d_device *dw9781d)
 		mdelay(10);
 	}
 
-	// set pantilt limit, (1100 is equal to 1.1 degree)
 	ret = ois_i2c_wr_u16(client, DW9781D_REG_OIS_PANTILT_DERGEEX, 1100);
 	I2C_OPERATION_CHECK(ret);
 	mdelay(1);
 	ret = ois_i2c_wr_u16(client, DW9781D_REG_OIS_PANTILT_DERGEEY, 1100);
 	I2C_OPERATION_CHECK(ret);
 	mdelay(1);
-	// set gyro select ICM42631_AUX2
 	ret = ois_i2c_wr_u16(client, DW9781D_REG_IMU_SELECT, ICM42631_AUX2);
 	I2C_OPERATION_CHECK(ret);
 	mdelay(1);
 
-	// open gyro data reading
 	ret = ois_i2c_wr_u16(client, DW9781D_REG_GYRO_INIT, 0x0000);
 	I2C_OPERATION_CHECK(ret);
 	usleep_range(1900, 2000);
 
-	// check is master or intercept
 	ret = ois_i2c_rd_u16(client, DW9781D_REG_GYRO_INIT, &i2c_readvalue);
 	LOG_INF("after open gyro data reading, REG_GYRO_INIT = 0x%x\n", i2c_readvalue);
 
@@ -591,14 +524,12 @@ static int dw9781d_init(struct dw9781d_device *dw9781d)
 		LOG_INF("The version doesn't match, so the OIS is locked");
 		fixmode(0, 0);
 	} else {
-		// set OIS ON/SERVO ON
 		ret = ois_i2c_wr_u16(client, DW9781D_REG_OIS_CTRL, OIS_ON);
 		ois_ctrl_data = OIS_ON;
 		I2C_OPERATION_CHECK(ret);
 		mdelay(1);
 	}
 
-	// set ois mode
 	ret = ois_i2c_wr_u16(client, DW9781D_REG_OIS_MODE, DW9781D_STILL_MODE);
 	I2C_OPERATION_CHECK(ret);
 	mdelay(1);
@@ -610,7 +541,6 @@ static int dw9781d_init(struct dw9781d_device *dw9781d)
 	return ret;
 }
 
-/* Power handling */
 static int dw9781d_power_off(struct dw9781d_device *dw9781d)
 {
 	int ret;
@@ -723,10 +653,6 @@ static int dw9781d_power_on(struct dw9781d_device *dw9781d)
 	if (ret < 0)
 		return ret;
 
-	/*
-	 * TODO(b/139784289): Confirm hardware requirements and adjust/remove
-	 * the delay.
-	 */
 	usleep_range(DW9781D_CTRL_DELAY_US, DW9781D_CTRL_DELAY_US + 100);
 
 	LOG_INF("-\n");
@@ -736,7 +662,6 @@ static int dw9781d_power_on(struct dw9781d_device *dw9781d)
 
 static int dw9781d_set_ctrl(struct v4l2_ctrl *ctrl)
 {
-	/* struct dw9781d_device *dw9781d = to_dw9781d_ois(ctrl); */
 
 	return 0;
 }
@@ -789,8 +714,6 @@ static long dw9781d_ops_core_ioctl(struct v4l2_subdev *sd, unsigned int cmd, voi
 
 		memset(&pos_info, 0, sizeof(struct OisInfo));
 
-		/* To Do */
-
 		if (copy_to_user((void *)info->p_ois_info, &pos_info, sizeof(pos_info)))
 			ret = -EFAULT;
 	}
@@ -817,13 +740,11 @@ static long dw9781d_ops_core_ioctl(struct v4l2_subdev *sd, unsigned int cmd, voi
 	return ret;
 }
 
-/* OIS Workqueue */
 static void ois_init_fx(struct work_struct *data)
 {
 	int err = 0;
 
 	LOG_INF("+\n");
-	// power on OIS pmic
 	err = dw9781d_power_on(g_dw9781d);
 	if (err < 0) {
 		LOG_INF("OIS power on fail!\n");
@@ -831,7 +752,6 @@ static void ois_init_fx(struct work_struct *data)
 		return;
 	}
 
-	// OIS init
 	err = dw9781d_init(g_dw9781d);
 	if (err < 0)
 		LOG_INF("OIS init fail!\n");
@@ -851,7 +771,6 @@ static int dw9781d_enable(struct hf_device *hfdev, int sensor_type, int en)
 
 	LOG_INF("id:%d en:%d\n", sensor_type, en);
 	if (en) {
-		/* OIS Workqueue */
 		if (ois_init_wq == NULL) {
 			ois_init_wq =
 				create_singlethread_workqueue("ois_init_work");
@@ -860,7 +779,6 @@ static int dw9781d_enable(struct hf_device *hfdev, int sensor_type, int en)
 				return -ENOMEM;
 			}
 
-			/* init work queue */
 			INIT_WORK(&ois_init_work, ois_init_fx);
 			ois_init_done = 0;
 			queue_work(ois_init_wq, &ois_init_work);
@@ -875,9 +793,7 @@ static int dw9781d_enable(struct hf_device *hfdev, int sensor_type, int en)
 			mdelay(1);
 			wait_loop--;
 		}
-		/* OIS Workqueue */
 		if (ois_init_wq) {
-			/* flush work queue */
 			flush_work(&ois_init_work);
 
 			flush_workqueue(ois_init_wq);
@@ -885,12 +801,10 @@ static int dw9781d_enable(struct hf_device *hfdev, int sensor_type, int en)
 			ois_init_wq = NULL;
 		}
 
-		// OIS uninit
 		err = dw9781d_release(dw9781d);
 		if (err < 0)
 			LOG_INF("dw9781d release failed!\n");
 
-		// power off OIS pmic
 		err = dw9781d_power_off(dw9781d);
 		if (err < 0) {
 			LOG_INF("OIS power on fail!\n");
@@ -958,10 +872,10 @@ static int dw9781d_sample(struct hf_device *hfdev)
 			target_x = (s16)((reg_val >> 16) & 0xffff);
 			target_y = (s16)(reg_val & 0xffff);
 
-			w0 = gyro_x * 1000 / 131 * 1000;	// ois gyro x
-			w1 = gyro_y * 1000 / 131 * 1000;	// ois gyro y
-			w2 = target_x * 1000000;		// target x
-			w3 = target_y * 1000000;		// target y
+			w0 = gyro_x * 1000 / 131 * 1000;
+			w1 = gyro_y * 1000 / 131 * 1000;
+			w2 = target_x * 1000000;
+			w3 = target_y * 1000000;
 		}
 		if (ois_log_dbg_en == 1) {
 			LOG_INF("Ts(%lld),  Gyro(%d/%d), Target(%d/%d), Lens position(%d/%d)\n",
@@ -987,13 +901,12 @@ static int dw9781d_sample(struct hf_device *hfdev)
 	hf_mgr_event.sensor_type = dw9781d->hf_dev.support_list[0].sensor_type;
 	hf_mgr_event.accurancy = SENSOR_ACCURANCY_HIGH;
 	hf_mgr_event.action = DATA_ACTION;
-	// unit transform, full scale is +-250dps, 65536/500=131(code/dps)
-	hf_mgr_event.word[0] = w0;		// ois gyro x
-	hf_mgr_event.word[1] = w1;		// ois gyro y
-	hf_mgr_event.word[2] = w2;		// target x
-	hf_mgr_event.word[3] = w3;		// target y
-	hf_mgr_event.word[4] = len_x * 1000000;	// HALL_X
-	hf_mgr_event.word[5] = len_y * 1000000;	// HALL_Y
+	hf_mgr_event.word[0] = w0;
+	hf_mgr_event.word[1] = w1;
+	hf_mgr_event.word[2] = w2;
+	hf_mgr_event.word[3] = w3;
+	hf_mgr_event.word[4] = len_x * 1000000;
+	hf_mgr_event.word[5] = len_y * 1000000;
 	manager->report(manager, &hf_mgr_event);
 	manager->complete(manager);
 
@@ -1016,7 +929,7 @@ static int dw9781d_custom_cmd(struct hf_device *hfdev, int sensor_type,
 			LOG_INF("unlock\n");
 #endif
 			dw_ois_mode = OIS_OISMODE;
-			ret = ois_i2c_wr_u16(m_client, DW9781D_REG_OIS_CTRL, OIS_ON); // OIS ON/SERVO ON
+			ret = ois_i2c_wr_u16(m_client, DW9781D_REG_OIS_CTRL, OIS_ON);
 			ois_ctrl_data = OIS_ON;
 			I2C_OPERATION_CHECK(ret);
 
@@ -1038,7 +951,6 @@ static int dw9781d_custom_cmd(struct hf_device *hfdev, int sensor_type,
 		if (dw_ois_mode != OIS_USERMODE)
 			break;
 
-		// manual control
 		LOG_INF("manual control, targetX (%d), targetY (%d)",
 			cust_cmd->data[0] >> 16,
 			cust_cmd->data[0] & 0xFFFF);
@@ -1055,7 +967,7 @@ static int dw9781d_custom_cmd(struct hf_device *hfdev, int sensor_type,
 			LOG_INF("unlock\n");
 #endif
 			dw_ois_mode = OIS_OISMODE;
-			ret = ois_i2c_wr_u16(m_client, DW9781D_REG_OIS_CTRL, OIS_ON); // OIS ON/SERVO ON
+			ret = ois_i2c_wr_u16(m_client, DW9781D_REG_OIS_CTRL, OIS_ON);
 			ois_ctrl_data = OIS_ON;
 			I2C_OPERATION_CHECK(ret);
 		} else {
@@ -1091,7 +1003,6 @@ static int dw9781d_custom_cmd(struct hf_device *hfdev, int sensor_type,
 static struct class *ois_class;
 static struct device *ois_device;
 static dev_t ois_devno;
-/* torch status sysfs */
 static ssize_t ois_debug_show(
 		struct device *dev, struct device_attribute *attr, char *buf)
 {
@@ -1159,7 +1070,6 @@ static void dw9781d_subdev_cleanup(struct dw9781d_device *dw9781d)
 static int dw9781d_init_controls(struct dw9781d_device *dw9781d)
 {
 	struct v4l2_ctrl_handler *hdl = &dw9781d->ctrls;
-	/* const struct v4l2_ctrl_ops *ops = &dw9781d_ois_ctrl_ops; */
 
 	v4l2_ctrl_handler_init(hdl, 1);
 
@@ -1231,7 +1141,6 @@ static int dw9781d_probe(struct i2c_client *client)
 	client->addr = (DW9781OIS_I2C_SLAVE_ADDR) >> 1;
 	m_client = client;
 
-	// hf manager porting
 	dw9781d->hf_dev.dev_name = DW9781D_NAME;
 	dw9781d->hf_dev.device_poll = HF_DEVICE_IO_POLLING;
 	dw9781d->hf_dev.device_bus = HF_DEVICE_IO_SYNC;
@@ -1273,7 +1182,6 @@ static int dw9781d_probe(struct i2c_client *client)
 
 	g_dw9781d = dw9781d;
 
-	/* create class */
 	ois_class = class_create(THIS_MODULE, DW9781D_NAME);
 	if (IS_ERR(ois_class)) {
 		pr_info("Failed to create class (%d)\n",
@@ -1281,7 +1189,6 @@ static int dw9781d_probe(struct i2c_client *client)
 		goto err_create_ois_class;
 	}
 
-	/* create device */
 	ois_device =
 	    device_create(ois_class, NULL, ois_devno,
 				NULL, DW9781D_NAME);

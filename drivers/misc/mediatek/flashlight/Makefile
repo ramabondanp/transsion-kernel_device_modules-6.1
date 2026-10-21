@@ -1,7 +1,6 @@
 #
 # Makefile for the kernel flashlight device drivers.
 #
-
 flashlight-y := flashlight-core.o
 flashlight-y += flashlight-device.o
 
@@ -24,8 +23,11 @@ ccflags-$(CONFIG_MTK_FLASHLIGHT_DEBUG)     := -DDEBUG
 ccflags-$(CONFIG_MTK_FLASHLIGHT_PT)        += -DCONFIG_MTK_FLASHLIGHT_PT
 ccflags-$(CONFIG_MTK_FLASHLIGHT_PT_STRICT) += -DCONFIG_MTK_FLASHLIGHT_PT_STRICT
 ccflags-$(CONFIG_MTK_FLASHLIGHT_DLPT)      += -DCONFIG_MTK_FLASHLIGHT_DLPT
+ccflags-$(CONFIG_MTK_FLASHLIGHT_TWO_SUPPLY)        += -DCONFIG_MTK_FLASHLIGHT_TWO_SUPPLY
 
 MTK_CUSTOM_PATH := $(DEVICE_MODULES_PATH)/drivers/misc/mediatek
+subdir-ccflags-y += \
+	-I$(DEVICE_MODULES_PATH)/drivers/thermal/mediatek
 
 ifeq ($(CONFIG_MTK_FLASHLIGHT_AW3644),y)
 ccflags-y += -DCONFIG_MTK_FLASHLIGHT_AW3644

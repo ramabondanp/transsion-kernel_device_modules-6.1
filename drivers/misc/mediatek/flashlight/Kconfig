@@ -192,3 +192,13 @@ config MTK_FLASHLIGHT_DLPT
 	  the current of battary dynamicly. It will start by request
 	  and notice user by kernel notifier.
 
+config MTK_FLASHLIGHT_TWO_SUPPLY
+	bool "Mediatek flashlight two suppply"
+	depends on MTK_FLASHLIGHT
+	help
+	  This is for flashlight two suppply.
+
+	  Power throttling will limit flashlight function,
+	  such as disable flashlight, decrease brightness level or
+	  change flash mode to torch mode.
+

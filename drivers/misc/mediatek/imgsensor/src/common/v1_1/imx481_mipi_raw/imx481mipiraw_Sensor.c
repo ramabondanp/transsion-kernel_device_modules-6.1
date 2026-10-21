@@ -1317,8 +1317,7 @@ static kal_uint32 set_test_pattern_mode(kal_uint32 modes,
 			write_cmos_sensor(0x0608, (Color_Gb >> 8) & 0x3);
 			write_cmos_sensor(0x0609, Color_Gb & 0xFF);
 		}
-	}
-	else
+	} else
 		write_cmos_sensor(0x0601, 0x00); /*No pattern*/
 
 	spin_lock(&imgsensor_drv_lock);
@@ -2073,7 +2072,6 @@ static kal_uint32 imx481_awb_gain(struct SET_SENSOR_AWB_GAIN *pSetSensorAWB)
 {
 	UINT32 rgain_32, grgain_32, gbgain_32, bgain_32;
 
-	pr_debug("%s\n", __func__);
 
 	grgain_32 = (pSetSensorAWB->ABS_GAIN_GR << 8) >> 9;
 	rgain_32 = (pSetSensorAWB->ABS_GAIN_R << 8) >> 9;

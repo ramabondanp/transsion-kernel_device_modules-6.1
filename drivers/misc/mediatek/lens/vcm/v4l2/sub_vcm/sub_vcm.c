@@ -299,6 +299,9 @@ static int sub_vcm_init(struct sub_vcm_device *sub_vcm)
 	LOG_INF("+\n");
 
 	client->addr = g_vcmconfig.slave_addr >> 1;
+	#if defined(TRAN_CM7)
+	msleep(12);
+	#endif
 
 	register_setting(client, g_vcmconfig.wr_table, 16);
 

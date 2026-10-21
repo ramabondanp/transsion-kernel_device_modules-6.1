@@ -14,7 +14,7 @@
  * @param data Buffer
  * @return size of data
  */
-unsigned int read_s5k3m5sx_LRC(BYTE *data);
+unsigned int read_s5k3m5sx_LRC(BYTE * data);
 
 /*
  * DCC

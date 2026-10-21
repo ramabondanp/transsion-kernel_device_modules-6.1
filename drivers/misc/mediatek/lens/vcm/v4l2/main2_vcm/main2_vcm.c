@@ -18,7 +18,7 @@
 	pr_info(DRIVER_NAME " [%s] " format, __func__, ##args)
 
 #define MAIN2_VCM_NAME				"main2_vcm"
-#define MAIN2_VCM_MAX_FOCUS_POS			1023
+#define MAIN2_VCM_MAX_FOCUS_POS			4095
 /*
  * This sets the minimum granularity for the focus positions.
  * A value of 1 gives maximum accuracy for a desired focus position

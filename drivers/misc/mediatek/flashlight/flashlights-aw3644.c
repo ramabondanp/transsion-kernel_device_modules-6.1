@@ -353,7 +353,6 @@ static const unsigned char aw3644_strobe_level[30] = {
 #endif
 
 #else
-//ITD:modify CBQHLES-5 by quan.chang 181018 start
 static const int aw3644_current[AW3644_LEVEL_NUM] = {//y=25 + 50*x
 	25,   75,   125,  175,  225,  275,  325,  375,
 	425,  475,  525,  575,  625,  675,  725,  775,
@@ -384,7 +383,6 @@ static const unsigned char aw3644_strobe_level[AW3644_LEVEL_FLASH] = {
 static const int aw3644_led2_current[30] = {
 	70,   80
 };
-//ITD:modify CBQHLES-5 by quan.chang 181018 start
 #if defined(TRAN_X625) || defined(TRAN_X625D) || \
 	defined(TRAN_KB3) || defined(TRAN_KB8)
 static const unsigned char aw3644_led2_torch_level[30] = {
@@ -395,7 +393,6 @@ static const unsigned char aw3644_led2_torch_level[30] = {
 	0x17, 0x1B
 };
 #endif
-//ITD:modify CBQHLES-5 by quan.chang 181018 end
 static const unsigned char aw3644_led2_strobe_level[30] = {
 	0x2,  0x3
 };
@@ -677,14 +674,12 @@ static int aw3644_operate(int channel, int enable)
 		}
 
 		/* clear flashlight state */
-//ITD:modify KBSHLES-43 by quan.chang 180919 start
 		if ((aw3644_keepstate_decouple_mode == 0)
 				|| (channel != AW3644_CHANNEL_CH1))
 			aw3644_en_ch1 = AW3644_NONE;
 		if ((aw3644_keepstate_decouple_mode == 0)
 				|| (channel != AW3644_CHANNEL_CH2))
 			aw3644_en_ch2 = AW3644_NONE;
-//ITD:modify KBSHLES-43 by quan.chang 180919 end
 	}
 
 	return 0;

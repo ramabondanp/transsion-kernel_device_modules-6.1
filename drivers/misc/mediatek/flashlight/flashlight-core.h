@@ -115,6 +115,7 @@ struct flashlight_dev {
 	int sw_disable_status;
 	int torch_status;
 	unsigned int cur_mW;
+	int fault;
 };
 
 /* device arguments */
@@ -164,6 +165,7 @@ void flashlight_kicker_pbm_by_device_id(
 		struct flashlight_device_id *dev_id,
 		unsigned int cur_mW);
 #endif
-
+extern int debug_mask;
+#define PR_INFO(cond,...) do{if (cond ) {pr_info(__VA_ARGS__);}}while(0)
 #endif /* _FLASHLIGHT_CORE_H */
 

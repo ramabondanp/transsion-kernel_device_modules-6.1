@@ -21,3 +21,21 @@ config MTK_V4L2_CAM_CAL
 	  on ProjectConfig. The kernel space for EEPROM will be build.
 	  It may be like as "/dev/camera_eeprom0".
 	  User space code will control the driver by open and read this one.
+
+config CUSTOM_TRAN_PCBA
+    string "CUSTOM_TRAN_PCBA"
+       help
+              Kernel space PCBA version.
+config CUSTOM_TRAN_PROJECT
+    string "CUSTOM_TRAN_PROJECT"
+       help
+              Kernel space tran project.
+config CUSTOM_TRAN_CAM_MATERIAL_CODE
+    string "CUSTOM_TRAN_CAM_MATERIAL_CODE"
+    help
+    Kernel space image sensor material code. Define project used all image
+    sensors material code.
+config TRAN_SHUBOIS
+	bool "sensorHub OIS support"
+	help
+	  Kernel space sensorHub OIS support.
