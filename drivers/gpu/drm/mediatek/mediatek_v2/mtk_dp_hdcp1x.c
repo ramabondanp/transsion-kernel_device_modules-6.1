@@ -69,8 +69,6 @@ void mdrv_DPTx_HDCP1X_SetStartAuth(struct mtk_dp *mtk_dp, bool bEnable)
 		mtk_dp->info.hdcp1x_info.MainStates = HDCP1X_MainState_H2;
 		mtk_dp->info.hdcp1x_info.SubStates = HDCP1X_SubFSM_IDLE;
 		tee_hdcp_enableEncrypt(false, HDCP_NONE);
-		//HDCP1.x test case 13
-		mdelay(30);
 		mhal_DPTx_HDCP1X_StartCipher(mtk_dp, false);
 		tee_hdcp1x_softRst();
 	}
@@ -153,8 +151,6 @@ bool mdrv_DPTx_HDCP1X_Init(struct mtk_dp *mtk_dp)
 	mtk_dp->info.hdcp1x_info.ubDEVICE_COUNT = 0x00;
 
 	tee_hdcp_enableEncrypt(false, HDCP_NONE);
-	//HDCP1.x test case 13
-	mdelay(30);
 	mhal_DPTx_HDCP1X_StartCipher(mtk_dp, false);
 	tee_hdcp1x_softRst();
 
@@ -437,8 +433,6 @@ void mdrv_DPTx_HDCP1X_FSM(struct mtk_dp *mtk_dp)
 			break;
 		case HDCP1X_SubFSM_AuthFail:
 			tee_hdcp_enableEncrypt(false, HDCP_NONE);
-			//HDCP1.x test case 13
-			mdelay(30);
 			DPTXMSG("HDCP1.3 Authentication Fail\n");
 			mtk_dp->info.bAuthStatus = AUTH_FAIL;
 			mtk_dp->info.hdcp1x_info.MainStates
@@ -663,11 +657,8 @@ void mdrv_DPTx_HDCP1X_FSM(struct mtk_dp *mtk_dp)
 						= HDCP1X_MainState_A4;
 				mtk_dp->info.hdcp1x_info.SubStates
 						= HDCP1X_SubFSM_AuthDone;
-			} else {
-				if (mtk_dp->info.hdcp1x_info.uRetryCount++
-				> HDCP1X_REAUNTH_COUNT - 1)
-					mdrv_DPTx_HDCP1X_StateRst(mtk_dp);
-			}
+			} else
+				mdrv_DPTx_HDCP1X_StateRst(mtk_dp);
 
 			break;
 

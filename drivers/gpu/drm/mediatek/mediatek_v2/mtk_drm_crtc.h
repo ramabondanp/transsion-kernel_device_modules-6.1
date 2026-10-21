@@ -39,7 +39,7 @@
 #define RDMA_LAYER_NR 1UL
 #define EXTERNAL_INPUT_LAYER_NR 2UL
 #define MEMORY_INPUT_LAYER_NR 2UL
-#define SP_INPUT_LAYER_NR 10UL
+#define SP_INPUT_LAYER_NR 2UL
 #define MAX_PLANE_NR                                                           \
 	((OVL_LAYER_NR) + (EXTERNAL_INPUT_LAYER_NR) + (MEMORY_INPUT_LAYER_NR) + (SP_INPUT_LAYER_NR))
 #define MTK_PLANE_INPUT_LAYER_COUNT (OVL_LAYER_NR)
@@ -53,8 +53,6 @@
 #define PRIMARY_OVL_PHY_LAYER_NR 6L
 
 #define PRIMARY_OVL_EXT_LAYER_NR 6L
-
-#define EXTERNAL_OVL_EXT_LAYER_NR 6L
 
 #define SPR_TYPE_FENCE_MAX 5
 
@@ -494,6 +492,13 @@ enum MTK_CRTC_PROP {
 #define USER_SCEN_SKIP_PANEL_SWITCH (BIT(1))
 #define USER_SCEN_SAME_POWER_MODE (BIT(2))
 
+
+enum disp_hrt_usage {
+	DISP_DISABLE,
+	DISP_ENABLE,
+	DISP_OPENING,
+};
+
 enum MTK_CRTC_COLOR_FMT {
 	CRTC_COLOR_FMT_UNKNOWN = 0,
 	CRTC_COLOR_FMT_Y8 = MAKE_CRTC_COLOR_FMT(0, 8, 0, 0, 7, 0, 0, 1),
@@ -581,6 +586,7 @@ enum CRTC_GCE_EVENT_TYPE {
 	EVENT_WDMA1_EOF,
 	EVENT_STREAM_BLOCK,
 	EVENT_CABC_EOF,
+	EVENT_VDO_CABC_EOF,
 	EVENT_DSI_SOF,
 	/*Msync 2.0*/
 	EVENT_SYNC_TOKEN_VFP_PERIOD,
@@ -899,6 +905,8 @@ struct pq_common_data {
 	atomic_t wake_ref;
 	struct wakeup_source *wake_lock;
 	char *wake_lock_name;
+	wait_queue_head_t cfg_done_wq;
+	atomic_t cfg_done;
 };
 
 struct mtk_vblank_config_rec {
@@ -958,6 +966,7 @@ struct mtk_drm_crtc {
 	unsigned int layer_nr;
 	bool pending_planes;
 	unsigned int ovl_usage_status;
+	enum disp_hrt_usage cur_usage;
 	void __iomem *ovlsys0_regs;
 	resource_size_t ovlsys0_regs_pa;
 	void __iomem *ovlsys1_regs;
@@ -1374,6 +1383,7 @@ unsigned int mtk_drm_dump_wk_lock(struct mtk_drm_private *priv,
 char *mtk_crtc_index_spy(int crtc_index);
 bool mtk_drm_get_hdr_property(void);
 int mtk_drm_aod_setbacklight(struct drm_crtc *crtc, unsigned int level);
+int mtk_drm_aod_setbacklight_atomic(struct drm_crtc *crtc, unsigned int level);
 int mtk_drm_aod_scp_get_dsi_ulps_wakeup_prd(struct drm_crtc *crtc);
 
 int get_comp_wait_event(struct mtk_drm_crtc *mtk_crtc,
@@ -1526,6 +1536,6 @@ void mtk_crtc_addon_connector_rst(struct drm_crtc *crtc, struct cmdq_pkt *cmdq_h
 void mtk_crtc_default_path_rst(struct drm_crtc *crtc, struct cmdq_pkt *cmdq_handle);
 void mtk_crtc_rst_module(struct drm_crtc *crtc);
 void mtk_crtc_init_hrt_usage(struct drm_crtc *crtc);
-
+void mml_cmdq_pkt_init(struct drm_crtc *crtc, struct cmdq_pkt *cmdq_handle);
 
 #endif /* MTK_DRM_CRTC_H */

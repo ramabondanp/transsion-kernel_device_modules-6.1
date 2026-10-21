@@ -166,7 +166,7 @@ static char *debug_buffer;
 static bool logger_enable = 1;
 unsigned int g_trace_log = 1;
 #else
-static bool logger_enable;
+static bool logger_enable = 1;
 unsigned int g_trace_log;
 #endif
 
@@ -530,9 +530,21 @@ int __mtkfb_set_backlight_level(unsigned int level, unsigned int panel_ext_param
 	}
 	if (group == true)
 		ret = mtk_drm_setbacklight_grp(crtc, level, panel_ext_param, cfg_flag);
-	else
-		ret = mtk_drm_setbacklight(crtc, level, panel_ext_param, cfg_flag, 1);
-
+	else {
+		#if IS_ENABLED(CONFIG_TRANSSION_DOZE_BRIGHTNESS_SUPPORT)
+		if (drm_crtc_index(crtc) == 0) {
+			if (level == 0) {
+				ret = mtk_drm_setbacklight(crtc, level, panel_ext_param, cfg_flag, 1);
+			} else {
+				ret = mtk_drm_aod_setbacklight(crtc, level);
+				if (ret < 0)
+					ret = mtk_drm_setbacklight(crtc, level, panel_ext_param, cfg_flag, 1);
+			}
+		}
+		#else
+			ret = mtk_drm_setbacklight(crtc, level, panel_ext_param, cfg_flag, 1);
+		#endif
+	}
 	return ret;
 }
 
@@ -552,6 +564,7 @@ int mtk_drm_set_conn_backlight_level(unsigned int conn_id, unsigned int level,
 	struct mtk_drm_crtc *mtk_crtc;
 	struct mtk_dsi *mtk_dsi;
 	int ret = 0;
+	unsigned int crtc_idx, async_ctrl_flag = 0;
 
 	if (IS_ERR_OR_NULL(drm_dev)) {
 		DDPPR_ERR("%s, invalid drm dev\n", __func__);
@@ -564,6 +577,9 @@ int mtk_drm_set_conn_backlight_level(unsigned int conn_id, unsigned int level,
 		return -EINVAL;
 	}
 
+	if (mtk_drm_helper_get_opt(priv->helper_opt, MTK_DRM_OPT_ASYNC_CONN_PWR_CTRL))
+		async_ctrl_flag = 1;
+
 	/* connector obj ref count add 1 after lookup */
 	conn = drm_connector_lookup(drm_dev, NULL, conn_id);
 	if (IS_ERR_OR_NULL(conn)) {
@@ -573,6 +589,11 @@ int mtk_drm_set_conn_backlight_level(unsigned int conn_id, unsigned int level,
 
 	mtk_dsi = container_of(conn, struct mtk_dsi, conn);
 
+
+	/* due to DSI connector might attach to different CRTC in each atomic_commit */
+	/* it's risky utilizing macro check_and_try_commit_lock polling specific CRTC wound state */
+	/* need to check current crtc which DSI is attached to each time hold the mutex lock */
+TRY_COMMIT_LOCK:
 	DDP_COMMIT_LOCK(&priv->commit.lock, __func__, __LINE__);
 	mtk_crtc = mtk_dsi->ddp_comp.mtk_crtc;
 	crtc = (mtk_crtc) ? &mtk_crtc->base : NULL;
@@ -581,6 +602,15 @@ int mtk_drm_set_conn_backlight_level(unsigned int conn_id, unsigned int level,
 		DDPPR_ERR("%s, invalid crtc\n", __func__);
 		ret = -EINVAL;
 		goto out;
+	}
+
+	crtc_idx = drm_crtc_index(crtc);
+	if (async_ctrl_flag && crtc_idx < MAX_CRTC &&
+			atomic_read(&priv->need_wound_crtc[crtc_idx])) {
+		DDP_COMMIT_UNLOCK(&priv->commit.lock, __func__, __LINE__);
+		wait_event_interruptible(priv->wound_wq[crtc_idx],
+			atomic_read(&priv->need_wound_crtc[crtc_idx]) == 0);
+		goto TRY_COMMIT_LOCK;
 	}
 
 	ret = mtk_drm_setbacklight(crtc, level, panel_ext_param, cfg_flag, 1);
@@ -698,6 +728,7 @@ int mtk_drm_set_conn_aod_backlight_level(unsigned int conn_id,
 	struct mtk_drm_crtc *mtk_crtc;
 	struct mtk_dsi *mtk_dsi;
 	int ret = 0;
+	unsigned int crtc_idx, async_ctrl_flag = 0;
 
 	if (IS_ERR_OR_NULL(drm_dev)) {
 		DDPPR_ERR("%s, invalid drm dev\n", __func__);
@@ -710,6 +741,9 @@ int mtk_drm_set_conn_aod_backlight_level(unsigned int conn_id,
 		return -EINVAL;
 	}
 
+	if (mtk_drm_helper_get_opt(priv->helper_opt, MTK_DRM_OPT_ASYNC_CONN_PWR_CTRL))
+		async_ctrl_flag = 1;
+
 	/* connector obj ref count add 1 after lookup */
 	conn = drm_connector_lookup(drm_dev, NULL, conn_id);
 	if (IS_ERR_OR_NULL(conn)) {
@@ -719,6 +753,11 @@ int mtk_drm_set_conn_aod_backlight_level(unsigned int conn_id,
 
 	mtk_dsi = container_of(conn, struct mtk_dsi, conn);
 
+
+	/* due to DSI connector might attach to different CRTC in each atomic_commit */
+	/* it's risky utilizing macro check_and_try_commit_lock polling specific CRTC wound state */
+	/* need to check current crtc which DSI is attached to each time hold the mutex lock */
+TRY_COMMIT_LOCK:
 	DDP_COMMIT_LOCK(&priv->commit.lock, __func__, __LINE__);
 	mtk_crtc = mtk_dsi->ddp_comp.mtk_crtc;
 	crtc = (mtk_crtc) ? &mtk_crtc->base : NULL;
@@ -727,6 +766,15 @@ int mtk_drm_set_conn_aod_backlight_level(unsigned int conn_id,
 		DDPPR_ERR("%s, invalid crtc\n", __func__);
 		ret = -EINVAL;
 		goto out;
+	}
+
+	crtc_idx = drm_crtc_index(crtc);
+	if (async_ctrl_flag && crtc_idx < MAX_CRTC &&
+			atomic_read(&priv->need_wound_crtc[crtc_idx])) {
+		DDP_COMMIT_UNLOCK(&priv->commit.lock, __func__, __LINE__);
+		wait_event_interruptible(priv->wound_wq[crtc_idx],
+			atomic_read(&priv->need_wound_crtc[crtc_idx]) == 0);
+		goto TRY_COMMIT_LOCK;
 	}
 
 	ret = mtk_drm_aod_setbacklight(crtc, level);
@@ -1451,21 +1499,18 @@ int mtk_ddic_dsi_read_cmd(struct mtk_ddic_dsi_msg *cmd_msg)
 	private = crtc->dev->dev_private;
 	mtk_crtc = to_mtk_crtc(crtc);
 
-	DDP_COMMIT_LOCK(&private->commit.lock, __func__, __LINE__);
 	DDP_MUTEX_LOCK(&mtk_crtc->lock, __func__, __LINE__);
 
 	if (!mtk_crtc->enabled) {
 		DDPMSG("crtc%d disable skip %s\n",
 			drm_crtc_index(&mtk_crtc->base), __func__);
 		DDP_MUTEX_UNLOCK(&mtk_crtc->lock, __func__, __LINE__);
-		DDP_COMMIT_UNLOCK(&private->commit.lock, __func__, __LINE__);
 		CRTC_MMP_EVENT_END(index, ddic_read_cmd, 0, 1);
 		return -EINVAL;
 	} else if (mtk_crtc->ddp_mode == DDP_NO_USE) {
 		DDPMSG("skip %s, ddp_mode: NO_USE\n",
 			__func__);
 		DDP_MUTEX_UNLOCK(&mtk_crtc->lock, __func__, __LINE__);
-		DDP_COMMIT_UNLOCK(&private->commit.lock, __func__, __LINE__);
 		CRTC_MMP_EVENT_END(index, ddic_read_cmd, 0, 2);
 		return -EINVAL;
 	}
@@ -1474,7 +1519,6 @@ int mtk_ddic_dsi_read_cmd(struct mtk_ddic_dsi_msg *cmd_msg)
 	if (unlikely(!output_comp)) {
 		DDPPR_ERR("%s:invalid output comp\n", __func__);
 		DDP_MUTEX_UNLOCK(&mtk_crtc->lock, __func__, __LINE__);
-		DDP_COMMIT_UNLOCK(&private->commit.lock, __func__, __LINE__);
 		CRTC_MMP_EVENT_END(index, ddic_read_cmd, 0, 3);
 		return -EINVAL;
 	}
@@ -1495,7 +1539,6 @@ int mtk_ddic_dsi_read_cmd(struct mtk_ddic_dsi_msg *cmd_msg)
 
 	DDPMSG("%s -\n", __func__);
 	DDP_MUTEX_UNLOCK(&mtk_crtc->lock, __func__, __LINE__);
-	DDP_COMMIT_UNLOCK(&private->commit.lock, __func__, __LINE__);
 	CRTC_MMP_EVENT_END(index, ddic_read_cmd, (unsigned long)crtc, 4);
 
 	return ret;
@@ -1988,7 +2031,7 @@ int mtk_dprec_mmp_dump_cwb_buffer(struct drm_crtc *crtc,
 		__func__, gCaptureWDMAEn);
 	return -1;
 }
-
+#if !IS_ENABLED(CONFIG_TRANSSION_CWB_API_SUPPORT)
 static void user_copy_done_function(void *buffer,
 	enum CWB_BUFFER_TYPE type)
 {
@@ -2000,7 +2043,7 @@ static void user_copy_done_function(void *buffer,
 static const struct mtk_cwb_funcs user_cwb_funcs = {
 	.copy_done = user_copy_done_function,
 };
-
+#endif
 static void mtk_drm_cwb_info_init(struct drm_crtc *crtc)
 {
 	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
@@ -2011,8 +2054,7 @@ static void mtk_drm_cwb_info_init(struct drm_crtc *crtc)
 	if (!cwb_info) {
 		DDPPR_ERR("%s: cwb_info not found\n", __func__);
 		return;
-	} else if (!cwb_info->enable)
-		return;
+	}
 
 	cwb_info->count = 0;
 
@@ -2099,11 +2141,11 @@ bool mtk_drm_cwb_enable(int en,
 	cwb_info->type = type;
 
 	DDP_MUTEX_LOCK(&mtk_crtc->lock, __func__, __LINE__);
-	cwb_info->enable = en;
 	if (en)
 		mtk_drm_cwb_info_init(crtc);
 	else
 		DDPMSG("[capture] disable capture");
+	cwb_info->enable = en;
 	cwb_buffer_idx = 0;
 	cwb_output_index = 0;
 	DDP_MUTEX_UNLOCK(&mtk_crtc->lock, __func__, __LINE__);
@@ -2308,7 +2350,523 @@ bool mtk_drm_set_cwb_user_buf(void *user_buffer, enum CWB_BUFFER_TYPE type)
 
 	return true;
 }
+#if IS_ENABLED(CONFIG_TRANSSION_CWB_API_SUPPORT)
+//CWB API FOR Sensor V1.0
+#include "transsion_cwb.h"
+#define TRANSSION_CWB_NUM_MAX	4
+#define TRANSSION_CWB_WIDTH_MAX	128
+#define TRANSSION_CWB_HEIGHT_MAX	128
+#define TRANSSION_CWB_RGB_NUM	3
+#define TRANSSION_CWB_ROI_CHECK_THRESHOLD_HIGH	250
+#define TRANSSION_CWB_ROI_CHECK_THRESHOLD_LOW	5
+static unsigned char cwb_buffer[TRANSSION_CWB_WIDTH_MAX * TRANSSION_CWB_HEIGHT_MAX * TRANSSION_CWB_RGB_NUM];
+static Transsion_Disp_Cwb_Info cwb_info_head[TRANSSION_CWB_NUM_MAX] = {};
+//static Transsion_Disp_Cwb_Info cwb_info_round = {};
+u8 cwb_enable_index[2] = {0xFF, 0xFF};
+u8 current_rect = 0;
+u8 rect_count = 0;
+u8 cwb_roi_check_enable = 0;
+u8 cwb_roi_check_result = 0;
+u8 cwb_roi_check_threshold_high = TRANSSION_CWB_ROI_CHECK_THRESHOLD_HIGH;
+u8 cwb_roi_check_threshold_low = TRANSSION_CWB_ROI_CHECK_THRESHOLD_LOW;
+u8 frames_count = 0;
+struct mutex cwb_mutex;
+struct mutex cwb_rgb_mutex;
+static void user_copy_done_function(void *buffer, enum CWB_BUFFER_TYPE type);
+static void tran_get_buffer(void **buffer);
+static const struct mtk_cwb_funcs user_cwb_funcs = {
+	.copy_done = user_copy_done_function,
+	.get_buffer = tran_get_buffer,
+};
+static void tran_get_buffer(void **buffer)
+{
+	if (buffer == NULL)
+		return;
+	*buffer = (void *)cwb_buffer;
+	return;
+}
+static void transsion_cwb_get_rgb_with_sensor(void *buffer, enum CWB_BUFFER_TYPE type);
+static void transsion_cwb_get_rgb_default(void *buffer, enum CWB_BUFFER_TYPE type);
+static void user_copy_done_function(void *buffer, enum CWB_BUFFER_TYPE type)
+{
+	if ((cwb_info_head[cwb_enable_index[current_rect]].Lsensor_w != 0) && (cwb_info_head[cwb_enable_index[current_rect]].Lsensor_h != 0)) {
+		transsion_cwb_get_rgb_with_sensor(buffer, type);
+	} else {
+		transsion_cwb_get_rgb_default(buffer, type);
+	}
+}
 
+static void transsion_cwb_get_rgb_with_sensor(void *buffer, enum CWB_BUFFER_TYPE type)
+{
+	uint16_t start_x = cwb_info_head[cwb_enable_index[current_rect]].offset_x;
+	uint16_t end_x = start_x + cwb_info_head[cwb_enable_index[current_rect]].clip_w;
+	uint16_t start_y = cwb_info_head[cwb_enable_index[current_rect]].offset_y;
+	uint16_t end_y = start_y + cwb_info_head[cwb_enable_index[current_rect]].clip_h;
+	uint16_t sensor_start_x = cwb_info_head[cwb_enable_index[current_rect]].Lsensor_x;
+	uint16_t sensor_end_x = sensor_start_x + cwb_info_head[cwb_enable_index[current_rect]].Lsensor_w;
+	uint16_t sensor_start_y = cwb_info_head[cwb_enable_index[current_rect]].Lsensor_y;
+	uint16_t sensor_end_y = sensor_start_y + cwb_info_head[cwb_enable_index[current_rect]].Lsensor_h;
+
+	uint32_t in_rgb[3] = {0};
+	uint32_t out_rgb[3] = {0};
+	uint32_t temp = 0;
+	uint32_t in_count = 0;
+	uint32_t out_count = 0;
+	uint8_t red = 0, green = 0, blue = 0;
+	u8 current_w = cwb_info_head[cwb_enable_index[current_rect]].clip_w;
+
+	if ((start_x > sensor_start_x) || (end_x < sensor_end_x)
+	  || (start_y > sensor_start_y) || (end_y < sensor_end_y)) {
+		DDPPR_ERR("[transsion_cwb] image szie or sensor size error!\n");
+		return ;
+	}
+
+	for (uint16_t x = start_x; x < end_x; x++) {
+		for (uint16_t y = start_y; y < end_y; y++) {
+			if ((x >= sensor_start_x) && (x <= sensor_end_x) && (y >= sensor_start_y) && (y <= sensor_end_y)) {
+				in_count = in_count + 1;
+				in_rgb[0] = in_rgb[0] + (*((u8 *)buffer + 3 * ((y - start_y) * current_w + (x - start_x))));
+				in_rgb[1] = in_rgb[1] + (*((u8 *)buffer + 3 * ((y - start_y) * current_w + (x - start_x)) + 1));
+				in_rgb[2] = in_rgb[2] + (*((u8 *)buffer + 3 * ((y - start_y) * current_w + (x - start_x)) + 2));
+			} else {
+				out_count = out_count + 1;
+				out_rgb[0] = out_rgb[0] + (*((u8 *)buffer + 3 * ((y - start_y) * current_w + (x - start_x))));
+				out_rgb[1] = out_rgb[1] + (*((u8 *)buffer + 3 * ((y - start_y) * current_w + (x - start_x)) + 1));
+				out_rgb[2] = out_rgb[2] + (*((u8 *)buffer + 3 * ((y - start_y) * current_w + (x - start_x)) + 2));
+			}
+		}
+	}
+
+	DDPINFO("in_count %d, B %d, G %d, R %d", in_count, in_rgb[0], in_rgb[1], in_rgb[2]);
+	DDPINFO("out_count %d, B %d, G %d, R %d", out_count, out_rgb[0], out_rgb[1], out_rgb[2]);
+
+	if (cwb_info_head[cwb_enable_index[current_rect]].ratio_in == 0
+	   || cwb_info_head[cwb_enable_index[current_rect]].ratio_out == 0) {
+		DDPPR_ERR("[transsion_cwb] sensor in/out value error!\n");
+		return ;
+	}
+	temp = (in_rgb[0] * cwb_info_head[cwb_enable_index[current_rect]].ratio_in / in_count + out_rgb[0] * cwb_info_head[cwb_enable_index[current_rect]].ratio_out / out_count) / 100;
+	blue = temp;
+
+	temp = (in_rgb[1] * cwb_info_head[cwb_enable_index[current_rect]].ratio_in / in_count + out_rgb[1] * cwb_info_head[cwb_enable_index[current_rect]].ratio_out / out_count) / 100;
+	green = temp;
+
+	temp = (in_rgb[2] * cwb_info_head[cwb_enable_index[current_rect]].ratio_in / in_count + out_rgb[2] * cwb_info_head[cwb_enable_index[current_rect]].ratio_out / out_count) / 100;
+	red = temp;
+	DDP_MUTEX_LOCK(&cwb_rgb_mutex, __func__, __LINE__);
+	cwb_info_head[cwb_enable_index[current_rect]].r_avg = red;
+	cwb_info_head[cwb_enable_index[current_rect]].g_avg = green;
+	cwb_info_head[cwb_enable_index[current_rect]].b_avg = blue;
+	DDP_MUTEX_UNLOCK(&cwb_rgb_mutex, __func__, __LINE__);
+
+	memset(cwb_buffer, 0, sizeof(cwb_buffer));
+	DDPINFO("[transsion_cwb]%s: buffer_done:%d|%d, RGB:[%d,%d,%d]\n", __func__,
+			current_rect, cwb_enable_index[current_rect],
+			cwb_info_head[cwb_enable_index[current_rect]].r_avg,
+			cwb_info_head[cwb_enable_index[current_rect]].g_avg,
+			cwb_info_head[cwb_enable_index[current_rect]].b_avg);
+}
+
+static void transsion_cwb_get_rgb_default(void *buffer, enum CWB_BUFFER_TYPE type)
+{
+	unsigned int i,j;
+	unsigned int R = 0, G = 0, B = 0, pixel_count = 0;
+	unsigned int R_r = 0, G_r = 0, B_r = 0, pixel_count_r = 0;
+	u16 x1 = 0, y1 = 0, x2 = 0, y2 = 0;
+	u8 current_w, current_h;
+	unsigned char R_tmp,G_tmp,B_tmp;
+	struct mtk_rect rect;
+	struct drm_crtc *crtc;
+	struct mtk_drm_crtc *mtk_crtc;
+
+	//R = G = B = pixel_count = 0;
+	/* this debug cmd only for crtc0 */
+	crtc = list_first_entry(&(drm_dev)->mode_config.crtc_list,
+				typeof(*crtc), head);
+	if (!crtc) {
+		DDPPR_ERR("[transsion_cwb]find crtc fail\n");
+		return;
+	}
+	mtk_crtc = to_mtk_crtc(crtc);
+
+	pixel_count = cwb_info_head[cwb_enable_index[current_rect]].clip_w * cwb_info_head[cwb_enable_index[current_rect]].clip_h;
+	if (cwb_info_head[cwb_enable_index[current_rect]].ring_enable)
+	{
+		current_w = cwb_info_head[cwb_enable_index[current_rect]].clip_w_r;
+		current_h = cwb_info_head[cwb_enable_index[current_rect]].clip_h_r;
+		x1 = cwb_info_head[cwb_enable_index[current_rect]].offset_x - cwb_info_head[cwb_enable_index[current_rect]].offset_x_r;
+		y1 = cwb_info_head[cwb_enable_index[current_rect]].offset_y - cwb_info_head[cwb_enable_index[current_rect]].offset_y_r;
+		x2 = x1 + cwb_info_head[cwb_enable_index[current_rect]].clip_w;
+		y2 = y1 + cwb_info_head[cwb_enable_index[current_rect]].clip_h;
+		pixel_count_r =cwb_info_head[cwb_enable_index[current_rect]].clip_w_r * cwb_info_head[cwb_enable_index[current_rect]].clip_h_r;
+		DDPINFO("[transsion_cwb]%s: round:[%d-%d-%d-%d]\n", __func__, x1, y1, x2, y2);
+	}
+	else
+	{
+		current_w = cwb_info_head[cwb_enable_index[current_rect]].clip_w;
+		current_h = cwb_info_head[cwb_enable_index[current_rect]].clip_h;
+	}
+	DDPINFO("[transsion_cwb]%s: I get buffer:0x%x, pixel_count:%d, type:%d, check_en:%d\n",
+			__func__, *(u8 *)buffer, pixel_count, type, cwb_roi_check_enable);
+
+	for (j=0; j<current_h; j++)
+	{
+		if ((j >= y1) && (j < y2))
+		{
+			for (i=0; i<current_w; i++)
+			{
+				R_tmp = *((u8 *)buffer + (j * current_w + i)*3 + 2);
+				G_tmp = *((u8 *)buffer + (j * current_w + i)*3 + 1);
+				B_tmp = *((u8 *)buffer + (j * current_w + i)*3);
+				B += B_tmp;
+				G += G_tmp;
+				R += R_tmp;
+				//pixel_count++;
+				if ((i >= x1) && (i < x2))
+				{
+					R_r += R_tmp;
+					G_r += G_tmp;
+					B_r += B_tmp;
+				}
+			}
+		}
+		else
+		{
+			for (i=0; i<current_w; i++)
+			{
+				R_tmp = *((u8 *)buffer + (j * current_w + i)*3 + 2);
+				G_tmp = *((u8 *)buffer + (j * current_w + i)*3 + 1);
+				B_tmp = *((u8 *)buffer + (j * current_w + i)*3);
+				B += B_tmp;
+				G += G_tmp;
+				R += R_tmp;
+			}
+		}
+		if (cwb_roi_check_enable)
+		{
+			DDPMSG("[transsion_cwb]Check : sensor_id[%d]pixel_index[%d]R[%d]G[%d]B[%d]\n", cwb_info_head[cwb_enable_index[current_rect]].sensor_id, i, R_tmp, G_tmp, B_tmp);
+			if ((R_tmp < cwb_roi_check_threshold_high) || (G_tmp > cwb_roi_check_threshold_low) || (B_tmp > cwb_roi_check_threshold_low))
+			{
+				DDPPR_ERR("[transsion_cwb]Check Error! sensor_id[%d]pixel_index[%d]R[%d]G[%d]B[%d]\n", cwb_info_head[cwb_enable_index[current_rect]].sensor_id, i, R_tmp, G_tmp, B_tmp);
+				cwb_roi_check_enable = 0;
+				cwb_roi_check_result = 0;
+			}
+		}
+	}
+
+	DDP_MUTEX_LOCK(&cwb_rgb_mutex, __func__, __LINE__);
+	if (cwb_info_head[cwb_enable_index[current_rect]].ring_enable)
+	{
+		cwb_info_head[cwb_enable_index[current_rect]].r_avg = R_r / pixel_count;
+		cwb_info_head[cwb_enable_index[current_rect]].g_avg = G_r / pixel_count;
+		cwb_info_head[cwb_enable_index[current_rect]].b_avg = B_r / pixel_count;
+		cwb_info_head[cwb_enable_index[current_rect]].r_avg_r = (R - R_r) / (pixel_count_r - pixel_count);
+		cwb_info_head[cwb_enable_index[current_rect]].g_avg_r = (G - G_r) / (pixel_count_r - pixel_count);
+		cwb_info_head[cwb_enable_index[current_rect]].b_avg_r = (B - B_r) / (pixel_count_r - pixel_count);
+		DDPINFO("[transsion_cwb]ring:[%d-%d-%d][%d-%d-%d][%d-%d]", R_r, G_r,B_r,R, G, B, pixel_count, pixel_count_r);
+	}
+	else
+	{
+		cwb_info_head[cwb_enable_index[current_rect]].r_avg = R / pixel_count;
+		cwb_info_head[cwb_enable_index[current_rect]].g_avg = G / pixel_count;
+		cwb_info_head[cwb_enable_index[current_rect]].b_avg = B / pixel_count;
+	}
+	DDP_MUTEX_UNLOCK(&cwb_rgb_mutex, __func__, __LINE__);
+	if (cwb_info_head[cwb_enable_index[current_rect]].ring_enable)
+		DDPINFO("[transsion_cwb]%s: buffer_done:%d|%d, RGB:[%d,%d,%d]RGB_R:[%d,%d,%d]\n", __func__, current_rect, cwb_enable_index[current_rect], cwb_info_head[cwb_enable_index[current_rect]].r_avg, cwb_info_head[cwb_enable_index[current_rect]].g_avg, cwb_info_head[cwb_enable_index[current_rect]].b_avg,
+		cwb_info_head[cwb_enable_index[current_rect]].r_avg_r, cwb_info_head[cwb_enable_index[current_rect]].g_avg_r, cwb_info_head[cwb_enable_index[current_rect]].b_avg_r);
+	else
+		DDPINFO("[transsion_cwb]%s: buffer_done:%d|%d, RGB:[%d,%d,%d]\n", __func__, current_rect, cwb_enable_index[current_rect], cwb_info_head[cwb_enable_index[current_rect]].r_avg, cwb_info_head[cwb_enable_index[current_rect]].g_avg, cwb_info_head[cwb_enable_index[current_rect]].b_avg);
+	//DDPMSG("[transsion_cwb]%s: round RGB:[%d,%d,%d]count[%d|%d]\n", __func__, cwb_info_round.r_avg, cwb_info_round.g_avg, cwb_info_round.b_avg, R1, cwb_info_round.clip_w * cwb_info_round.clip_h);
+
+	if (rect_count > 1)
+	{
+		current_rect++;
+		current_rect &= 0x01;
+		if (cwb_info_head[cwb_enable_index[current_rect]].ring_enable)
+		{
+			rect.x = cwb_info_head[cwb_enable_index[current_rect]].offset_x_r;
+			rect.y = cwb_info_head[cwb_enable_index[current_rect]].offset_y_r;
+			rect.width = cwb_info_head[cwb_enable_index[current_rect]].clip_w_r;
+			rect.height = cwb_info_head[cwb_enable_index[current_rect]].clip_h_r;
+		}
+		else
+		{
+			rect.x = cwb_info_head[cwb_enable_index[current_rect]].offset_x;
+			rect.y = cwb_info_head[cwb_enable_index[current_rect]].offset_y;
+			rect.width = cwb_info_head[cwb_enable_index[current_rect]].clip_w;
+			rect.height = cwb_info_head[cwb_enable_index[current_rect]].clip_h;
+		}
+		mtk_drm_cwb_enable(0, &user_cwb_funcs, IMAGE_ONLY);
+		msleep(50);
+		mtk_drm_set_cwb_roi(rect);
+		mtk_drm_cwb_enable(1, &user_cwb_funcs, IMAGE_ONLY);
+	}
+	memset(cwb_buffer, 0, sizeof(cwb_buffer));
+
+}
+
+void transsion_cwb_init(void)
+{
+	u8 i;
+	memset(cwb_info_head, 0, sizeof(cwb_info_head));
+	for (i=0; i<TRANSSION_CWB_NUM_MAX; i++)
+	{
+		cwb_info_head[i].sensor_id = 0xFF;
+		cwb_info_head[i].lcm_id = 0xFF;
+		cwb_info_head[i].ring_enable = false;
+	}
+	mutex_init(&cwb_mutex);
+	mutex_init(&cwb_rgb_mutex);
+}
+EXPORT_SYMBOL(transsion_cwb_init);
+
+void transsion_get_cwb_rgb_info(Transsion_CWB_Sensor_Info *rgb_buf)
+{
+	u8 i;
+	struct drm_crtc *crtc;
+	struct mtk_drm_crtc *mtk_crtc;
+	if (rgb_buf == NULL)
+		return;
+	/* this debug cmd only for crtc0 */
+	crtc = list_first_entry(&(drm_dev)->mode_config.crtc_list,
+				typeof(*crtc), head);
+	if (!crtc) {
+		DDPPR_ERR("[transsion_cwb]find crtc fail\n");
+		return;
+	}
+	mtk_crtc = to_mtk_crtc(crtc);
+	DDP_MUTEX_LOCK(&cwb_rgb_mutex, __func__, __LINE__);
+	for (i=0; i<TRANSSION_CWB_NUM_MAX; i++)
+	{
+		rgb_buf[i].sensor_id = cwb_info_head[i].sensor_id;
+		rgb_buf[i].r_avg = cwb_info_head[i].r_avg;
+		rgb_buf[i].g_avg  = cwb_info_head[i].g_avg;
+		rgb_buf[i].b_avg  = cwb_info_head[i].b_avg;
+		if (cwb_info_head[i].ring_enable)
+		{
+			rgb_buf[i].r_avg_r = cwb_info_head[i].r_avg_r;
+			rgb_buf[i].g_avg_r = cwb_info_head[i].g_avg_r;
+			rgb_buf[i].b_avg_r = cwb_info_head[i].b_avg_r;
+		}
+	}
+	DDP_MUTEX_UNLOCK(&cwb_rgb_mutex, __func__, __LINE__);
+	return;
+}
+EXPORT_SYMBOL(transsion_get_cwb_rgb_info);
+
+int transsion_cwb_registor(u8 lcm_id, u8 sensor_id, unsigned int offset_x, unsigned int offset_y, unsigned int clip_w, unsigned int clip_h,
+							unsigned int Lsensor_x, unsigned int Lsensor_y, unsigned int Lsensor_w, unsigned int Lsensor_h,
+							unsigned int ratio_in, unsigned int ratio_out)
+{
+	u8 i;
+	for (i=0; i<TRANSSION_CWB_NUM_MAX; i++)
+	{
+		if (cwb_info_head[i].sensor_id != 0xFF)
+			continue;
+		cwb_info_head[i].sensor_id = sensor_id;
+		cwb_info_head[i].lcm_id = lcm_id;
+		cwb_info_head[i].offset_x = offset_x;
+		cwb_info_head[i].offset_y = offset_y;
+		cwb_info_head[i].clip_w = clip_w;
+		cwb_info_head[i].clip_h = clip_h;
+		cwb_info_head[i].Lsensor_x = Lsensor_x;
+		cwb_info_head[i].Lsensor_y = Lsensor_y;
+		cwb_info_head[i].Lsensor_w = Lsensor_w;
+		cwb_info_head[i].Lsensor_h = Lsensor_h;
+		cwb_info_head[i].ratio_in = ratio_in;
+		cwb_info_head[i].ratio_out = ratio_out;
+		DDPMSG("[transsion_cwb]registor: index:%d lcm_id:%d sensor_id:%d offset:[%d,%d|%d,%d], sendor_offset:[%d,%d|%d,%d], ratio[%d,%d]\n", i,
+		lcm_id, sensor_id, offset_x, offset_y, clip_w, clip_h, Lsensor_x, Lsensor_y, Lsensor_w, Lsensor_h,ratio_in, ratio_out);
+		break;
+	}
+
+	if (i >= TRANSSION_CWB_NUM_MAX)
+		return -1;
+	else
+		return 0;
+
+}
+EXPORT_SYMBOL(transsion_cwb_registor);
+void transsion_cwb_config_ring(u8 sensor_id, unsigned int  offset_x, unsigned int offset_y, unsigned int clip_w, unsigned int clip_h)
+{
+	u8 i;
+	for (i=0; i<TRANSSION_CWB_NUM_MAX; i++)
+	{
+		if (cwb_info_head[i].sensor_id == sensor_id)
+		{
+			if ((offset_x > cwb_info_head[i].offset_x)
+			|| (offset_y > cwb_info_head[i].offset_y)
+			|| (clip_w < cwb_info_head[i].clip_w)
+			|| (clip_h < cwb_info_head[i].clip_h))
+			{
+				DDPPR_ERR("[transsion_cwb]ring size error id:%d[%d-%d-%d-%d][%d-%d-%d-%d]!!!", sensor_id, offset_x, offset_y, clip_w, clip_h,
+				cwb_info_head[i].offset_x, cwb_info_head[i].offset_y, cwb_info_head[i].clip_w, cwb_info_head[i].clip_h);
+				return;
+			}
+			cwb_info_head[i].offset_x_r = offset_x;
+			cwb_info_head[i].offset_y_r = offset_y;
+			cwb_info_head[i].clip_w_r = clip_w;
+			cwb_info_head[i].clip_h_r = clip_h;
+			cwb_info_head[i].ring_enable = true;
+			DDPMSG("[transsion_cwb]config_ring: sensor_id:%d offset:[%d,%d|%d,%d]\n", sensor_id, offset_x, offset_y, clip_w, clip_h);
+			return;
+		}
+	}
+	if (i == TRANSSION_CWB_NUM_MAX)
+		DDPMSG("[transsion_cwb]can't find sensor!");
+	return;
+}
+EXPORT_SYMBOL(transsion_cwb_config_ring);
+
+int transsion_cwb_enable(bool en, u8 lcm_id)
+{
+		u8 *user_buffer;
+		struct drm_crtc *crtc;
+		struct mtk_drm_crtc *mtk_crtc;
+		struct mtk_cwb_info *cwb_info;
+		struct mtk_ddp_comp *output_comp;
+		struct mtk_dsi *dsi = NULL;
+		//int width, height, size;
+		u8 i;
+		static u8 enable = 0;
+		struct mtk_rect rect;
+
+		if (enable == en)
+			return 0;
+		DDP_MUTEX_LOCK(&cwb_mutex, __func__, __LINE__);
+		if (!en)
+		{
+			rect_count = 0;
+			mtk_drm_cwb_enable(en, &user_cwb_funcs, IMAGE_ONLY);
+			enable = en;
+			frames_count = 0;
+			DDP_MUTEX_UNLOCK(&cwb_mutex, __func__, __LINE__);
+			DDPMSG("[transsion_cwb]disable CWB\n");
+			return 0;
+		}
+		/* this debug cmd only for crtc0 */
+		crtc = list_first_entry(&(drm_dev)->mode_config.crtc_list,
+					typeof(*crtc), head);
+		if (!crtc) {
+			DDPPR_ERR("[transsion_cwb]find crtc fail\n");
+			DDP_MUTEX_UNLOCK(&cwb_mutex, __func__, __LINE__);
+			return -EINVAL;
+		}
+		mtk_crtc = to_mtk_crtc(crtc);
+		output_comp = mtk_ddp_comp_request_output(mtk_crtc);
+
+		if (unlikely(!output_comp)) {
+			DDPPR_ERR("%s: invalid output comp\n", __func__);
+			DDP_MUTEX_UNLOCK(&cwb_mutex, __func__, __LINE__);
+			return -EINVAL;
+		}
+		dsi = container_of(output_comp, struct mtk_dsi, ddp_comp);
+		if (unlikely(!dsi)) {
+			DDPPR_ERR("%s: invalid dsi\n", __func__);
+			DDP_MUTEX_UNLOCK(&cwb_mutex, __func__, __LINE__);
+			return -EINVAL;
+		}
+		DDPMSG("[transsion_cwb]state[%d][%d][%d]\n", crtc->state->active, dsi->output_en, dsi->doze_enabled);
+		cwb_info = mtk_crtc->cwb_info;
+		if (!(crtc->state->active && dsi->output_en && !dsi->doze_enabled)) {
+			DDPPR_ERR("[transsion_cwb]display not enabled!!\n");
+			DDP_MUTEX_UNLOCK(&cwb_mutex, __func__, __LINE__);
+			return -EINVAL;
+		}
+		for (i=0; i<TRANSSION_CWB_NUM_MAX; i++)
+		{
+			DDPMSG("[transsion_cwb]i[%d]lcm_id[%d][%d]\n", i, cwb_info_head[i].lcm_id, lcm_id);
+			if (cwb_info_head[i].lcm_id == lcm_id)
+			{
+				cwb_enable_index[rect_count] = i;
+				rect_count++;
+				cwb_info_head[i].r_avg = 0;
+				cwb_info_head[i].g_avg = 0;
+				cwb_info_head[i].b_avg = 0;
+				cwb_info_head[i].r_avg_r = 0;
+				cwb_info_head[i].g_avg_r = 0;
+				cwb_info_head[i].b_avg_r = 0;
+				DDPMSG("[transsion_cwb]rect_count[%d]\n", rect_count);
+			}
+
+			continue;
+		}
+		if (rect_count == 0)
+		{
+			DDPPR_ERR("[transsion_cwb]Please registor rect first!!\n");
+			DDP_MUTEX_UNLOCK(&cwb_mutex, __func__, __LINE__);
+			return -EINVAL;
+		}
+		if (cwb_info_head[cwb_enable_index[0]].ring_enable)
+		{
+			rect.x = cwb_info_head[cwb_enable_index[0]].offset_x_r;
+			rect.y = cwb_info_head[cwb_enable_index[0]].offset_y_r;
+			rect.width = cwb_info_head[cwb_enable_index[0]].clip_w_r;
+			rect.height = cwb_info_head[cwb_enable_index[0]].clip_h_r;
+		}
+		else
+		{
+			rect.x = cwb_info_head[cwb_enable_index[0]].offset_x;
+			rect.y = cwb_info_head[cwb_enable_index[0]].offset_y;
+			rect.width = cwb_info_head[cwb_enable_index[0]].clip_w;
+			rect.height = cwb_info_head[cwb_enable_index[0]].clip_h;
+		}
+
+		current_rect = 0;
+
+		mtk_drm_set_cwb_roi(rect);
+		mtk_drm_cwb_enable(en, &user_cwb_funcs, IMAGE_ONLY);
+		enable = en;
+
+		if (!cwb_info)
+		{
+			DDP_MUTEX_UNLOCK(&cwb_mutex, __func__, __LINE__);
+			return -EINVAL;
+		}
+
+		if (en)
+		{
+			//DDP_MUTEX_LOCK(&mtk_crtc->lock, __func__, __LINE__);
+			// width = cwb_info->src_roi.width;
+			// height = cwb_info->src_roi.height;
+			// size = sizeof(u8) * width * height * 3;
+			if (!cwb_info->user_buffer)
+			{
+				user_buffer = cwb_buffer;
+				memset(user_buffer, 0, sizeof(cwb_buffer));
+				//DDPPR_ERR("kmalloc:user_buffer[%x]\n", user_buffer);
+				mtk_drm_set_cwb_user_buf((void *)user_buffer, IMAGE_ONLY);
+			}
+			//reinit_completion(&cwb_cmp);
+		}
+		DDP_MUTEX_UNLOCK(&cwb_mutex, __func__, __LINE__);
+		return 0;
+}
+EXPORT_SYMBOL(transsion_cwb_enable);
+
+void transsion_cwb_check_roi(u8 lcm_id, unsigned int  offset_x, unsigned int offset_y, unsigned int clip_w, unsigned int clip_h)
+{
+	//Transsion_CWB_Sensor_Info rgb_buf[TRANSSION_CWB_NUM_MAX];
+	transsion_cwb_init();
+	cwb_roi_check_result = 1;
+	transsion_cwb_registor(lcm_id, 0, offset_x, offset_y, clip_w, clip_h, 0, 0, 0, 0, 0, 0);
+	msleep(10);
+	transsion_cwb_enable(1, lcm_id);
+
+	msleep(1000);
+	cwb_roi_check_enable = 1;
+	msleep(2000);
+	transsion_cwb_enable(0, lcm_id);
+	if (cwb_roi_check_result)
+		DDPPR_ERR("[transsion_cwb]Check Success!");
+	else
+		DDPPR_ERR("[transsion_cwb]Check Failed!");
+	cwb_roi_check_enable = 0;
+	//transsion_get_cwb_rgb_info(rgb_buf);
+	return;
+}
+#endif
 static void mtk_crtc_set_cm_tune_para(
 	unsigned int en, unsigned int cm_c00, unsigned char cm_c01,
 	unsigned int cm_c02, unsigned int cm_c10, unsigned char cm_c11,
@@ -3715,19 +4273,18 @@ static void process_dbg_opt(const char *opt)
 		if (output_comp)
 			ret = mtk_ddp_comp_io_cmd(output_comp, NULL,
 				DSI_READ_ELVSS_BASE_VOLTAGE, &base_volageg);
-
 	} else if (strncmp(opt, "read_cm:", 8) == 0) {
-		u8 addr;
+		unsigned int addr;
 		unsigned int ret;
 
-		ret = sscanf(opt, "read_cm:%c\n", &addr);
+		ret = sscanf(opt, "read_cm:%x\n", &addr);
 		if (ret != 1) {
 			DDPPR_ERR("%d error to parse cmd %s\n",
 				__LINE__, opt);
 			return;
 		}
 		DDPMSG("read_cm:%d\n", addr);
-		ddic_dsi_read_cm_cmd(addr);
+		ddic_dsi_read_cm_cmd((u8)addr);
 	}  else if (strncmp(opt, "spr_enable:", 10) == 0) {
 		unsigned int value;
 		unsigned int ret;
@@ -4175,7 +4732,80 @@ static void process_dbg_opt(const char *opt)
 		set_cwb_info_buffer(crtc, color);
 
 		DDP_MUTEX_UNLOCK(&mtk_crtc->lock, __func__, __LINE__);
+	#if IS_ENABLED(CONFIG_TRANSSION_CWB_API_SUPPORT)
+	} else if (strncmp(opt, "cwb_reg:", 8) == 0) {
+		unsigned int ret, offset_x, offset_y, lcm_id, sensor_id;
+		unsigned int clip_w, clip_h;
+		unsigned int Lsensor_x, Lsensor_y, Lsensor_w, Lsensor_h, ratio_in, ratio_out;
+		/* this debug cmd only for crtc0 */
+		ret = sscanf(opt, "cwb_reg:%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d\n", &lcm_id,&sensor_id,
+				&offset_x, &offset_y,
+				&clip_w, &clip_h,
+				&Lsensor_x, &Lsensor_y,
+				&Lsensor_w, &Lsensor_h,
+				&ratio_in, &ratio_out);
+		if (ret != 12) {
+			DDPMSG("error to parse cmd\n");
+			return;
+		}
+		transsion_cwb_registor(sensor_id, lcm_id, offset_x, offset_y, clip_w, clip_h, Lsensor_x, Lsensor_y, Lsensor_w, Lsensor_h, ratio_in, ratio_out);
+		//transsion_cwb_enable(enable, TRANSSION_DISP_CWB_MAIN_LCM);
+	} else if (strncmp(opt, "cwben:", 6) == 0) {
+		unsigned int ret, enable,  lcm_id;
 
+		/* this debug cmd only for crtc0 */
+		ret = sscanf(opt, "cwben:%d,%d\n", &lcm_id, &enable);
+		if (ret != 2) {
+			DDPMSG("error to parse cmd\n");
+			return;
+		}
+		//transsion_cwb_registor(sensor_id, lcm_id, offset_x, offset_y, clip_w, clip_h);
+		transsion_cwb_enable(enable, lcm_id);
+
+	} else if (strncmp(opt, "cwb_init", 8) == 0) {
+		transsion_cwb_init();
+	} else if (strncmp(opt, "cwb_chk:", 8) == 0) {
+		unsigned int ret, offset_x, offset_y, lcm_id;
+		unsigned int clip_w, clip_h;
+
+		/* this debug cmd only for crtc0 */
+		ret = sscanf(opt, "cwb_chk:%d,%d,%d,%d,%d\n", &lcm_id,
+				&offset_x, &offset_y,
+				&clip_w, &clip_h);
+		if (ret != 5) {
+			DDPMSG("error to parse cmd\n");
+			return;
+		}
+
+		//mtk_drm_cwb_enable(enable, &user_cwb_funcs, IMAGE_ONLY);
+		transsion_cwb_check_roi(lcm_id, offset_x, offset_y, clip_w, clip_h);
+	} else if (strncmp(opt, "cwb_tho:", 8) == 0) {
+		unsigned int ret;
+		unsigned int threshold_high, threshold_low;
+
+		/* this debug cmd only for crtc0 */
+		ret = sscanf(opt, "cwb_tho:%d,%d\n", &threshold_high, &threshold_low);
+		if (ret != 2) {
+			DDPMSG("error to parse cmd\n");
+			return;
+		}
+
+		cwb_roi_check_threshold_high = (u8)threshold_high;
+		cwb_roi_check_threshold_low = (u8)threshold_low;
+		DDPMSG("[transsion_cwb]threshold:high[%d]low[%d]\n", cwb_roi_check_threshold_high, cwb_roi_check_threshold_low);
+	} else if (strncmp(opt, "cwb_ring:", 9) == 0) {
+		unsigned int ret, offset_x, offset_y,sensor_id;
+		unsigned int clip_w, clip_h;
+
+		/* this debug cmd only for crtc0 */
+		ret = sscanf(opt, "cwb_ring:%d,%d,%d,%d,%d\n",&sensor_id, &offset_x, &offset_y,
+				&clip_w, &clip_h);
+		if (ret != 5) {
+			DDPMSG("error to parse cmd\n");
+			return;
+		}
+		transsion_cwb_config_ring(sensor_id, offset_x, offset_y, clip_w, clip_h);
+	#endif
 	} else if (strncmp(opt, "fake_wcg", 8) == 0) {
 		unsigned int fake_hdr_en = 0;
 		struct drm_crtc *crtc;

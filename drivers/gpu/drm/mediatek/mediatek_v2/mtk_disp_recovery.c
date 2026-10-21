@@ -35,8 +35,16 @@
 
 #define ESD_TRY_CNT 5
 #define ESD_CHK_TRY_CNT 5
+#if IS_ENABLED(CONFIG_VTDR6126A_FHDP1224X2720_DSI_VDO_TM_144HZ_X6873)
+#define ESD_CHECK_PERIOD 4000 /* ms */
+#else
 #define ESD_CHECK_PERIOD 2000 /* ms */
+#endif
 #define esd_timer_to_mtk_crtc(x) container_of(x, struct mtk_drm_crtc, esd_timer)
+
+#if IS_ENABLED(CONFIG_TRAN_LCM_FOCALTECH_NOTIFY_RECOVERY)
+extern int tran_focaltech_lcd_need_reset;
+#endif
 
 static DEFINE_MUTEX(pinctrl_lock);
 
@@ -126,13 +134,7 @@ static inline int need_wait_esd_eof(struct drm_crtc *crtc,
 {
 	int ret = 1;
 
-	/*
-	 * 1.vdo mode
-	 * 2.cmd mode te
-	 */
-	if (!mtk_crtc_is_frame_trigger_mode(crtc))
-		ret = 0;
-
+	/* cmd mode te */
 	if (panel_ext->params->cust_esd_check == 0)
 		ret = 0;
 
@@ -156,7 +158,7 @@ static void esd_cmdq_timeout_cb(struct cmdq_cb_data data)
 	mtk_drm_crtc_dump(crtc);
 }
 
-int _mtk_esd_check_read(struct drm_crtc *crtc)
+int _mtk_esd_check_read(struct drm_crtc *crtc, int check_num)
 {
 	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
 	struct mtk_ddp_comp *output_comp;
@@ -220,6 +222,8 @@ int _mtk_esd_check_read(struct drm_crtc *crtc)
 		else
 			mtk_crtc_wait_frame_done(mtk_crtc, cmdq_handle, DDP_FIRST_PATH,
 						 (mtk_crtc->is_mml || mtk_crtc->is_mml_dl) ? 0 : 1);
+		cmdq_pkt_wfe(cmdq_handle,
+				mtk_crtc->gce_obj.event[EVENT_VDO_CABC_EOF]);
 
 		if (mtk_crtc->msync2.msync_on) {
 			u32 vfp_early_stop = 1;
@@ -244,7 +248,9 @@ int _mtk_esd_check_read(struct drm_crtc *crtc)
 		mtk_disp_mutex_trigger(mtk_crtc->mutex[0], cmdq_handle);
 		mtk_ddp_comp_io_cmd(output_comp, cmdq_handle, COMP_REG_START,
 				    NULL);
-		if (atomic_read(&esd_ctx->target_time) == 0) {
+		cmdq_pkt_set_event(cmdq_handle,
+				mtk_crtc->gce_obj.event[EVENT_VDO_CABC_EOF]);
+		if (atomic_read(&esd_ctx->target_time) == 0 && check_num == 0) {
 			if (esd_ctx->chk_retry < ESD_CHK_TRY_CNT) {
 				esd_ctx->chk_retry++;
 				ret = 0;
@@ -273,9 +279,13 @@ int _mtk_esd_check_read(struct drm_crtc *crtc)
 			mtk_crtc_pkt_create(&cmdq_handle2, crtc,
 				mtk_crtc->gce_obj.client[CLIENT_CFG]);
 
-			cmdq_pkt_set_event(
-				cmdq_handle2,
-				mtk_crtc->gce_obj.event[EVENT_CABC_EOF]);
+			if (mtk_dsi_is_cmd_mode(output_comp))
+				cmdq_pkt_set_event(cmdq_handle2,
+					mtk_crtc->gce_obj.event[EVENT_CABC_EOF]);
+			else
+				cmdq_pkt_set_event(cmdq_handle2,
+					mtk_crtc->gce_obj.event[EVENT_VDO_CABC_EOF]);
+
 			cmdq_pkt_flush(cmdq_handle2);
 			cmdq_pkt_destroy(cmdq_handle2);
 		}
@@ -336,6 +346,13 @@ static int _mtk_esd_check_eint(struct drm_crtc *crtc)
 		disable_irq(esd_ctx->eint_irq);
 	atomic_set(&esd_ctx->ext_te_event, 0);
 
+#if IS_ENABLED(CONFIG_TRAN_LCM_FOCALTECH_NOTIFY_RECOVERY)
+	if (tran_focaltech_lcd_need_reset) {
+		ret = 1;	/* fail */
+		DDPPR_ERR("[LCM][FOCALTECH ESD]TP fail tran_focaltech_lcd_need_reset = %d \n", tran_focaltech_lcd_need_reset);
+		tran_focaltech_lcd_need_reset = 0;
+	}
+#endif
 	return ret;
 }
 
@@ -399,7 +416,7 @@ static int mtk_drm_request_eint(struct drm_crtc *crtc)
 	return ret;
 }
 
-static int mtk_drm_esd_check(struct drm_crtc *crtc)
+static int mtk_drm_esd_check(struct drm_crtc *crtc, int check_num)
 {
 	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
 	struct mtk_panel_ext *panel_ext;
@@ -430,7 +447,7 @@ static int mtk_drm_esd_check(struct drm_crtc *crtc)
 		ret = _mtk_esd_check_eint(crtc);
 	} else { /* READ LCM CMD  */
 		CRTC_MMP_MARK(index, esd_check, 2, 0);
-		ret = _mtk_esd_check_read(crtc);
+		ret = _mtk_esd_check_read(crtc, check_num);
 	}
 
 	/* switch ESD check mode */
@@ -579,7 +596,6 @@ int mtk_drm_esd_testing_process(struct mtk_drm_esd_ctx *esd_ctx, bool need_lock)
 
 		private = crtc->dev->dev_private;
 		if (need_lock) {
-			DDP_COMMIT_LOCK(&private->commit.lock, __func__, __LINE__);
 			DDP_MUTEX_LOCK(&mtk_crtc->lock, __func__, __LINE__);
 			CRTC_MMP_MARK(crtc_idx, esd_check, 0x10CF, 0);
 		}
@@ -587,7 +603,7 @@ int mtk_drm_esd_testing_process(struct mtk_drm_esd_ctx *esd_ctx, bool need_lock)
 		i = 0; /* repeat */
 		do {
 			mtk_drm_trace_begin("esd loop:%d", i);
-			ret = mtk_drm_esd_check(crtc);
+			ret = mtk_drm_esd_check(crtc, i);
 			if (!ret) /* success */
 				break;
 
@@ -606,7 +622,6 @@ int mtk_drm_esd_testing_process(struct mtk_drm_esd_ctx *esd_ctx, bool need_lock)
 
 			if (need_lock) {
 				DDP_MUTEX_UNLOCK(&mtk_crtc->lock, __func__, __LINE__);
-				DDP_COMMIT_UNLOCK(&private->commit.lock, __func__, __LINE__);
 			}
 			return 0;
 		} else if (recovery_flg && ret == 0) {
@@ -617,7 +632,6 @@ int mtk_drm_esd_testing_process(struct mtk_drm_esd_ctx *esd_ctx, bool need_lock)
 
 		if (need_lock) {
 			DDP_MUTEX_UNLOCK(&mtk_crtc->lock, __func__, __LINE__);
-			DDP_COMMIT_UNLOCK(&private->commit.lock, __func__, __LINE__);
 		}
 
 		return 0;
@@ -660,6 +674,10 @@ static int mtk_drm_esd_check_worker_kthread(void *data)
 {
 	struct sched_param param = {.sched_priority = 87};
 	struct mtk_drm_esd_ctx *esd_ctx = (struct mtk_drm_esd_ctx *)data;
+	#if IS_ENABLED(CONFIG_TRANSSION_CWB_API_SUPPORT)
+	struct mtk_drm_crtc *mtk_crtc = NULL;
+	bool tran_cwb_flag = false;
+	#endif
 	int ret = 0, index = 0;
 
 	sched_setscheduler(current, SCHED_RR, &param);
@@ -671,12 +689,23 @@ static int mtk_drm_esd_check_worker_kthread(void *data)
 	}
 	if (esd_ctx->crtc)
 		index = drm_crtc_index(esd_ctx->crtc);
-
+	#if IS_ENABLED(CONFIG_TRANSSION_CWB_API_SUPPORT)
+	mtk_crtc = to_mtk_crtc(esd_ctx->crtc);
+	if (!mtk_crtc) {
+		DDPPR_ERR("%s invalid mtk_crtc stop thread\n", __func__);
+		return -EINVAL;
+	}
+	#endif
 	while (1) {
 		msleep(ESD_CHECK_PERIOD);
 		if (esd_ctx->chk_en == 0)
 			continue;
-
+		#if IS_ENABLED(CONFIG_TRANSSION_CWB_API_SUPPORT)
+		if (mtk_crtc->cwb_info && mtk_crtc->cwb_info->enable) {
+			tran_cwb_flag = true;
+			mtk_crtc->cwb_info->enable = 0;
+		}
+		#endif
 		esd_ctx->chk_retry = 0;
 		do {
 			init_esd_timer(esd_ctx);
@@ -700,7 +729,12 @@ static int mtk_drm_esd_check_worker_kthread(void *data)
 			CRTC_MMP_MARK(index, target_time, 0x10000, 0);
 			atomic_set(&esd_ctx->target_time, 0);
 		}
-
+		#if IS_ENABLED(CONFIG_TRANSSION_CWB_API_SUPPORT)
+		if (mtk_crtc->cwb_info && tran_cwb_flag) {
+			mtk_crtc->cwb_info->enable = 1;
+			tran_cwb_flag = false;
+		}
+		#endif
 		/* 2. other check & recovery */
 		if (kthread_should_stop())
 			break;

@@ -31,6 +31,9 @@
 #include "mtk_drm_assert.h"
 #include "mtk_log.h"
 #include "mtk_drm_mmp.h"
+#if IS_ENABLED(CONFIG_TRAN_DYNAMIC_WCG)
+#include "mtk_drm_graphics_base.h"
+#endif
 #define CREATE_TRACE_POINTS
 #include "mtk_layer_layout_trace.h"
 #include "mtk_drm_gem.h"
@@ -1208,7 +1211,6 @@ static int filter_by_ovl_cnt(struct drm_device *dev,
 			     struct drm_mtk_layering_info *disp_info)
 {
 	int ret, disp_idx;
-	struct mtk_drm_private *priv = dev->dev_private;
 
 	if (get_layering_opt(LYE_OPT_SPHRT))
 		disp_idx = disp_info->disp_idx;
@@ -1217,8 +1219,7 @@ static int filter_by_ovl_cnt(struct drm_device *dev,
 
 	/* 0->primary display, 1->secondary display */
 	for (; disp_idx < HRT_DISP_TYPE_NUM; disp_idx++) {
-		if ((priv->enable_dual_disp_dynamic_ovl || disp_idx == 0) &&
-			get_layering_opt(LYE_OPT_EXT_LAYER))
+		if (disp_idx == 0 && get_layering_opt(LYE_OPT_EXT_LAYER))
 			ret = ext_id_tuning(dev, disp_info, disp_idx);
 		else
 			ret = _filter_by_ovl_cnt(dev, disp_info, disp_idx);
@@ -2348,6 +2349,13 @@ static int _calc_hrt_num(struct drm_device *dev,
 	unsigned int disp_list;
 	unsigned int disp_idx = disp;
 
+	if (dev)
+		priv = dev->dev_private;
+	else {
+		DDPPR_ERR("%s, dev poninter is NULL, return\n", __func__);
+		return -EINVAL;
+	}
+
 	if (get_layering_opt(LYE_OPT_SPHRT))
 		disp_idx = disp_info->disp_idx;
 
@@ -2426,9 +2434,6 @@ static int _calc_hrt_num(struct drm_device *dev,
 		DDPDBG_BWM("GPUC: 3 layerset head:%d tail:%d\n",
 			layerset_head, layerset_tail);
 	}
-
-	if (dev)
-		priv = dev->dev_private;
 
 	for (i = 0; i < disp_info->layer_num[disp]; i++) {
 		int ovl_idx;
@@ -2552,8 +2557,8 @@ static int _calc_hrt_num(struct drm_device *dev,
 	}
 
 	if (has_dal_layer && (disp_idx == HRT_PRIMARY)) {
-		DDPINFO("%s 1, overlap_num=%d,%d, (%d)\n", __func__, sum_overlap_w,
-			sum_overlap_w_of_bwm, get_layer_weight(dev, disp_idx, NULL, 0, false, has_dal_layer));
+		DDPINFO("%s 1, overlap_num=%d,%d, (%d)\n", __func__, sum_overlap_w, sum_overlap_w_of_bwm,
+				get_layer_weight(dev, disp_idx, NULL, 0, false, has_dal_layer));
 		overlap_w = get_layer_weight(dev, disp_idx, NULL, 0, false, has_dal_layer);
 		sum_overlap_w += overlap_w;
 		if ((disp_idx == HRT_PRIMARY) && bw_monitor_is_on) {
@@ -2819,140 +2824,35 @@ static int ext_layer_grouping(struct drm_device *dev,
 	struct drm_mtk_layer_config *src_info, *dst_info;
 	int available_layers = 0, phy_layer_cnt = 0;
 	struct drm_crtc *crtc;
-	int idx = 0;
-	unsigned int display_ovl_layer_num;
-	unsigned int display_ovl_ext_layer_nr;
-	struct mtk_drm_private *priv = dev->dev_private;
+	int idx;
 
 	if (get_layering_opt(LYE_OPT_SPHRT))
 		disp_idx = disp_info->disp_idx;
 	else
 		disp_idx = 0;
-	if (!priv->enable_dual_disp_dynamic_ovl) {
-		for (idx = 0; disp_idx < HRT_DISP_TYPE_NUM; disp_idx++, idx++) {
-			/* initialize ext layer info */
-			if (idx >= 0 && idx < LYE_CRTC)
-				for (i = 0; i < disp_info->layer_num[idx]; i++)
-					disp_info->input_config[idx][i].ext_sel_layer = -1;
 
-			if (!get_layering_opt(LYE_OPT_EXT_LAYER))
-				continue;
-
-#ifndef LAYERING_SUPPORT_EXT_LAYER_ON_2ND_DISP
-			if (disp_idx != HRT_PRIMARY)
-				continue;
-#endif
-
-			/* this crtc variable is no used in is_continuous_ext_layer_overlap */
-			if (disp_idx == HRT_PRIMARY) {
-				drm_for_each_crtc(crtc, dev)
-					if (drm_crtc_index(crtc) == disp_idx)
-						break;
-			} else {
-				crtc = NULL;
-			}
-			/*
-			 * If the physical layer > input layer,
-			 * then skip using extended layer.
-			 */
-			phy_layer_cnt =
-				mtk_get_phy_layer_limit(l_rule_ops->get_mapping_table(
-					dev, disp_idx, disp_info->disp_list, DISP_HW_LAYER_TB,
-					MAX_PHY_OVL_CNT));
-			/* Remove the rule here so that we can have more oppotunity to
-			 * test extended layer
-			 * if (phy_layer_cnt > disp_info->layer_num[disp_idx])
-			 *	continue;
-			 */
-
-			/* Workaround for OVL cnt > 2, it will make layer check KE
-			 * when layer > 12
-			 * Now when layer > 12, limit ext layer cnt
-			 */
-			max_ext_layer_cnt = PRIMARY_OVL_LAYER_NUM - phy_layer_cnt;
-			if (max_ext_layer_cnt > PRIMARY_OVL_EXT_LAYER_NR)
-				max_ext_layer_cnt = PRIMARY_OVL_EXT_LAYER_NR;
-
-			for (i = 1; i < disp_info->layer_num[disp_idx]; i++) {
-				dst_info = &disp_info->input_config[disp_idx][i];
-				src_info = &disp_info->input_config[disp_idx][i - 1];
-
-				/* skip if attached layer is reading from sram */
-				if (mtk_has_layer_cap(src_info, MTK_MML_DISP_DIRECT_DECOUPLE_LAYER))
-					continue;
-
-				/* skip other GPU layers */
-				if (mtk_is_gles_layer(disp_info, disp_idx, i) ||
-				    mtk_is_gles_layer(disp_info, disp_idx, i - 1)) {
-					cont_ext_layer_cnt = 0;
-					if (i > disp_info->gles_tail[disp_idx]) {
-						int tmp;
-
-						tmp = disp_info->gles_tail[disp_idx] -
-						      disp_info->gles_head[disp_idx];
-						ext_idx = i - tmp;
-					}
-					continue;
-				}
-
-				is_ext_layer = !is_continuous_ext_layer_overlap(crtc,
-					disp_info->input_config[disp_idx], i);
-
-				if (disp_info->layer_num[disp_idx] > PRIMARY_OVL_LAYER_NUM) {
-					if (total_ext_layer_cnt >= max_ext_layer_cnt) {
-						DDPINFO("total_ext_layer_cnt %d, max_ext_layer_cnt %d\n",
-							total_ext_layer_cnt, max_ext_layer_cnt);
-						is_ext_layer = false;
-					}
-				}
-
-				/*
-				 * The yuv layer is not supported as extended layer
-				 * as the HWC has a special for yuv content.
-				 */
-				if (mtk_is_yuv(dst_info->src_fmt))
-					is_ext_layer = false;
-
-				if (mtk_has_layer_cap(dst_info, MTK_DISP_RSZ_LAYER |
-								MTK_MML_DISP_DIRECT_DECOUPLE_LAYER |
-								MTK_MML_DISP_DIRECT_LINK_LAYER))
-					is_ext_layer = false;
-
-				if (is_ext_layer && cont_ext_layer_cnt < 3) {
-					++cont_ext_layer_cnt;
-					dst_info->ext_sel_layer = ext_idx;
-					++total_ext_layer_cnt;
-				} else {
-					cont_ext_layer_cnt = 0;
-					ext_idx = i;
-					if (i > disp_info->gles_tail[disp_idx]) {
-						ext_idx -=
-							disp_info->gles_tail[disp_idx] -
-							disp_info->gles_head[disp_idx];
-					}
-				}
-			}
-
-			if (get_layering_opt(LYE_OPT_SPHRT))
-				break;
-		}
-	} else {
+	for (idx = 0; disp_idx < HRT_DISP_TYPE_NUM; disp_idx++, idx++) {
 		/* initialize ext layer info */
-		for (i = 0; i < disp_info->layer_num[idx]; i++)
-			disp_info->input_config[idx][i].ext_sel_layer = -1;
+		if (idx >= 0 && idx < LYE_CRTC)
+			for (i = 0; i < disp_info->layer_num[idx]; i++)
+				disp_info->input_config[idx][i].ext_sel_layer = -1;
 
 		if (!get_layering_opt(LYE_OPT_EXT_LAYER))
-			return 0;
+			continue;
 
-		drm_for_each_crtc(crtc, dev)
-			if (drm_crtc_index(crtc) == disp_idx)
-				break;
+#ifndef LAYERING_SUPPORT_EXT_LAYER_ON_2ND_DISP
+		if (disp_idx != HRT_PRIMARY)
+			continue;
+#endif
 
-		if (!crtc) {
-			DDPINFO("%s crtc is NULL\n", __func__);
-			return 0;
+		/* this crtc variable is no used in is_continuous_ext_layer_overlap */
+		if (disp_idx == HRT_PRIMARY) {
+			drm_for_each_crtc(crtc, dev)
+				if (drm_crtc_index(crtc) == disp_idx)
+					break;
+		} else {
+			crtc = NULL;
 		}
-
 		/*
 		 * If the physical layer > input layer,
 		 * then skip using extended layer.
@@ -2971,44 +2871,36 @@ static int ext_layer_grouping(struct drm_device *dev,
 		 * when layer > 12
 		 * Now when layer > 12, limit ext layer cnt
 		 */
+		max_ext_layer_cnt = PRIMARY_OVL_LAYER_NUM - phy_layer_cnt;
+		if (max_ext_layer_cnt > PRIMARY_OVL_EXT_LAYER_NR)
+			max_ext_layer_cnt = PRIMARY_OVL_EXT_LAYER_NR;
 
-		if (disp_idx == HRT_PRIMARY) {
-			display_ovl_layer_num = PRIMARY_OVL_LAYER_NUM;
-			display_ovl_ext_layer_nr = PRIMARY_OVL_EXT_LAYER_NR;
-		} else {
-			display_ovl_layer_num = secondary_ovl_lye_num;
-			display_ovl_ext_layer_nr = EXTERNAL_OVL_EXT_LAYER_NR;
-		}
-		max_ext_layer_cnt = display_ovl_layer_num - phy_layer_cnt;
-		if (max_ext_layer_cnt > display_ovl_ext_layer_nr)
-			max_ext_layer_cnt = display_ovl_ext_layer_nr;
-
-		for (i = 1; i < disp_info->layer_num[idx]; i++) {
-			dst_info = &disp_info->input_config[idx][i];
-			src_info = &disp_info->input_config[idx][i - 1];
+		for (i = 1; i < disp_info->layer_num[disp_idx]; i++) {
+			dst_info = &disp_info->input_config[disp_idx][i];
+			src_info = &disp_info->input_config[disp_idx][i - 1];
 
 			/* skip if attached layer is reading from sram */
 			if (mtk_has_layer_cap(src_info, MTK_MML_DISP_DIRECT_DECOUPLE_LAYER))
 				continue;
 
 			/* skip other GPU layers */
-			if (mtk_is_gles_layer(disp_info, idx, i) ||
-			    mtk_is_gles_layer(disp_info, idx, i - 1)) {
+			if (mtk_is_gles_layer(disp_info, disp_idx, i) ||
+			    mtk_is_gles_layer(disp_info, disp_idx, i - 1)) {
 				cont_ext_layer_cnt = 0;
-				if (i > disp_info->gles_tail[idx]) {
+				if (i > disp_info->gles_tail[disp_idx]) {
 					int tmp;
 
-				tmp = disp_info->gles_tail[idx] -
-				      disp_info->gles_head[idx];
-				ext_idx = i - tmp;
-			}
-			continue;
+					tmp = disp_info->gles_tail[disp_idx] -
+					      disp_info->gles_head[disp_idx];
+					ext_idx = i - tmp;
+				}
+				continue;
 			}
 
 			is_ext_layer = !is_continuous_ext_layer_overlap(crtc,
-				disp_info->input_config[idx], i);
+				disp_info->input_config[disp_idx], i);
 
-			if (disp_info->layer_num[idx] > display_ovl_layer_num) {
+			if (disp_info->layer_num[disp_idx] > PRIMARY_OVL_LAYER_NUM) {
 				if (total_ext_layer_cnt >= max_ext_layer_cnt) {
 					DDPINFO("total_ext_layer_cnt %d, max_ext_layer_cnt %d\n",
 						total_ext_layer_cnt, max_ext_layer_cnt);
@@ -3035,13 +2927,16 @@ static int ext_layer_grouping(struct drm_device *dev,
 			} else {
 				cont_ext_layer_cnt = 0;
 				ext_idx = i;
-				if (i > disp_info->gles_tail[idx]) {
+				if (i > disp_info->gles_tail[disp_idx]) {
 					ext_idx -=
-						disp_info->gles_tail[idx] -
-						disp_info->gles_head[idx];
+						disp_info->gles_tail[disp_idx] -
+						disp_info->gles_head[disp_idx];
 				}
 			}
 		}
+
+		if (get_layering_opt(LYE_OPT_SPHRT))
+			break;
 	}
 
 #ifdef HRT_DEBUG_LEVEL1
@@ -3370,11 +3265,16 @@ static void clear_layer(struct drm_mtk_layering_info *disp_info,
 
 		if (mtk_has_layer_cap(c, MTK_DISP_CLIENT_CLEAR_LAYER)) {
 			*scn_decision_flag |= SCN_CLEAR;
-			if ((*scn_decision_flag & SCN_IDLE)) {
+			DDPMSG("%s add hrt weight\n", __func__);
+			if (priv->data->need_emi_eff)
+				disp_info->hrt_weight += (400 * 10000) / default_emi_eff;
+			else
+				disp_info->hrt_weight += 400;
+			if ((di == 0) && get_layering_opt(LYE_OPT_OVL_BW_MONITOR)) {
 				if (priv->data->need_emi_eff)
-					disp_info->hrt_weight += (400 * 10000) / default_emi_eff;
+					sum_overlap_w_of_bwm += (400 * 10000) / default_emi_eff;
 				else
-					disp_info->hrt_weight += 400;
+					sum_overlap_w_of_bwm += 400;
 			}
 		}
 
@@ -3627,7 +3527,7 @@ static int dispatch_gles_range(struct drm_mtk_layering_info *disp_info,
 		int gles_head_old, gles_head_new, gles_tail_old, gles_tail_new, weight;
 		struct drm_mtk_layer_config *layer_info_new = NULL;
 
-		if (priv->data->mmsys_id == MMSYS_MT6878 &&
+		if (priv && priv->data->mmsys_id == MMSYS_MT6878 &&
 			(disp == 0) && l_rule_info->dal_enable &&
 			!mtk_drm_helper_get_opt(priv->helper_opt,
 				MTK_DRM_OPT_LAYERING_RULE_BY_LARB))
@@ -3780,7 +3680,7 @@ static int check_layering_result(struct drm_mtk_layering_info *info)
 		if (disp_idx == HRT_PRIMARY)
 			ovl_layer_num = PRIMARY_OVL_LAYER_NUM;
 		else
-			ovl_layer_num = secondary_ovl_lye_num;
+			ovl_layer_num = SECONDARY_OVL_LAYER_NUM;
 		layer_num = info->layer_num[disp_idx];
 		max_ovl_id = info->input_config[disp_idx][layer_num - 1].ovl_id;
 
@@ -4546,6 +4446,9 @@ static void check_is_mml_layer(const int disp_idx,
 		|| mtk_crtc->is_mml || l_rule_info->bk_mml_dl_lye)) {
 		u32 cnt = __builtin_popcount(mml_ovl_layers);
 		enum MTK_LAYERING_CAPS dc_cap = MTK_MML_DISP_DECOUPLE_LAYER;
+		if (kref_read(&mtk_crtc->mml_ir_sram.ref) ||
+			(mtk_crtc->mml_link_state == MML_IR_IDLE))
+			dc_cap = MTK_MML_DISP_MDP_LAYER;
 
 		while (cnt--) {
 			i = __builtin_ffs(mml_ovl_layers) - 1;
@@ -4576,8 +4479,11 @@ static void check_is_mml_layer(const int disp_idx,
 			/* Check line time and slbc state once per HRT */
 			mutex_lock(&priv->commit.lock);
 			output_comp = mtk_ddp_comp_request_output(mtk_crtc);
-			if (output_comp && (mtk_ddp_comp_get_type(output_comp->id) == MTK_DSI))
-				mtk_ddp_comp_io_cmd(output_comp, NULL, DSI_GET_LINE_TIME_NS, &ns);
+			if (output_comp && (mtk_ddp_comp_get_type(output_comp->id) == MTK_DSI)) {
+				ns = disp_info->disp_mode_idx[0];
+				mtk_ddp_comp_io_cmd(output_comp, NULL,
+					DSI_GET_LINE_TIME_NS_BY_MODE, &ns);
+			}
 
 			if (mtk_crtc->slbc_state == SLBC_NEED_FREE) {
 				if (kref_read(&mtk_crtc->mml_ir_sram.ref))
@@ -4777,6 +4683,35 @@ static int get_crtc_num(
 	return crtc_num;
 }
 
+#if IS_ENABLED(CONFIG_TRAN_DYNAMIC_WCG)
+static void mtk_ovl_wcg_enable(struct drm_mtk_layering_info *disp_info,
+				struct drm_device *dev)
+{
+	int i = 0, j = 0, enable = 0;
+	struct drm_mtk_layer_config *layer_info;
+	struct mtk_drm_private *priv = dev->dev_private;
+
+	for (i = 0; i < HRT_DISP_TYPE_NUM; i++) {
+		if (disp_info->layer_num[i] <= 0)
+			continue;
+		for (j = 0; j < disp_info->layer_num[i]; j++) {
+			layer_info = &disp_info->input_config[i][j];
+			DDPINFO("%s:%d dataspace:%d fmt:0x%x\n", __func__, __LINE__, layer_info->dataspace,layer_info->src_fmt);
+			if((layer_info->dataspace == MTK_DRM_DATASPACE_V0_BT709) ||
+				(layer_info->dataspace == MTK_DRM_DATASPACE_BT709) ||
+				(layer_info->dataspace == 411697152) || //411697152:RANGE_LIMITED + DISPLAY_P3 for XDR
+				((layer_info->src_fmt != 0x34324241) && //0x34324241:DRM_FORMAT_ABGR8888 disable WCG
+				(layer_info->dataspace == 276889600))) //276889600:MTK_DRM_DATASPACE_STANDARD_BT709|MTK_DRM_DATASPACE_TRANSFER_SRGB|MTK_DRM_DATASPACE_RANGE_LIMITED
+				enable = 1;
+		}
+	}
+	mtk_drm_helper_set_opt_by_name(priv->helper_opt,
+					"MTK_DRM_OPT_OVL_WCG", enable);
+
+	DDPINFO("%s:%d enable:%d\n", __func__, __LINE__, enable);
+}
+#endif
+
 static int layering_rule_start(struct drm_mtk_layering_info *disp_info_user,
 			       int debug_mode, struct drm_device *dev)
 {
@@ -4823,6 +4758,10 @@ static int layering_rule_start(struct drm_mtk_layering_info *disp_info_user,
 	dump_disp_info(&layering_info, DISP_DEBUG_LEVEL_INFO);
 #endif
 	dump_disp_caps_info(dev, &layering_info, __LINE__);
+
+	#if IS_ENABLED(CONFIG_TRAN_DYNAMIC_WCG)
+	mtk_ovl_wcg_enable(&layering_info, dev);
+	#endif
 
 	if (get_layering_opt(LYE_OPT_SPHRT))
 		disp_idx = disp_info_user->disp_idx;

@@ -682,7 +682,6 @@
 #define MT6878_MUTEX_EOF_DSI0 (MT6878_MUTEX_SOF_DSI0 << 6)
 #define MT6878_MUTEX_EOF_DSI1 (MT6878_MUTEX_SOF_DSI1 << 6)
 
-#define MT6878_DISP_REG_CONFIG_MMSYS_MISC 0xF0
 #define MT6878_DISP_REG_CONFIG_MMSYS_CG_CON0 0x100
 
 #define MT6878_DISP_REG_CONFIG_SMI_LARB0_GREQ 0x8DC
@@ -14244,31 +14243,6 @@ static const char *ddp_clock_0_mt6878(int bit)
 	}
 }
 
-static const char *ddp_mmsys_misc_mt6878(int bit)
-{
-	switch (bit) {
-	case 6:
-		return "ovl0_2l_ultra, ";
-	case 8:
-		return "ovl0_2l_preultra, ";
-	case 10:
-		return "ovl1_2l_ultra, ";
-	case 12:
-		return "ovl1_2l_preultra, ";
-	case 14:
-		return "ovl2_2l_ultra, ";
-	case 16:
-		return "ovl2_2l_preultra, ";
-	case 18:
-		return "ovl3_2l_ultra, ";
-	case 20:
-		return "ovl3_2l_preultra, ";
-	default:
-		return NULL;
-	}
-}
-
-
 char *mtk_ddp_get_mutex_sof_name(unsigned int regval)
 {
 	switch (regval) {
@@ -16736,13 +16710,6 @@ static int mtk_ddp_mout_en_MT6897(const struct mtk_mmsys_reg_data *data,
 		/* CRTC2 - CON2*/
 		*addr = MT6985_OVL_BLEND_CROSSBAR3_MOUT_EN;
 		value = DISP_OVL3_2L_TO_WDMA0;
-	} else if ((cur == DDP_COMPONENT_PQ0_IN_CB0 &&
-		next == DDP_COMPONENT_RSZ0) ||
-		(cur == DDP_COMPONENT_PQ1_IN_CB0 &&
-		next == DDP_COMPONENT_RSZ1)) {
-		/* PQ_IN_CROSSBAR */
-		*addr = MT6985_PQ_IN_CROSSBAR0_MOUT_EN;
-		value = DISP_DLI_RELAY0_TO_RSZ0;
 	} else if ((cur == DDP_COMPONENT_PQ0_IN_CB0 &&
 		next == DDP_COMPONENT_PQ0_OUT_CB4) ||
 		(cur == DDP_COMPONENT_PQ1_IN_CB0 &&
@@ -22788,10 +22755,15 @@ void mtk_ddp_insert_dsc_prim_mt6897(struct mtk_drm_crtc *mtk_crtc,
 {
 	struct mtk_panel_params *panel_ext = mtk_drm_get_lcm_ext_params(&mtk_crtc->base);
 	unsigned int addr, value;
-
+#ifndef DRM_BYPASS_PQ
+	struct mtk_drm_private *private = mtk_crtc->base.dev->dev_private;
+#endif
 	/* PANEL_COMP_OUT_CROSSBAR1_MOUT to  DISP_DSC_WRAP0 */
 #ifndef DRM_BYPASS_PQ
-	addr = MT6897_PANEL_COMP_OUT_CROSSBAR0_MOUT_EN;
+	if (private->data->main_bypass_pc_path_data == mtk_crtc->path_data)
+		addr = MT6897_PANEL_COMP_OUT_CROSSBAR1_MOUT_EN;
+	else
+		addr = MT6897_PANEL_COMP_OUT_CROSSBAR0_MOUT_EN;
 #else
 	addr = MT6897_PANEL_COMP_OUT_CROSSBAR1_MOUT_EN;
 #endif
@@ -22800,7 +22772,10 @@ void mtk_ddp_insert_dsc_prim_mt6897(struct mtk_drm_crtc *mtk_crtc,
 		       mtk_crtc->config_regs_pa + addr, value, ~0);
 	addr =  MT6897_PANEL_COMP_OUT_CROSSBAR1_SEL_IN;
 #ifndef DRM_BYPASS_PQ
-	value = DISP_PANEL_COMP_OUT_CROSSBAR0_SEL_IN;
+	if (private->data->main_bypass_pc_path_data == mtk_crtc->path_data)
+		value = DISP_PANEL_COMP_OUT_CROSSBAR1_SEL_IN;
+	else
+		value = DISP_PANEL_COMP_OUT_CROSSBAR0_SEL_IN;
 #else
 	value = DISP_PANEL_COMP_OUT_CROSSBAR1_SEL_IN;
 #endif
@@ -23153,6 +23128,30 @@ void mtk_ddp_insert_dsc_prim_mt6878(struct mtk_drm_crtc *mtk_crtc,
 	value = COMP0_OUT_CB_TO_DSI0;
 	cmdq_pkt_write(handle, mtk_crtc->gce_obj.base,
 		       mtk_crtc->config_regs_pa + addr, value, ~0);
+#if IS_ENABLED(CONFIG_MTK_DISPLAY_DUAL_PIPE_DUAL_PORT_SUPPORT)
+	addr = MT6878_SPLIT_OUT_CROSSBAR4_MOUT_EN;
+	value = SPLIT_OUT_CB_TO_DSC0_1;
+	cmdq_pkt_write(handle, mtk_crtc->gce_obj.base,
+		       mtk_crtc->config_regs_pa + addr, value, ~0);
+
+	addr =  MT6878_SPLIT_OUT_CROSSBAR1_SEL_IN;
+	value = SPLIT_OUT_CB_SEL_IN_FROM_MOUT_CB4;
+	cmdq_pkt_write(handle, mtk_crtc->gce_obj.base,
+		       mtk_crtc->config_regs_pa + addr, value, ~0);
+	addr =  MT6878_SPLIT_OUT_CROSSBAR4_SEL_IN;
+	value = 0;
+	cmdq_pkt_write(handle, mtk_crtc->gce_obj.base,
+		       mtk_crtc->config_regs_pa + addr, value, ~0);
+
+	addr =  MT6878_COMP_OUT_CROSSBAR4_MOUT_EN;
+	value = 0;
+	cmdq_pkt_write(handle, mtk_crtc->gce_obj.base,
+		       mtk_crtc->config_regs_pa + addr, value, ~0);
+	addr =  MT6878_COMP_OUT_CROSSBAR1_MOUT_EN;
+	value = COMP0_OUT_CB_TO_DSI1;
+	cmdq_pkt_write(handle, mtk_crtc->gce_obj.base,
+		       mtk_crtc->config_regs_pa + addr, value, ~0);
+#endif
 }
 
 void mtk_ddp_remove_dsc_prim_mt6878(struct mtk_drm_crtc *mtk_crtc,
@@ -23183,6 +23182,30 @@ void mtk_ddp_remove_dsc_prim_mt6878(struct mtk_drm_crtc *mtk_crtc,
 	value = 0;
 	cmdq_pkt_write(handle, mtk_crtc->gce_obj.base,
 		       mtk_crtc->config_regs_pa + addr, value, ~0);
+#if IS_ENABLED(CONFIG_MTK_DISPLAY_DUAL_PIPE_DUAL_PORT_SUPPORT)
+	addr = MT6878_SPLIT_OUT_CROSSBAR4_MOUT_EN;
+	value = SPLIT_OUT_CB_TO_COMP0_OUT_CB4;
+	cmdq_pkt_write(handle, mtk_crtc->gce_obj.base,
+		       mtk_crtc->config_regs_pa + addr, value, ~0);
+
+	addr =  MT6878_SPLIT_OUT_CROSSBAR1_SEL_IN;
+	value = 0;
+	cmdq_pkt_write(handle, mtk_crtc->gce_obj.base,
+		       mtk_crtc->config_regs_pa + addr, value, ~0);
+	addr =  MT6878_SPLIT_OUT_CROSSBAR4_SEL_IN;
+	value = SPLIT_OUT_CB_SEL_IN_FROM_MOUT_CB4;
+	cmdq_pkt_write(handle, mtk_crtc->gce_obj.base,
+		       mtk_crtc->config_regs_pa + addr, value, ~0);
+
+	addr =  MT6878_COMP_OUT_CROSSBAR4_MOUT_EN;
+	value = COMP0_OUT_CB_TO_DSI1;
+	cmdq_pkt_write(handle, mtk_crtc->gce_obj.base,
+		       mtk_crtc->config_regs_pa + addr, value, ~0);
+	addr =  MT6878_COMP_OUT_CROSSBAR1_MOUT_EN;
+	value = 0;
+	cmdq_pkt_write(handle, mtk_crtc->gce_obj.base,
+		       mtk_crtc->config_regs_pa + addr, value, ~0);
+#endif
 }
 
 /* TODO: adopt for multiple platform */
@@ -28555,11 +28578,6 @@ void mmsys_config_dump_analysis_mt6878(struct drm_crtc *crtc)
 	unsigned int greq1 =
 		readl_relaxed(config_regs +
 				MT6878_DISP_REG_CONFIG_SMI_LARB1_GREQ);
-	char ovl_source0[512] = {'\0'};
-	char ovl_source1[512] = {'\0'};
-	unsigned int misc =
-		readl_relaxed(config_regs +
-				MT6878_DISP_REG_CONFIG_MMSYS_MISC);
 	struct mtk_drm_private *priv = crtc->dev->dev_private;
 	enum mtk_ddp_comp_id comp_id;
 	struct mtk_ddp_comp *comp;
@@ -28573,23 +28591,9 @@ void mmsys_config_dump_analysis_mt6878(struct drm_crtc *crtc)
 				strncat(clock_on, name, (sizeof(clock_on) -
 							 strlen(clock_on) - 1));
 		}
-
-		if (((misc >> bit) & 1) == 0) {
-			name = ddp_mmsys_misc_mt6878(bit);
-			if (name)
-				strncat(ovl_source0, name, (sizeof(ovl_source0) -
-							 strlen(ovl_source0) - 1));
-		} else if (((misc >> bit) & 1) == 1) {
-			name = ddp_mmsys_misc_mt6878(bit);
-			if (name)
-				strncat(ovl_source1, name, (sizeof(ovl_source1) -
-							 strlen(ovl_source1) - 1));
-		}
 	}
 
 	DDPDUMP("clock on modules:%s\n", clock_on);
-	DDPDUMP("OVL SODI DSI0 Source modules:%s\n", ovl_source0);
-	DDPDUMP("OVL SODI DSI1 Source modules:%s\n", ovl_source1);
 
 	DDPDUMP("greq0=0x%x greq1=0x%x\n", greq0, greq1);
 	for (idx = 0; idx < ARRAY_SIZE(mt6878_valid_signal_tb); idx++) {

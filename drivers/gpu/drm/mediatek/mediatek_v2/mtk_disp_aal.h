@@ -375,6 +375,8 @@ struct mtk_disp_aal_primary {
 	struct work_struct_aal_data refresh_task;
 	enum MTK_LED_TYPE led_type;
 	unsigned int fps;
+	unsigned int relay_hw_ctl;
+	atomic_t func_flag;
 };
 
 struct mtk_disp_aal {

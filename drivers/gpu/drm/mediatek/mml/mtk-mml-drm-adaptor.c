@@ -53,7 +53,7 @@ struct mml_drm_ctx {
 	const struct mml_config_ops *cfg_ops;
 	atomic_t job_serial;
 	atomic_t config_serial;
-	struct workqueue_struct *wq_config[MML_PIPE_CNT];
+	struct kthread_worker *kt_config[MML_PIPE_CNT];
 	struct workqueue_struct *wq_destroy;
 	struct kthread_worker *kt_done;
 	struct task_struct *kt_done_task;
@@ -154,15 +154,15 @@ enum mml_mode mml_drm_query_cap(struct mml_drm_ctx *ctx,
 		if (dest->rotate == MML_ROT_90 || dest->rotate == MML_ROT_270)
 			swap(destw, desth);
 
-		if (crop_srcw / destw > 20 || crop_srch / desth > 24 ||
-			destw / crop_srcw > 32 || desth / crop_srch > 32) {
+		if (crop_srcw > destw * 20 || crop_srch > desth * 24 ||
+			destw > crop_srcw * 32 || desth > crop_srch * 32) {
 			mml_err("[drm]exceed HW limitation src %ux%u dest %ux%u",
 				crop_srcw, crop_srch, destw, desth);
 			goto not_support;
 		}
 
-		if ((crop_srcw * desth) / (destw * crop_srch) > 16 ||
-			(destw * crop_srch) / (crop_srcw * desth) > 16) {
+		if (crop_srcw * desth > destw * crop_srch * 16 ||
+			destw * crop_srch > crop_srcw * desth * 16) {
 			mml_err("[drm]exceed tile ratio limitation src %ux%u dest %ux%u",
 				crop_srcw, crop_srch, destw, desth);
 			goto not_support;
@@ -1280,7 +1280,7 @@ static void task_queue(struct mml_task *task, u32 pipe)
 {
 	struct mml_drm_ctx *ctx = task->ctx;
 
-	queue_work(ctx->wq_config[pipe], &task->work_config[pipe]);
+	kthread_queue_work(ctx->kt_config[pipe], &task->work_config[pipe]);
 }
 
 static struct mml_tile_cache *task_get_tile_cache(struct mml_task *task, u32 pipe)
@@ -1292,14 +1292,18 @@ static void kt_setsched(void *adaptor_ctx)
 {
 	struct mml_drm_ctx *ctx = adaptor_ctx;
 	struct sched_param kt_param = { .sched_priority = MAX_RT_PRIO - 1 };
-	int ret;
+	int ret[3] = {0};
 
 	if (ctx->kt_priority)
 		return;
 
-	ret = sched_setscheduler(ctx->kt_done_task, SCHED_FIFO, &kt_param);
-	mml_log("[drm]%s set kt done priority %d ret %d",
-		__func__, kt_param.sched_priority, ret);
+	ret[0] = sched_setscheduler(ctx->kt_done_task, SCHED_FIFO, &kt_param);
+	if (ctx->kt_config[0])
+		ret[1] = sched_setscheduler(ctx->kt_config[0]->task, SCHED_FIFO, &kt_param);
+	if (ctx->kt_config[1])
+		ret[2] = sched_setscheduler(ctx->kt_config[1]->task, SCHED_FIFO, &kt_param);
+	mml_log("[adpt]%s set kt done priority %d ret %d %d %d",
+		__func__, kt_param.sched_priority, ret[0], ret[1], ret[2]);
 	ctx->kt_priority = true;
 }
 
@@ -1357,10 +1361,76 @@ static const struct mml_config_ops drm_config_ops = {
 	.put = config_put,
 };
 
+int mml_ctx_init(struct mml_drm_ctx *ctx, const char * const threads[])
+{
+	/* create taskdone kthread first cause it is more easy for fail case */
+	ctx->kt_done = kthread_create_worker(0, "%s", threads[0]);
+	if (IS_ERR_OR_NULL(ctx->kt_done)) {
+		mml_err("[adpt]fail to create kthread worker %d",
+			(s32)PTR_ERR(ctx->kt_done));
+		ctx->kt_done = NULL;
+		goto err;
+
+	}
+	ctx->kt_done_task = ctx->kt_done->task;
+	ctx->wq_destroy = alloc_ordered_workqueue("%s", 0, threads[1]);
+	if (IS_ERR_OR_NULL(ctx->wq_destroy)) {
+		mml_err("[dle]fail to create mml_destroy_dl workqueue %d", (s32)PTR_ERR(ctx->wq_destroy));
+		ctx->wq_destroy = NULL;
+		goto err;
+	}
+	if (threads[2]) {
+		ctx->kt_config[0] = kthread_create_worker(0, "%s", threads[2]);
+		if (IS_ERR_OR_NULL(ctx->kt_config[0])) {
+			mml_err("[adpt]fail to create config thread 0 %s err %pe",
+				threads[2], ctx->kt_config[0]);
+			ctx->kt_config[0] = NULL;
+			goto err;
+		}
+	}
+	if (threads[3]) {
+		ctx->kt_config[1] = kthread_create_worker(0, "%s", threads[3]);
+		if (IS_ERR_OR_NULL(ctx->kt_config[1])) {
+			mml_err("[adpt]fail to create config thread 1 %s err %pe",
+				threads[3], ctx->kt_config[1]);
+			ctx->kt_config[1] = NULL;
+			goto err;
+		}
+	}
+
+	INIT_LIST_HEAD(&ctx->configs);
+	mutex_init(&ctx->config_mutex);
+	return 0;
+
+err:
+	if (ctx->kt_done) {
+		kthread_destroy_worker(ctx->kt_done);
+		ctx->kt_done = NULL;
+	}
+	if (ctx->wq_destroy) {
+		destroy_workqueue(ctx->wq_destroy);
+		ctx->wq_destroy = NULL;
+	}
+	if (ctx->kt_config[0]) {
+		kthread_destroy_worker(ctx->kt_config[0]);
+		ctx->kt_config[0] = NULL;
+	}
+	if (ctx->kt_config[1]) {
+		kthread_destroy_worker(ctx->kt_config[1]);
+		ctx->kt_config[1] = NULL;
+	}
+	return -EIO;
+}
+
 static struct mml_drm_ctx *drm_ctx_create(struct mml_dev *mml,
 					  struct mml_drm_param *disp)
 {
+	static const char * const threads[] = {
+		"mml_drm_done", "mml_destroy",
+		"mml_work0", "mml_work1",
+	};
 	struct mml_drm_ctx *ctx;
+	int ret;
 
 	mml_msg("[drm]%s on dev %p", __func__, mml);
 
@@ -1368,21 +1438,15 @@ static struct mml_drm_ctx *drm_ctx_create(struct mml_dev *mml,
 	if (!ctx)
 		return ERR_PTR(-ENOMEM);
 
-	/* create taskdone kthread first cause it is more easy for fail case */
-	ctx->kt_done = kthread_create_worker(0, "mml_drm_done");
-	if (IS_ERR(ctx->kt_done)) {
-		mml_err("[drm]fail to create kthread workder %d", (s32)PTR_ERR(ctx->kt_done));
+	ret = mml_ctx_init(ctx, threads);
+	if (ret) {
 		kfree(ctx);
-		return ERR_PTR(-EIO);
+		return ERR_PTR(ret);
 	}
-	ctx->kt_done_task = ctx->kt_done->task;
 
-	INIT_LIST_HEAD(&ctx->configs);
-	mutex_init(&ctx->config_mutex);
 	ctx->mml = mml;
 	ctx->task_ops = &drm_task_ops;
 	ctx->cfg_ops = &drm_config_ops;
-	ctx->wq_destroy = alloc_ordered_workqueue("mml_destroy", 0);
 	ctx->disp_dual = disp->dual;
 	ctx->disp_vdo = disp->vdo_mode;
 	ctx->submit_cb = disp->submit_cb;
@@ -1392,8 +1456,6 @@ static struct mml_drm_ctx *drm_ctx_create(struct mml_dev *mml,
 	ctx->dispen_param = disp->dispen_param;
 	ctx->panel_width = MML_DEFAULT_PANEL_W;
 	ctx->panel_height = MML_DEFAULT_PANEL_H;
-	ctx->wq_config[0] = alloc_ordered_workqueue("mml_work0", WORK_CPU_UNBOUND | WQ_HIGHPRI);
-	ctx->wq_config[1] = alloc_ordered_workqueue("mml_work1", WORK_CPU_UNBOUND | WQ_HIGHPRI);
 
 #ifndef MML_FPGA
 	ctx->timeline = mtk_sync_timeline_create("mml_timeline");
@@ -1471,8 +1533,8 @@ static void drm_ctx_release(struct mml_drm_ctx *ctx)
 	}
 
 	destroy_workqueue(ctx->wq_destroy);
-	destroy_workqueue(ctx->wq_config[0]);
-	destroy_workqueue(ctx->wq_config[1]);
+	kthread_destroy_worker(ctx->kt_config[0]);
+	kthread_destroy_worker(ctx->kt_config[1]);
 	kthread_destroy_worker(ctx->kt_done);
 #ifndef MML_FPGA
 	mtk_sync_timeline_destroy(ctx->timeline);

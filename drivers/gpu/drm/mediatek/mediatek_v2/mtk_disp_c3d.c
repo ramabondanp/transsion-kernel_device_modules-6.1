@@ -301,8 +301,8 @@ void disp_c3d_flip_sram(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle,
 	sram_apb = (read_value >> 5) & 0x1;
 	sram_int = (read_value >> 6) & 0x1;
 
-	if ((sram_apb == sram_int) && (sram_int == 0)) {
-		pr_notice("%s: sram_apb == sram_int, skip flip!", __func__);
+	if (sram_apb == sram_int) {
+		pr_notice("%s: sram_apb = sram_int = %d, skip flip!", __func__, sram_int);
 		return;
 	}
 
@@ -389,11 +389,11 @@ static void disp_c3d_update_sram(struct mtk_ddp_comp *comp,
 		sram_int = (read_value >> 6) & 0x1;
 		C3DFLOW_LOG("[SRAM] hist_apb(%d) hist_int(%d) 0x%08x in (SOF) comp:%s\n",
 			sram_apb, sram_int, read_value, comp_name);
-		// after suspend/resume, set FORCE_SRAM_APB = 0, FORCE_SRAM_INT = 0;
+		// after suspend/resume, set FORCE_SRAM_APB = FORCE_SRAM_INT;
 		// so need to config C3D_SRAM_CFG on ping-pong mode correctly.
-		if ((sram_apb == sram_int) && (sram_int == 0)) {
+		if (sram_apb == sram_int) {
 			mtk_disp_c3d_write_mask(comp->regs + C3D_SRAM_CFG,
-				(0 << 6)|(1 << 5)|(1 << 4), (0x7 << 4));
+				(sram_int << 6)|(!sram_int << 5)|(1 << 4), (0x7 << 4));
 			C3DFLOW_LOG("%s: C3D_SRAM_CFG(0x%08x)\n", __func__,
 				readl(comp->regs + C3D_SRAM_CFG));
 		}
@@ -1097,6 +1097,7 @@ static void mtk_disp_c3d_prepare(struct mtk_ddp_comp *comp)
 	struct mtk_disp_c3d_primary *primary_data = c3d_data->primary_data;
 	struct mtk_disp_c3d *priv = dev_get_drvdata(comp->dev);
 	unsigned long long time[2] = {0};
+	int sram_int;
 	// create cmdq_pkt
 
 	time[0] = sched_clock();
@@ -1119,10 +1120,10 @@ static void mtk_disp_c3d_prepare(struct mtk_ddp_comp *comp)
 			C3D_SHADOW_CTL, C3D_BYPASS_SHADOW);
 
 	mutex_lock(&primary_data->c3d_lut_lock);
+	sram_int = !!atomic_read(&c3d_data->c3d_force_sram_apb);
 	mtk_disp_c3d_write_mask(comp->regs + C3D_SRAM_CFG,
-		(0 << 6)|(0 << 5)|(1 << 4), (0x7 << 4));
+		(sram_int << 6)|(sram_int << 5)|(1 << 4), (0x7 << 4));
 	disp_c3d_write_sram(comp, C3D_PREPARE);
-	atomic_set(&c3d_data->c3d_force_sram_apb, 0);
 	mutex_unlock(&primary_data->c3d_lut_lock);
 
 	time[1] = sched_clock();

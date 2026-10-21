@@ -84,17 +84,15 @@ obj-y += mtk_dp_hdcp1x.o \
 	mtk_dp_hdcp2.o
 endif
 
-ifeq ($(CONFIG_TRUSTONIC_TEE_SUPPORT),m)
+#ifeq ($(CONFIG_TRUSTONIC_TEE_SUPPORT),m)
 #obj-$(CONFIG_DEVICE_MODULES_DRM_MEDIATEK) += ca/
-include $(DEVICE_MODULES_PATH)/drivers/tee/gud/Makefile.include
-mediatek-drm-y += ca/tlcDpHdcp.o
-ccflags-y += -DDPTX_HDCP_ENABLE
-mediatek-drm-y += mtk_dp_hdcp1x.o \
-	mtk_dp_hdcp2.o
-endif
+#ccflags-y += -DDPTX_HDCP_ENABLE
+#mediatek-drm-y += mtk_dp_hdcp1x.o \
+#	mtk_dp_hdcp2.o
+#endif
 
 mediatek-drm-$(CONFIG_DRM_FBDEV_EMULATION) += mtk_drm_fbdev.o
-
+mediatek-drm-y += tran_display.o
 obj-$(CONFIG_DEVICE_MODULES_DRM_MEDIATEK) += mediatek-drm.o
 obj-$(CONFIG_DEVICE_MODULES_DRM_MEDIATEK) += mtk_sync.o
 
@@ -144,3 +142,9 @@ ccflags-y += -DCCORR_SUPPORT
 
 subdir-ccflags-y += -I$(DEVICE_MODULES_PATH)/drivers/misc/mediatek/include/
 subdir-ccflags-y += -I$(DEVICE_MODULES_PATH)/drivers/misc/mediatek/include/mt-plat/
+
+ifneq ($(CONFIG_CUSTOM_TRAN_PROJECT),)
+TRAN_KERNEL_FLAGS := $(addprefix -D, $(shell echo \
+    $(CONFIG_CUSTOM_TRAN_PROJECT) |  tr a-z A-Z))
+    subdir-ccflags-y += $(TRAN_KERNEL_FLAGS)
+endif

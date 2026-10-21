@@ -127,6 +127,15 @@ struct device *mml_get_mmu_dev(struct mml_dev *mml, bool secure);
 bool mml_dl_enable(struct mml_dev *mml);
 
 /*
+ * mml_dl_vdo - enable direct link mode vdo or not
+ *
+ * @mml:	The mml driver instance
+ *
+ * Return:	True for enable, false for disable.
+ */
+bool mml_dl_vdo(struct mml_dev *mml);
+
+/*
  * mml_dpc_disable - dpc disable or not
  *
  * @mml:	The mml driver instance

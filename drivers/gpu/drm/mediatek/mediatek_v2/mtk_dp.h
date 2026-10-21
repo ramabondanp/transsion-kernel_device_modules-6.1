@@ -62,7 +62,6 @@ enum DPTx_Return_Status {
 	DPTX_EDID_FAIL			= 4,
 	DPTX_TRANING_FAIL		= 5,
 	DPTX_RETRANING			= 6,
-	DPTX_WAIT_TRIGGER		= 7,
 };
 
 enum DPTX_TRAINING_STATE {

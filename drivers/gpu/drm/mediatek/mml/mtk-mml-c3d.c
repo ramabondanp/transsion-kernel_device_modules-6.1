@@ -436,6 +436,7 @@ static void c3d_debug_dump(struct mml_comp *comp)
 
 	/* Enable shadow read working */
 	shadow_ctrl = read_reg_value(comp, c3d->data->reg_table[C3D_SHADOW_CTRL]);
+	mml_err("C3D_SHADOW_CTRL %#010x", shadow_ctrl);
 	shadow_ctrl |= 0x4;
 	writel(shadow_ctrl, base + c3d->data->reg_table[C3D_SHADOW_CTRL]);
 

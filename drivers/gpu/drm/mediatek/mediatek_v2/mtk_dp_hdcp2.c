@@ -276,10 +276,6 @@ bool HDCPTx_Hdcp2CheckSeqNumV(struct mtk_dp *mtk_dp)
 		return false;
 	}
 
-	// HDCP 2.x 1b-09
-	g_stHdcpHandler.u32SeqNumVCnt = (rhdcp_rx.u8SeqNumV[2] << 16) +
-		(rhdcp_rx.u8SeqNumV[1] << 8) + (rhdcp_rx.u8SeqNumV[0]);
-
 	if ((rhdcp_rx.u8SeqNumV[0]
 		!= (BYTE)((g_stHdcpHandler.u32SeqNumVCnt & 0xFF0000) >> 16))
 			|| (rhdcp_rx.u8SeqNumV[1]
@@ -338,8 +334,6 @@ bool HDCPTx_ReadMsg(struct mtk_dp *mtk_dp, BYTE u8CmdID)
 			HDCP2_RRX_SIZE);
 		drm_dp_dpcd_read(&mtk_dp->aux, DPCD_6921D, rhdcp_rx.rxCaps,
 			HDCP2_RXCAPS_SIZE);
-		mtk_dp->info.hdcp2_info.bRepeater = HDCP_2_2_RX_REPEATER(rhdcp_rx.rxCaps[2]);
-		DPTXMSG("bRepeater %d\n", mtk_dp->info.hdcp2_info.bRepeater);
 
 		mtk_dp->info.hdcp2_info.bReadcertrx = false;
 		g_stHdcpHandler.bRecvMsg = true;
@@ -869,7 +863,6 @@ int HDCPTx_Hdcp2FSM(struct mtk_dp *mtk_dp)
 			break;
 		case HDCP2_MSG_AUTH_DONE:
 			DPTXMSG("HDCP2.x Authentication done.\n");
-			mdelay(200);
 			mtk_dp->info.bAuthStatus = AUTH_PASS;
 			mtk_dp->info.hdcp2_info.uRetryCount = 0;
 			HDCPTx_Hdcp2SetState(HDCP2_MS_A5F5, HDCP2_MSG_ZERO);
@@ -1022,10 +1015,9 @@ int HDCPTx_Hdcp2FSM(struct mtk_dp *mtk_dp)
 				break;
 			}
 
-			// HDCP 2.x 1b-10
 			if (!HDCPTx_Hdcp2RecvRepAuthStreamReady(mtk_dp)) {
-				g_stHdcpHandler.u8RetryCnt++;
-				HDCPTx_Hdcp2SetState(HDCP2_MS_A9F9, HDCP2_MSG_REPAUTH_STREAM_MANAGE);
+				enErrCode = HDCP_ERR_PROCESS_FAIL;
+				HDCPTx_ERRHandle(enErrCode, __LINE__);
 				break;
 			}
 
@@ -1093,116 +1085,6 @@ bool mdrv_DPTx_HDCP2_Support(struct mtk_dp *mtk_dp)
 	}
 
 	return mtk_dp->info.hdcp2_info.bEnable;
-}
-
-
-int dp_tx_hdcp2x_authenticate_repeater(struct mtk_dp *mtk_dp)
-{
-	int ret = -1;
-
-	mtk_dp->info.bAuthStatus = AUTH_INIT;
-	HDCPTx_Hdcp2SetState(HDCP2_MS_A6F6, HDCP2_MSG_REPAUTH_SEND_RECVID_LIST);
-
-	do {
-		if (!mtk_dp->training_info.bCablePlugIn || !mtk_dp->dp_ready)
-			return ret;
-
-		HDCPTx_Hdcp2FSM(mtk_dp);
-	} while((mtk_dp->info.bAuthStatus != AUTH_FAIL) && (mtk_dp->info.bAuthStatus != AUTH_PASS));
-
-	if (mtk_dp->info.bAuthStatus == AUTH_PASS)
-		ret = 0;
-
-	return ret;
-}
-extern void mdrv_DPTx_CheckHDCPVersion(struct mtk_dp *mtk_dp, bool only_hdcp1x);
-
-int dp_tx_hdcp2x_enable(struct mtk_dp *mtk_dp)
-{
-	int ret = -1;
-
-	mdrv_DPTx_CheckHDCPVersion(mtk_dp, false);
-	mdrv_DPTx_HDCP2_SetStartAuth(mtk_dp, true);
-
-	do {
-		if (!mtk_dp->training_info.bCablePlugIn || !mtk_dp->dp_ready)
-			return ret;
-
-		HDCPTx_Hdcp2FSM(mtk_dp);
-
-	} while((mtk_dp->info.bAuthStatus != AUTH_FAIL) && (mtk_dp->info.bAuthStatus != AUTH_PASS));
-
-	if (mtk_dp->info.bAuthStatus == AUTH_PASS)
-		ret = 0;
-
-	return ret;
-}
-
-int dp_tx_hdcp2x_disable(struct mtk_dp *mtk_dp)
-{
-	mdrv_DPTx_HDCP2_SetStartAuth(mtk_dp, false);
-
-	mtk_dp->info.bAuthStatus = AUTH_ZERO;
-	mtk_dp->info.hdcp2_info.bEnable = false;
-
-	return 0;
-}
-
-int dp_tx_hdcp2x_check_link(struct mtk_dp *mtk_dp, struct DPTX_INFO *info)
-{
-	u8 rx_status;
-	int ret = -EINVAL;
-	int tmp = 0;
-
-	mutex_lock(&mtk_dp->hdcp_mutex);
-
-	if (!mtk_dp->training_info.bCablePlugIn || !mtk_dp->dp_ready) {
-		DPTXFUNC("plugout or lose lock");
-		goto disable;
-	}
-
-	ret = drm_dp_dpcd_read(&mtk_dp->aux, DPCD_69493, &rx_status,
-			       HDCP_2_2_DP_RXSTATUS_LEN);
-	if (ret != HDCP_2_2_DP_RXSTATUS_LEN) {
-		DPTXFUNC("[HDCP2.X] Read bstatus failed, reauth\n");
-		goto disable;
-	}
-
-	if (HDCP_2_2_DP_RXSTATUS_REAUTH_REQ(rx_status))
-		tmp = REAUTH_REQUEST;
-	else if (HDCP_2_2_DP_RXSTATUS_LINK_FAILED(rx_status))
-		tmp = LINK_INTEGRITY_FAILURE;
-	else if (HDCP_2_2_DP_RXSTATUS_READY(rx_status))
-		tmp = TOPOLOGY_CHANGE;
-
-	if (tmp == LINK_PROTECTED) {
-		ret = 0;
-		goto end;
-	}
-
-	if (tmp == TOPOLOGY_CHANGE) {
-		ret = dp_tx_hdcp2x_authenticate_repeater(mtk_dp);
-		if (ret != 0) {
-			DPTXFUNC("[HDCP2.X] repeater authentication failed\n");
-			goto end;
-		}
-	} else {
-		DPTXFUNC("[HDCP2.X] link failed with:0x%x, retrying auth\n", tmp);
-	}
-
-disable:
-	ret = dp_tx_hdcp2x_disable(mtk_dp);
-	if (ret || !mtk_dp->training_info.bCablePlugIn || !mtk_dp->dp_ready) {
-		DPTXFUNC("plugout or lose lock");
-		goto end;
-	}
-
-	ret = dp_tx_hdcp2x_enable(mtk_dp);
-
-end:
-	mutex_unlock(&mtk_dp->hdcp_mutex);
-
-	return ret;
 }
 
 bool mdrv_DPTx_HDCP2_irq(struct mtk_dp *mtk_dp)

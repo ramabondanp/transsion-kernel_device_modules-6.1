@@ -23,6 +23,7 @@
 #define AAL_HIST_NUM (768)
 #define AAL_DUAL_INFO_NUM (16)
 #define AAL_CLARITY_STATUS_NUM (7)
+#define MAX_REG_NUM (180)
 #define C3D_LUT_NUM (729) // 9*9*9
 
 #define CMDQ_GPR_UPDATE	(2)
@@ -128,6 +129,8 @@ extern int mml_pq_trace;
 		mml_trace_end(); \
 } while (0)
 
+extern int mml_pq_buf_num;
+
 extern int mml_pq_debug_mode;
 
 struct mml_task;
@@ -138,7 +141,8 @@ enum mml_pq_debug_mode {
 	MML_PQ_STABILITY_TEST = 1 << 2,
 	MML_PQ_HIST_CHECK = 1 << 3,
 	MML_PQ_CURVE_CHECK = 1 << 4,
-	MML_PQ_TIMEOUT_TEST = 1 << 5,
+	MML_PQ_BUFFER_CHECK = 1 << 5,
+	MML_PQ_TIMEOUT_TEST = 1 << 6,
 };
 
 enum mml_pq_vcp_engine {
@@ -385,6 +389,13 @@ int mml_pq_get_comp_config_result(struct mml_task *task, u32 timeout_ms);
  * @task:	task data, include pq parameters and frame info
  */
 void mml_pq_put_comp_config_result(struct mml_task *task);
+
+/*
+ * mml_pq_init_comp_config_result - init result for first frame
+ *
+ * @result:	hw setting data
+ */
+void mml_pq_init_comp_config_result(struct mml_pq_comp_config_result *result);
 
 /*
  * mml_pq_sub_task_clear - remove invalid sub_task from list

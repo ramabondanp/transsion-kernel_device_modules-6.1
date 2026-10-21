@@ -39,8 +39,57 @@ config MTK_DISP_LOGGER
 	  stage, but can still manual disable this function
 	  through debugfs or procfs.
 
+config MTK_DISPLAY_DUAL_PIPE_DUAL_PORT_SUPPORT
+	bool "support lcm dual pipe and dual dsi port"
+	help
+	  This config decide if device support lcm dual pipe and dual dsi port
+	  If dsi support dual port, dual dsc may also should support
+	  If this value is Y, display maybe dual pipe
+	  If dsi support dual port, each dsi could calculate lower mmclk, and
+	  support more types lcm
+
 config MTK_DISP_DEBUG
 	bool "Support display debug function, default disable in user load"
 	help
 	  Used to debug for display module, only needed by developers.
 	  The function sould be disabled in user load for security.
+
+config TRANSSION_CWB_API_SUPPORT
+	tristate "add CWB api for sensor "
+	help
+		Specific code for cwb api .
+
+config TRANSSION_CWB_HIGH_PERFORMANCE
+	tristate "add CWB api for sensor "
+	depends on TRANSSION_CWB_API_SUPPORT
+	help
+		Specific code for cwb api .
+
+config TRAN_LHBM_NOTIFY_FINGERPRINT
+	tristate "enable hbm state notify fingerprint"
+	help
+	  For fingerprint under the screen projects.
+	  You need add CONFIG_TRAN_LHBM_NOTIFY_FINGERPRINT=m to tran_custom.config file.
+
+config CUSTOM_TRAN_PROJECT
+    string "CUSTOM_TRAN_PROJECT"
+        help
+           Kernel space tran project.
+
+config TRANSSION_DOZE_BRIGHTNESS_SUPPORT
+	tristate "add doze brightness adjust "
+	help
+		Specific code for doze brightness .
+config TRAN_LCD_AOD_ENTER_NOTIFY_SUPPORT
+	tristate "lcd_aod_enter_notify "
+	help
+		Specific code for LCD AOD
+config TRAN_ALWAYS_NOTIFY_LCM_COLOR_MODE
+	tristate "enable always notify lcm color mode to framework "
+	help
+	  You need add CONFIG_TRAN_ALWAYS_NOTIFY_LCM_COLOR_MODE=m to tran_custom.config file.
+
+config TRAN_DYNAMIC_WCG
+	tristate "enable dynamic wcg"
+	help
+	  You need add CONFIG_TRAN_DYNAMIC_WCG=m to tran_custom.config file.

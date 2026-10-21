@@ -317,8 +317,8 @@ static s32 fg_config_frame(struct mml_comp *comp, struct mml_task *task,
 		}
 
 		fg_table_pa[i] = task->pq_task->fg_table[i]->pa;
-		if ((task->pq_task->fg_table[i]->pa >> 34) > 0) {
-			mml_pq_err("%s job_id[%d] fg[%d] pa addr exceed 34 bits [%llx]",
+		if ((task->pq_task->fg_table[i]->pa >> 36) > 0) {
+			mml_pq_err("%s job_id[%d] fg[%d] pa addr exceed 36 bits [%llx]",
 				__func__, task->job.jobid, i, fg_table_pa[i]);
 			buf_ready = false;
 			break;
@@ -402,23 +402,24 @@ static s32 fg_config_frame(struct mml_comp *comp, struct mml_task *task,
 	mml_write(pkt, base_pa + fg->data->reg_table[FG_PPS_3], mml_pq_fg_get_pps3(fg_meta),
 		0x00FFFFFF, reuse, cache, &fg_frm->labels[FG_PPS_3_LABEL]);
 
+	if (fg->data->reg_table[FG_SRAM_CTRL] != REG_NOT_SUPPORT)
+		cmdq_pkt_write(pkt, NULL, base_pa + fg->data->reg_table[FG_SRAM_CTRL],
+			0x0, 0x3);
 	/* trigger FG load table */
 	if (buf_ready) {
 		mml_write(pkt, base_pa + fg->data->reg_table[FG_TRIGGER], 1 << 0, 1 << 0,
 			reuse, cache, &fg_frm->labels[FG_TRIGGER_LABEL_0]);
 		mml_write(pkt, base_pa + fg->data->reg_table[FG_TRIGGER], 0 << 0, 1 << 0,
 			reuse, cache, &fg_frm->labels[FG_TRIGGER_LABEL_1]);
+
+		if (fg->data->reg_table[FG_SRAM_CTRL] != REG_NOT_SUPPORT)
+			cmdq_pkt_poll(pkt, NULL,
+				0x1, base_pa + fg->data->reg_table[FG_SRAM_STATUS], 0x1, gpr);
 	} else {
 		mml_write(pkt, base_pa + fg->data->reg_table[FG_TRIGGER], 0 << 0, 1 << 0,
 			reuse, cache, &fg_frm->labels[FG_TRIGGER_LABEL_0]);
 		mml_write(pkt, base_pa + fg->data->reg_table[FG_TRIGGER], 0 << 0, 1 << 0,
 			reuse, cache, &fg_frm->labels[FG_TRIGGER_LABEL_1]);
-	}
-
-	if (fg->data->reg_table[FG_SRAM_CTRL] != REG_NOT_SUPPORT) {
-		cmdq_pkt_write(pkt, NULL, base_pa + fg->data->reg_table[FG_SRAM_CTRL], 0x0, 0x3);
-		cmdq_pkt_poll(pkt, NULL,
-			0x1, base_pa + fg->data->reg_table[FG_SRAM_STATUS], 0x1, gpr);
 	}
 
 exit:
@@ -483,8 +484,8 @@ static s32 fg_reconfig_frame(struct mml_comp *comp, struct mml_task *task,
 		}
 
 		fg_table_pa[i] = task->pq_task->fg_table[i]->pa;
-		if ((task->pq_task->fg_table[i]->pa >> 34) > 0) {
-			mml_pq_err("%s job_id[%d] fg[%d] pa addr exceed 34 bits [%llx]",
+		if ((task->pq_task->fg_table[i]->pa >> 36) > 0) {
+			mml_pq_err("%s job_id[%d] fg[%d] pa addr exceed 36 bits [%llx]",
 				__func__, task->job.jobid, i, fg_table_pa[i]);
 			goto buf_err_exit;
 		}
@@ -600,6 +601,7 @@ static void fg_debug_dump(struct mml_comp *comp)
 
 	/* Enable shadow read working */
 	shadow_ctrl = readl(base + fg->data->reg_table[FG_SHADOW_CTRL]);
+	mml_err("FG_SHADOW_CTRL %#010x", shadow_ctrl);
 	shadow_ctrl |= 0x4;
 	writel(shadow_ctrl, base + fg->data->reg_table[FG_SHADOW_CTRL]);
 
