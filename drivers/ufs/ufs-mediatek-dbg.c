@@ -329,14 +329,16 @@ static void ufs_mtk_dbg_print_info(char **buff, unsigned long *size,
 	else
 		SPREAD_PRINTF(buff, size, m,
 			      "clk_gating is disabled\n");
-	if (host->mclk.reg_vcore && !in_interrupt() && !irqs_disabled()) {
+	if (host->mclk.reg_vcore && !in_interrupt() && !irqs_disabled() &&
+	    !rcu_preempt_depth()) {
 		SPREAD_PRINTF(buff, size, m,
 			      "Vcore = %d uv\n",
 			      regulator_get_voltage(host->mclk.reg_vcore));
 	} else {
 		SPREAD_PRINTF(buff, size, m,
-			      "Vcore = ? uv, in_interrupt:%ld, irqs_disabled:%d\n",
-			      in_interrupt(), irqs_disabled());
+			      "Vcore = ? uv, in_interrupt:%ld, irqs_disabled:%d, RCU nest depth:%d\n",
+			      in_interrupt(), irqs_disabled(),
+			      rcu_preempt_depth());
 	}
 #ifdef CONFIG_PM
 	SPREAD_PRINTF(buff, size, m,

@@ -124,9 +124,6 @@ enum {
 	VS_HIB_EXIT                 = 13,
 };
 
-/*
- * VS_DEBUGCLOCKENABLE
- */
 enum {
 	TX_SYMBOL_CLK_REQ_FORCE = 5,
 };

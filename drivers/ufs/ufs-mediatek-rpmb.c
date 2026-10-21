@@ -21,7 +21,6 @@
 #include <scsi/scsi_cmnd.h>
 #include <scsi/scsi_dbg.h>
 #include <ufs/ufshcd.h>
-
 #include "ufs-mediatek-ise.h"
 #include "ufs-mediatek.h"
 #include "ufshcd-priv.h"
@@ -220,9 +219,13 @@ void ufs_rpmb_vh_compl_command(struct ufs_hba *hba, struct ufshcd_lrb *lrbp)
 	struct request *rq = scsi_cmd_to_rq(cmd);
 	struct bio_vec bvec;
 	struct bvec_iter iter;
-
-	u8 *buf = NULL;
+	size_t bytes = 0;
+	size_t len = 0;
+	u8 *_buf = NULL;
 	struct rpmb_frame *rframe = NULL;
+
+	char buf[sizeof(struct rpmb_frame)];
+	const size_t buf_sz = sizeof(buf);
 
 	if (cmd->cmnd[0] == SECURITY_PROTOCOL_IN) {
 
@@ -233,18 +236,33 @@ void ufs_rpmb_vh_compl_command(struct ufs_hba *hba, struct ufshcd_lrb *lrbp)
 		scsi_dma_unmap(cmd);
 
 		bio_for_each_segment(bvec, rq->bio, iter) {
-			/* expect only 1 page */
-			buf = bvec_kmap_local(&bvec);
-			rframe = (void *)buf;
 
-			/* First RPMB frame has enough info */
-			break;
+			_buf = bvec_kmap_local(&bvec);
+			if (!_buf) {
+				dev_warn(hba->dev, "empty page");
+				continue;
+			}
+
+			len =  min(buf_sz - bytes,  (size_t) bvec.bv_len);
+			memcpy(buf + bytes, _buf, len);
+
+			kunmap_local(_buf);
+			_buf = NULL;
+
+			bytes += len;
+			if (bytes >= buf_sz){
+				/* First RPMB frame has enough info */
+				break;
+			}
 		}
 
-		if (!rframe) {
-			dev_err(hba->dev, "empty rpmb frame");
-			goto out;
+		if (bytes < buf_sz) {
+			dev_warn(hba->dev, "%s: unexpected scsi data size %zu less than %zu", __func__, bytes, buf_sz);
+			WARN_ON_ONCE(true);
+			return;
 		}
+
+		rframe = (void *)buf;
 
 		dev_dbg(hba->dev, "req_resp=0x%x, result=0x%x",
 			be16_to_cpu(rframe->req_resp), be16_to_cpu(rframe->result));
@@ -266,9 +284,7 @@ void ufs_rpmb_vh_compl_command(struct ufs_hba *hba, struct ufshcd_lrb *lrbp)
 
 		/* Dump RPMB frame start from nonce to the end */
 		print_hex_dump(KERN_DEBUG, "tail", DUMP_PREFIX_OFFSET,
-			16, 8, buf + 484, 32, false);
-out:
-		kunmap_local(buf);
+			16, 8, buf + 484, 28, false);
 	}
 
 }
@@ -281,6 +297,38 @@ static void ufs_mtk_rpmb_purge_timer_cb(struct timer_list *list)
 	/* In case user did not query status until purge finish */
 	ufs_mtk_rpmb_purge_tmr_update(hba, false);
 	dev_info(hba->dev, "purge timer force deactivate");
+}
+
+int ufs_mtk_test_rpmb_ready(struct scsi_device *rpmb)
+{
+	struct scsi_sense_hdr sshdr = {0};
+	int retries = 10;
+	int ret;
+	char cmd[] = {
+		TEST_UNIT_READY, 0, 0, 0, 0, 0,
+	};
+	const struct scsi_exec_args exec_args = {
+		.sshdr = &sshdr,
+	};
+
+retry:
+	ret = scsi_execute_cmd(rpmb, cmd, REQ_OP_DRV_IN, NULL, 0,
+				SEC_PROTOCOL_TIMEOUT, SEC_PROTOCOL_RETRIES, &exec_args);
+
+	if (ret && scsi_sense_valid(&sshdr) &&
+	    sshdr.sense_key == UNIT_ATTENTION) {
+		if (--retries > 0)
+			goto retry;
+	}
+
+	if (ret)
+		dev_info(&rpmb->sdev_dev, "%s: failed with err %0x\n",
+			__func__, ret);
+
+	if (scsi_sense_valid(&sshdr) && sshdr.sense_key)
+		scsi_print_sense_hdr(rpmb, "rpmb: test unit ready", &sshdr);
+
+	return ret;
 }
 
 struct ufs_hba *g_hba;
@@ -371,6 +419,9 @@ find_exit:
 	if (host->sdev_rpmb->rpm_autosuspend)
 		pm_runtime_set_autosuspend_delay(&host->sdev_rpmb->sdev_gendev,
 						 MTK_RPM_AUTOSUSPEND_DELAY_MS);
+
+	ufs_mtk_test_rpmb_ready(host->sdev_rpmb);
+
 out_put_dev:
 	scsi_device_put(host->sdev_rpmb);
 
