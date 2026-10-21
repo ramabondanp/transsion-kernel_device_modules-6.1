@@ -1002,15 +1002,6 @@ static void ufs_mtk_trace_vh_update_sdev(void *data, struct scsi_device *sdev)
 	}
 }
 
-void ufs_mtk_trace_vh_ufs_prepare_command(void *data, struct ufs_hba *hba,
-		struct request *rq, struct ufshcd_lrb *lrbp, int *err)
-{
-	struct scsi_cmnd *cmd = lrbp->cmd;
-	char *cmnd = cmd->cmnd;
-	if (cmnd[0] == WRITE_10 | cmnd[0] == WRITE_16)
-		cmnd[1] &= ~0x08;
-}
-
 void ufs_mtk_trace_vh_check_int_errors(void *data, struct ufs_hba *hba, bool queue_eh_work)
 {
 	/* Disable UIC Error intr since eh work is scheduled */
@@ -1022,10 +1013,6 @@ void ufs_mtk_trace_vh_check_int_errors(void *data, struct ufs_hba *hba, bool que
 }
 
 static struct tracepoints_table interests[] = {
-	{
-		.name = "android_vh_ufs_prepare_command",
-		.func = ufs_mtk_trace_vh_ufs_prepare_command
-	},
 	{
 		.name = "android_vh_ufs_send_command",
 		.func = ufs_mtk_trace_vh_send_command
