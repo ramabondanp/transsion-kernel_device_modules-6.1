@@ -96,6 +96,27 @@ enum bat_temp_state_enum {
 	BAT_TEMP_HIGH
 };
 
+enum TA_STATE {
+	TA_INIT_FAIL,
+	TA_CHECKING,
+	TA_NOT_SUPPORT,
+	TA_NOT_READY,
+	TA_READY,
+	TA_PD_PPS_READY,
+};
+
+enum adapter_protocol_state {
+	FIRST_HANDSHAKE,
+	RUN_ON_PD,
+	RUN_ON_UFCS,
+};
+
+enum TA_CAP_STATE {
+	APDO_TA,
+	WO_APDO_TA,
+	STD_TA,
+	ONLY_APDO_TA,
+};
 enum chg_dev_notifier_events {
 	EVENT_FULL,
 	EVENT_RECHARGE,
@@ -138,6 +159,7 @@ struct battery_thermal_protection_data {
  * T3: 45 degree Celsius
  * T4: 50 degree Celsius
  */
+
 enum sw_jeita_state_enum {
 	TEMP_BELOW_T0 = 0,
 	TEMP_T0_TO_T1,
@@ -145,6 +167,11 @@ enum sw_jeita_state_enum {
 	TEMP_T2_TO_T3,
 	TEMP_T3_TO_T4,
 	TEMP_ABOVE_T4
+};
+
+struct info_notifier_block {
+	struct notifier_block nb;
+	struct mtk_charger *info;
 };
 
 struct sw_jeita_data {
@@ -288,18 +315,25 @@ struct mtk_charger {
 	struct power_supply  *chg_psy;
 	struct power_supply  *bc12_psy;
 	struct power_supply  *bat_psy;
+	struct adapter_device *select_adapter;
 	struct adapter_device *pd_adapter;
-	struct notifier_block pd_nb;
+	struct adapter_device *adapter_dev[MAX_TA_IDX];
+	struct notifier_block *nb_addr;
+	struct info_notifier_block ta_nb[MAX_TA_IDX];
+	struct adapter_device *ufcs_adapter;
 	struct mutex pd_lock;
-	int pd_type;
-	bool pd_reset;
+	struct mutex ufcs_lock;
+	struct mutex ta_lock;
 
 	u32 bootmode;
 	u32 boottype;
 
+	int ta_status[MAX_TA_IDX];
+	int select_adapter_idx;
 	int chr_type;
 	int usb_type;
 	int usb_state;
+	int adapter_priority;
 
 	struct mutex cable_out_lock;
 	int cable_out_cnt;
@@ -414,6 +448,10 @@ struct mtk_charger {
 	/* enable boot volt*/
 	bool enable_boot_volt;
 	bool reset_boot_volt_times;
+	/* adapter switch control */
+	int protocol_state;
+	int ta_capability;
+	int wait_times;
 };
 
 static inline int mtk_chg_alg_notify_call(struct mtk_charger *info,
@@ -457,6 +495,10 @@ extern int get_charger_input_current(struct mtk_charger *info,
 extern int get_charger_zcv(struct mtk_charger *info,
 	struct charger_device *chg);
 extern void _wake_up_charger(struct mtk_charger *info);
+extern int mtk_adapter_switch_control(struct mtk_charger *info);
+extern int mtk_selected_adapter_ready(struct mtk_charger *info);
+extern int mtk_adapter_protocol_init(struct mtk_charger *info);
+extern void mtk_check_ta_status(struct mtk_charger *info);
 
 /* functions for other */
 extern int mtk_chg_enable_vbus_ovp(bool enable);

@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: GPL-2.0 */
+/* SPDX-License-Identifier: GPL-2.0-only */
 /*
  * Copyright (c) 2019 MediaTek Inc.
  */
@@ -45,18 +45,21 @@ struct adapter_auth_data {
 };
 
 enum adapter_type {
-	MTK_PD_ADAPTER,
+	PD,
+	UFCS,
+	MAX_TA_IDX,
+};
+
+static const char *const adapter_type_names[] = {
+	"pd_adapter", "ufcs_adapter"
 };
 
 enum adapter_event {
-	MTK_PD_CONNECT_NONE,
-	MTK_PD_CONNECT_HARD_RESET,
-	MTK_PD_CONNECT_SOFT_RESET,
-	MTK_PD_CONNECT_PE_READY_SNK,
-	MTK_PD_CONNECT_PE_READY_SNK_PD30,
-	MTK_PD_CONNECT_PE_READY_SNK_APDO,
-	MTK_PD_CONNECT_TYPEC_ONLY_SNK,
-	MTK_PD_CONNECT_NEW_SRC_CAP,
+	TA_ATTACH,
+	TA_DETACH,
+	TA_DETECT_FAIL,
+	TA_HARD_RESET,
+	TA_SOFT_RESET,
 	MTK_TYPEC_WD_STATUS,
 	MTK_TYPEC_HRESET_STATUS,
 	MTK_TYPEC_CC_HI_STATUS,
@@ -64,7 +67,7 @@ enum adapter_event {
 
 enum adapter_property {
 	TYPEC_RP_LEVEL,
-	PD_TYPE,
+	CAP_TYPE,
 };
 
 enum adapter_cap_type {
@@ -72,6 +75,7 @@ enum adapter_cap_type {
 	MTK_PD_APDO_END,
 	MTK_PD,
 	MTK_PD_APDO,
+	MTK_UFCS,
 	MTK_CAP_TYPE_UNKNOWN,
 };
 
@@ -125,6 +129,7 @@ struct adapter_ops {
 	int (*enable_wdt)(struct adapter_device *dev, bool en);
 	int (*sync_volt)(struct adapter_device *dev, u32 mV);
 	int (*send_hardreset)(struct adapter_device *dev);
+	int (*exit_mode)(struct adapter_device *dev);
 };
 
 static inline void *adapter_dev_get_drvdata(
@@ -174,4 +179,5 @@ extern int adapter_dev_set_wdt(struct adapter_device *adapter_dev, u32 ms);
 extern int adapter_dev_enable_wdt(struct adapter_device *adapter_dev, bool en);
 extern int adapter_dev_sync_volt(struct adapter_device *adapter_dev, u32 mV);
 extern int adapter_dev_send_hardreset(struct adapter_device *adapter_dev);
+extern int adapter_dev_exit_mode(struct adapter_device *adapter_dev);
 #endif /*LINUX_POWER_ADAPTER_CLASS_H*/

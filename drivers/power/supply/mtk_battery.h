@@ -18,7 +18,10 @@
 #include <linux/ktime.h>
 #include <linux/ctype.h>
 #include "mtk_gauge.h"
+#if IS_ENABLED(CONFIG_TC_CHARGER)
+#include "tc_common_class.h"
 
+#endif
 
 #define NETLINK_FGD 26
 #define UNIT_TRANS_10	10
@@ -298,9 +301,6 @@ enum fg_daemon_cmds {
 	FG_DAEMON_CMD_COMMUNICATION_INT,
 	FG_DAEMON_CMD_SET_BATTERY_CAPACITY,
 	FG_DAEMON_CMD_GET_BH_DATA,
-	FG_DAEMON_CMD_SET_SELECT_ZCV,
-	FG_DAEMON_CMD_GET_DYNAMIC_DATA,
-	FG_DAEMON_CMD_SEND_DYNAMIC_DATA,
 
 	FG_DAEMON_CMD_FROM_USER_NUMBER
 
@@ -325,8 +325,6 @@ enum Fg_kernel_cmds {
 	FG_KERNEL_CMD_FORCE_BAT_TEMP,
 	FG_KERNEL_CMD_SEND_BH_DATA,
 	FG_KERNEL_CMD_GET_DYNAMIC_CV,
-	FG_KERNEL_CMD_GET_DYNAMIC_GAUGE0,
-	FG_KERNEL_CMD_GET_DYNAMIC_ZCV_TABLE,
 
 	FG_KERNEL_CMD_FROM_USER_NUMBER
 
@@ -360,7 +358,6 @@ enum gauge_event {
 	GAUGE_EVT_MAX
 };
 
-
 enum charge_sel {
 	CHARGE_NORMAL,
 	CHARGE_R1,
@@ -376,7 +373,6 @@ struct fuelgauge_charger_struct {
 struct fuelgauge_charge_pseudo100_s {
 	int pseudo[MAX_CHARGE_RDC];
 };
-
 
 struct fuelgauge_profile_struct {
 	int mah;
@@ -752,7 +748,6 @@ enum Fg_interrupt_flags {
 	FG_INTR_BAT_INT1_CHECK = 0x1000000,
 	FG_INTR_KERNEL_CMD = 0x2000000,
 	FG_INTR_BAT_INT2_CHECK = 0x4000000,
-	FG_INTR_DYNAMIC = 0x8000000,
 };
 
 struct mtk_battery_algo {
@@ -947,19 +942,9 @@ struct zcv_filter {
 	struct zcv_log log[ZCV_LOG_LEN];
 };
 
-
 struct ag_center_data_st {
 	int data[43];
 	struct timespec64 times[3];
-};
-
-struct dynamic_data{
-	int dynamic_gauge0_flag;
-	int dynamic_gauge0_voltage;
-	int dynamic_cv_flag;
-	int dynamic_cv_voltage;
-	int dynamic_zcv_flag;
-	int dynamic_zcv_cycle;
 };
 
 struct mtk_battery {
@@ -1171,9 +1156,20 @@ struct mtk_battery {
 	int dynamic_shutdown_cond;
 	int bob_exist;
 
-	/* dynamic data */
-	struct dynamic_data dynamic_data;
-	struct dynamic_data dynamic_data_rcv;
+	/* vsys bound*/
+	int disable_quick_shutdown;
+	int vsys_det_voltage1;
+	int vsys_det_voltage2;
+	int down_to_low_bat;
+	struct tran_device *tran_batt_dev;
+	struct tran_properties tran_batt_props;
+	int accuracy_uisoc;
+	int accuracy_tbat;
+	struct battery_device *bms_dev;
+	struct tran_device *charge_transfer_dev;
+	struct tran_device *tcc_dev;
+	bool soc_ready;
+	bool rtc_soc_ready;
 };
 
 struct mtk_battery_sysfs_field_info {
@@ -1244,7 +1240,7 @@ extern int get_shutdown_cond_flag(struct mtk_battery *gm);
 extern void set_shutdown_cond_flag(struct mtk_battery *gm, int val);
 extern bool set_charge_power_sel(enum charge_sel select);
 extern int dump_pseudo100(int select);
-extern void reload_battery_zcv_table(struct mtk_battery *gm, int select_zcv);
+extern int fg_get_vsys(void);
 /*mtk_battery.c end */
 
 /* mtk_battery_algo.c */

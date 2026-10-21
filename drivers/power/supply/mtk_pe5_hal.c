@@ -508,11 +508,11 @@ out:
 	return ret;
 }
 
-int pe50_hal_is_pd_adapter_ready(struct chg_alg_device *alg)
+int pe50_hal_is_adapter_ready(struct chg_alg_device *alg)
 {
 	struct pe50_hal *hal;
-	int type = 0;
-	int i;
+	struct power_supply *chg_psy = NULL;
+	struct mtk_charger *info = NULL;
 
 	if (alg == NULL) {
 		pr_notice("%s: alg is null\n", __func__);
@@ -520,22 +520,21 @@ int pe50_hal_is_pd_adapter_ready(struct chg_alg_device *alg)
 	}
 
 	hal = chg_alg_dev_get_drv_hal_data(alg);
-	for (i = 0; i < hal->support_ta_cnt; i++) {
-		if (!hal->adapters[i])
-			continue;
-		type = adapter_dev_get_property(hal->adapters[i], PD_TYPE);
-		if (type < 0)
-			continue;
+	chg_psy = power_supply_get_by_name("mtk-master-charger");
+	if (chg_psy == NULL || IS_ERR(chg_psy))
+		pr_notice("%s Couldn't get chg_psy\n", __func__);
+	else {
+		info = (struct mtk_charger *)power_supply_get_drvdata(chg_psy);
+		if (info->select_adapter) {
+			pr_notice("%s ta_cap:%d\n", __func__, info->ta_capability);
+			hal->adapter = info->select_adapter;
+			if (info->ta_capability == APDO_TA ||
+				info->ta_capability == ONLY_APDO_TA)
+				return ALG_READY;
+			else
+				return ALG_TA_NOT_SUPPORT;
+		}
 	}
-
-	pr_notice("%s type:%d\n", __func__, type);
-
-	if (type == MTK_PD_CONNECT_PE_READY_SNK_APDO)
-		return ALG_READY;
-	else if (type == MTK_PD_CONNECT_TYPEC_ONLY_SNK ||
-			 type == MTK_PD_CONNECT_PE_READY_SNK ||
-			 type == MTK_PD_CONNECT_PE_READY_SNK_PD30)
-		return ALG_TA_NOT_SUPPORT;
 	return ALG_TA_CHECKING;
 }
 

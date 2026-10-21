@@ -63,10 +63,18 @@
 /* dependent on platform */
 #include "mtk_charger.h"
 
+enum adapter_driver_type {
+	MTK_PD_ADAPTER_DRIVER,
+	MTK_UFCS_ADAPTER_DRIVER,
+};
+
 struct pe45_hal {
 	struct charger_device *chg1_dev;
 	struct charger_device *chg2_dev;
+	struct adapter_device *ufcs_adapter;
+	struct adapter_device *pd_adapter;
 	struct adapter_device *adapter;
+	int adapter_type;
 };
 
 int pe4_hal_init_hardware(struct chg_alg_device *alg)
@@ -103,30 +111,48 @@ int pe4_hal_init_hardware(struct chg_alg_device *alg)
 	else
 		pe4_err("%s: Error : can't find secondary charger\n",
 			__func__);
-
-	hal->adapter = get_adapter_by_name("pd_adapter");
-	if (hal->adapter)
+	hal->pd_adapter = get_adapter_by_name("pd_adapter");
+	if (hal->pd_adapter)
 		pe4_dbg("%s: Found pd adapter\n", __func__);
-	else {
-		pe4_err("%s: Error : can't find pd adapter\n",
+	else
+		pe4_err("%s: note : can't find pd adapter\n",
 			__func__);
+
+	hal->ufcs_adapter = get_adapter_by_name("ufcs_adapter");
+	if (hal->ufcs_adapter)
+		pe4_dbg("%s: Found ufcs adapter\n", __func__);
+	else
+		pe4_err("%s: note : can't find ufcs adapter\n",
+			__func__);
+
+	if (!hal->pd_adapter && !hal->ufcs_adapter) {
+		pe4_err("%s: Error : can't find pd, ufcs adapter\n",
+			__func__);
+
 		return -ENODEV;
 	}
-
 	return 0;
 }
 
 int pe4_hal_set_adapter_cap_end(struct chg_alg_device *alg,
-	int mV, int mA)
+	int mV, int mA, int exit_mode)
 {
 	struct pe45_hal *hal;
+	int ret = 0;
 
 	if (alg == NULL)
 		return -EINVAL;
 
 	pe4_dbg("%s %d %d\n", __func__, mV, mA);
 	hal = chg_alg_dev_get_drv_hal_data(alg);
-	adapter_dev_set_cap(hal->adapter, MTK_PD_APDO_END, mV, mA);
+	if (exit_mode) {
+		ret = adapter_dev_exit_mode(hal->adapter);
+		pe4_err("%s: exit_mode\n", __func__);
+	}
+	if (ret < 0 || !exit_mode) {
+		ret = adapter_dev_set_cap(hal->adapter, MTK_PD_APDO_END, mV, mA);
+		pe4_dbg("%s %d %d\n", __func__, mV, mA);
+	}
 	return 0;
 }
 
@@ -224,29 +250,34 @@ int pe4_hal_get_uisoc(struct chg_alg_device *alg)
 	return ret;
 }
 
-int pe4_hal_is_pd_adapter_ready(struct chg_alg_device *alg)
+int pe4_hal_is_adapter_ready(struct chg_alg_device *alg)
 {
-	struct mtk_pe45 *pe4;
+	struct mtk_charger *info = NULL;
+	struct power_supply *chg_psy = NULL;
 	struct pe45_hal *hal;
-	int type;
 
 	if (alg == NULL) {
 		pe4_err("%s: alg is null\n", __func__);
 		return -EINVAL;
 	}
 
-	pe4 = dev_get_drvdata(&alg->dev);
 	hal = chg_alg_dev_get_drv_hal_data(alg);
-	type = adapter_dev_get_property(hal->adapter, PD_TYPE);
+	chg_psy = power_supply_get_by_name("mtk-master-charger");
 
-	pe4_dbg("%s type:%d\n", __func__, type);
-
-	if (type == MTK_PD_CONNECT_PE_READY_SNK_APDO)
-		return ALG_READY;
-	else if (type == MTK_PD_CONNECT_TYPEC_ONLY_SNK ||
-				type == MTK_PD_CONNECT_PE_READY_SNK ||
-				type == MTK_PD_CONNECT_PE_READY_SNK_PD30)
-		return ALG_TA_NOT_SUPPORT;
+	if (chg_psy == NULL || IS_ERR(chg_psy))
+		pe4_err("%s Couldn't get chg_psy\n", __func__);
+	else {
+		info = (struct mtk_charger *)power_supply_get_drvdata(chg_psy);
+		if (info->select_adapter) {
+			pe4_dbg("%s ta_cap:%d\n", __func__, info->ta_capability);
+			hal->adapter = info->select_adapter;
+			if (info->ta_capability == APDO_TA ||
+				info->ta_capability == ONLY_APDO_TA)
+				return ALG_READY;
+			else
+				return ALG_TA_NOT_SUPPORT;
+		}
+	}
 	return ALG_TA_CHECKING;
 }
 
@@ -367,7 +398,7 @@ int pe4_hal_1st_set_adapter_cap(struct chg_alg_device *alg,
 
 	pe4_dbg("%s %d %d\n", __func__, mV, mA);
 	hal = chg_alg_dev_get_drv_hal_data(alg);
-	adapter_dev_set_cap(hal->adapter, MTK_PD_APDO_START, mV, mA);
+	adapter_dev_set_cap(hal->adapter, MTK_PD_APDO_START, mV, mA); /* ufcs */
 	return 0;
 }
 

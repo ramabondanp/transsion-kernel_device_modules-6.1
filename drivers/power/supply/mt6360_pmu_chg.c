@@ -2873,7 +2873,7 @@ static int mt6360_charger_get_online(struct mt6360_chg_info *mci,
 			return ret;
 		}
 	}
-	dev_info(mci->dev, "%s: online = %d\n", __func__, pwr_rdy);
+	dev_info_ratelimited(mci->dev, "%s: online = %d\n", __func__, pwr_rdy);
 	*val = pwr_rdy;
 	return 0;
 }

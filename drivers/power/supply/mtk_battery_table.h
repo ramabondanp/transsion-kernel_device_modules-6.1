@@ -98,6 +98,9 @@
 #define VBAT2_DET_VOLTAGE1	30500
 #define VBAT2_DET_VOLTAGE2	28000
 #define VBAT2_DET_VOLTAGE3	31000
+#define DISABLE_QUICK_SHUTDOWN 0
+#define VSYS_DET_VOLTAGE1	3100
+#define VSYS_DET_VOLTAGE2	3000
 
 /* PCB setting */
 #define CALI_CAR_TUNE_AVG_NUM	60
@@ -145,8 +148,8 @@
 #define VBAT_OLDOCV_DIFF			1000
 #define SWOCV_OLDOCV_DIFF_EMB		1000	/* 100mV */
 
-#define VIR_OLDOCV_DIFF_EMB			10000	/* 1000mV */
-#define VIR_OLDOCV_DIFF_EMB_LT		10000	/* 1000mV */
+#define VIR_OLDOCV_DIFF_EMB			5000	/*default 500mV */
+#define VIR_OLDOCV_DIFF_EMB_LT		5000	/*default 500mV */
 #define VIR_OLDOCV_DIFF_EMB_TMP		5
 
 #define TNEW_TOLD_PON_DIFF			5
@@ -216,7 +219,6 @@
 
 #define SHUTDOWN_CAR_RATIO		1
 
-
 /* different temp using different gauge 0% */
 #define MULTI_TEMP_GAUGE0		1
 
@@ -249,7 +251,6 @@
 #define UI_FULL_LIMIT_ITH4	2200
 
 #define UI_FULL_LIMIT_TIME	99999
-
 
 #define UI_FULL_LIMIT_FC_SOC0	9900
 #define UI_FULL_LIMIT_FC_ITH0	3000
@@ -290,7 +291,6 @@
 
 /* multiple battery profile compile options */
 /*#define MTK_GET_BATTERY_ID_BY_AUXADC*/
-
 
 /* if ACTIVE_TABLE == 0 && MULTI_BATTERY == 0
  * load g_FG_PSEUDO100_Tx from dtsi
@@ -361,7 +361,7 @@ int g_Q_MAX_SYS_VOLTAGE[TOTAL_BATTERY_NUMBER] = { 3400, 3400, 3400, 3400};
 /* 0~0.5V for battery 0, 0.5~1V for battery 1*/
 /* 1~1.5V for battery 2, -1 for the last one (battery 3) */
 int g_battery_id_voltage[TOTAL_BATTERY_NUMBER] = {
-	500000, 1000000, 1500000, -1};
+	150000, 1000000, 1500000, -1};
 
 int g_FG_PSEUDO1[MAX_TABLE][TOTAL_BATTERY_NUMBER] = {
 	/*bat1,   bat2,   bat3,    bat4*/
@@ -454,7 +454,6 @@ int g_QMAX_SYS_VOL[MAX_TABLE][TOTAL_BATTERY_NUMBER] = {
 	{33500, 33500, 33500, 33500} /*T9*/
 };
 
-
 #define TEMPERATURE_TB0	255
 #define TEMPERATURE_TB1	254
 
@@ -470,7 +469,6 @@ int g_temperature[MAX_TABLE] = {
 	-40,/*TEMPERATURE_T8*/
 	-45/*TEMPERATURE_T9*/
 };
-
 
 #define BAT_NTC_10 1
 #define BAT_NTC_47 0
@@ -539,14 +537,10 @@ struct fg_temp fg_temp_table[21] = {
 };
 #endif
 
-
-
 /* ============================================================
  * <DOD, Battery_Voltage> Table
  * ============================================================
  */
-
-
 
 /* T0 */
 struct fuelgauge_profile_struct fg_profile_t0[TOTAL_BATTERY_NUMBER][100] = {

@@ -25,6 +25,11 @@
 
 #include "mtk_battery.h"
 #include "mtk_gauge.h"
+#if IS_ENABLED(CONFIG_TC_CHARGER)
+#include "tc_charger.h"
+#else
+#include "mtk_charger.h"
+#endif
 #if IS_ENABLED(CONFIG_MTK_AEE_FEATURE)
 #include <mt-plat/aee.h>
 #endif
@@ -248,7 +253,7 @@ struct mt6375_priv {
 	int unit_fg_iavg;
 	int unit_fgcar_zcv;
 };
-
+#if !IS_ENABLED(CONFIG_TC_CHARGER)
 /************ bat_cali *******************/
 #define BAT_CALI_DEVNAME "MT_pmic_adc_cali"
 /* add for meta tool----------------------------------------- */
@@ -263,9 +268,9 @@ static struct class *bat_cali_class;
 static int bat_cali_major;
 static dev_t bat_cali_devno;
 static struct cdev *bat_cali_cdev;
-static int latch_timeout_cnt;
-static int latch_i2c_retry_cnt;
-
+//static int latch_timeout_cnt;
+//static int latch_i2c_retry_cnt;
+#endif
 static void gauge_irq_lock(struct irq_data *data)
 {
 	struct mt6375_priv *priv = irq_data_get_irq_chip_data(data);
@@ -1100,7 +1105,7 @@ static int instant_current(struct mtk_gauge *gauge, int *val,
 		latch_timeout = true;
 	else if (ret == -ETIMEDOUT) {
 		aee_kernel_warning("I2C", "\nCRDISPATCH_KEY:I2C\ni2c timeout when pre_gauge_update");
-		pr_notice("%s: latch i2c timeout, retry_cnt:%d\n", __func__, ++latch_i2c_retry_cnt);
+		//pr_notice("%s: latch i2c timeout, retry_cnt:%d\n", __func__, ++latch_i2c_retry_cnt);
 		post_gauge_update(gauge);
 		pre_gauge_update(gauge);
 	}
@@ -1122,12 +1127,12 @@ static int instant_current(struct mtk_gauge *gauge, int *val,
 	*val = dvalue;
 
 	if (latch_timeout) {
-		latch_timeout_cnt++;
-		pr_notice("[%s] read cic1 with external 32k failed, latch_timeout_cnt:%d\n",
-			  __func__, latch_timeout_cnt);
+//		latch_timeout_cnt++;
+//		pr_notice("[%s] read cic1 with external 32k failed, latch_timeout_cnt:%d\n",
+//			  __func__, latch_timeout_cnt);
 
 		ret = iio_read_channel_attribute(gauge->chan_ptim_bat_voltage,
-						 &vbat_p, &ibat_p, IIO_CHAN_INFO_PROCESSED);
+						 &vbat_p, &ibat_p, IIO_CHAN_INFO_RAW);
 		pr_notice("[%s] ptim vbat=%d, ibat=%d, ret=%d\n", __func__, vbat_p, ibat_p, ret);
 
 		ret = regmap_read(gauge->regmap, RG_FGADC_CON2, &rdata);
@@ -1414,7 +1419,6 @@ static void read_fg_hw_info_ncar(struct mtk_gauge *gauge_dev)
 		Temp_Value = (long long)dvalue_NCAR;
 	}
 
-
 	/* 0.1 mAh */
 #if defined(__LP64__) || defined(_LP64)
 	Temp_Value = Temp_Value * priv->unit_charge / 1000;
@@ -1553,7 +1557,6 @@ static int coulomb_get(struct mtk_gauge *gauge, struct mtk_gauge_sysfs_field_inf
 	temp_value = div_s64(temp_value * priv->unit_charge, 1000);
 #endif
 
-
 #if defined(__LP64__) || defined(_LP64)
 	do_div(temp_value, 10);
 	temp_value = temp_value + 5;
@@ -1563,7 +1566,6 @@ static int coulomb_get(struct mtk_gauge *gauge, struct mtk_gauge_sysfs_field_inf
 	temp_value = temp_value + 5;
 	temp_value = div_s64(temp_value, 10);
 #endif
-
 
 	if (uvalue32_car_msb)
 		dvalue_CAR = (signed int) (temp_value - (temp_value * 2));
@@ -1665,7 +1667,6 @@ static int average_current_get(struct mtk_gauge *gauge_dev, struct mtk_gauge_sys
 		fg_iavg_ma = div_s64(fg_iavg_ma, 1000000);
 #endif
 
-
 		if (r_fg_value != priv->default_r_fg && r_fg_value != 0) {
 #if defined(__LP64__) || defined(_LP64)
 			fg_iavg_ma = (fg_iavg_ma * priv->default_r_fg / r_fg_value);
@@ -1682,7 +1683,6 @@ static int average_current_get(struct mtk_gauge *gauge_dev, struct mtk_gauge_sys
 
 		bm_debug("[fg_get_current_iavg] fg_iavg_ma %lld\n",
 			fg_iavg_ma);
-
 
 		if (sign_bit)
 			fg_iavg_ma = 0 - fg_iavg_ma;
@@ -1889,7 +1889,6 @@ static signed int fg_set_iavg_intr(struct mtk_gauge *gauge_dev, void *data)
 					 gauge_dev->gm->fg_cust_data.car_tune_value);
 #endif
 	}
-
 
 	fg_iavg_reg_lt = iavg_lt * 100;
 
@@ -2391,8 +2390,7 @@ static int zcv_get(struct mtk_gauge *gauge_dev, struct mtk_gauge_sysfs_field_inf
 	*zcv = adc_result;
 	return 0;
 }
-
-static int get_charger_zcv(struct mtk_gauge *gauge_dev)
+static int mt_get_charger_zcv(struct mtk_gauge *gauge_dev)
 {
 	struct power_supply *chg_psy;
 	union power_supply_propval val;
@@ -2443,7 +2441,7 @@ static int boot_zcv_get(struct mtk_gauge *gauge_dev, struct mtk_gauge_sysfs_fiel
 	_hw_ocv_75_plugin = read_hw_ocv_6375_plug_in(gauge_dev);
 	_hw_ocv_75_before_chgin = read_hw_ocv_6375_before_chgin(gauge_dev);
 
-	tmp_hwocv_chgin = get_charger_zcv(gauge_dev);
+	tmp_hwocv_chgin = mt_get_charger_zcv(gauge_dev);
 	if (tmp_hwocv_chgin != -ENODEV)
 		_hw_ocv_chgin = tmp_hwocv_chgin / 100;
 	else
@@ -2458,7 +2456,6 @@ static int boot_zcv_get(struct mtk_gauge *gauge_dev, struct mtk_gauge_sysfs_fiel
 		else
 			now_thr = gm->ext_hwocv_swocv_lt;
 	}
-
 
 	if (_hw_ocv_chgin < 25000)
 		_hw_ocv_chgin_rdy = 0;
@@ -3057,7 +3054,7 @@ out:
 static int bat_vol_get(struct mtk_gauge *gauge, struct mtk_gauge_sysfs_field_info *attr, int *val)
 {
 	struct mt6375_priv *priv = container_of(gauge, struct mt6375_priv, gauge);
-	int i, ret, vbat_mon = 0;
+	int i, ret, vbat_mon = 0, vbat_tmp = 0;
 	u32 data = 0;
 	static long long t1;
 	static int print_period = 3;
@@ -3071,11 +3068,12 @@ static int bat_vol_get(struct mtk_gauge *gauge, struct mtk_gauge_sysfs_field_inf
 		return -EOPNOTSUPP;
 	}
 
-	ret = iio_read_channel_processed(gauge->chan_bat_voltage, val);
+	ret = iio_read_channel_processed(gauge->chan_bat_voltage, &vbat_tmp);
 	if (ret < 0) {
 		bm_err("[%s]read fail,ret=%d\n", __func__, ret);
 		return ret;
 	}
+	*val = vbat_tmp;
 
 	if (*val < 1000) {
 		if (t1 == 0) {
@@ -3139,8 +3137,8 @@ static int battery_exist_get(struct mtk_gauge *gauge, struct mtk_gauge_sysfs_fie
 	}
 
 	/* print debug for latch timeout in 10s battery routine */
-	pr_info("%s: latch_tout_cnt:%d, latch_i2c_retry_cnt:%d\n", __func__,
-		latch_timeout_cnt, latch_i2c_retry_cnt);
+	/*	pr_info("%s: latch_tout_cnt:%d, latch_i2c_retry_cnt:%d\n", __func__,
+		latch_timeout_cnt, latch_i2c_retry_cnt);*/
 	return 0;
 }
 
@@ -3358,6 +3356,25 @@ static int battery_cic2_get(struct mtk_gauge *gauge, struct mtk_gauge_sysfs_fiel
 	return 0;
 }
 
+static int battery_soc_ready_get(struct mtk_gauge *gauge, struct mtk_gauge_sysfs_field_info *attr,
+			    int *val)
+{
+	struct mtk_battery *gm = NULL;
+
+	msleep(100);
+	if (!IS_ERR_OR_NULL(gauge)) {
+		gm = gauge->gm;
+		if (!IS_ERR_OR_NULL(gm))
+			*val = gm->rtc_soc_ready;
+		else
+			*val = 0;
+	}
+	else
+		*val = 0;
+	bm_err("%s get soc ready %d\n", __func__, *val);
+	return 0;
+}
+
 static int initial_set(struct mtk_gauge *gauge, struct mtk_gauge_sysfs_field_info *attr, int val)
 {
 	int bat_flag = 0;
@@ -3500,6 +3517,7 @@ static struct mtk_gauge_sysfs_field_info mt6375_sysfs_field_tbl[] = {
 	GAUGE_SYSFS_FIELD_RO(battery_voltage_cali, GAUGE_PROP_BAT_EOC),
 	GAUGE_SYSFS_FIELD_RO(regmap_type_get, GAUGE_PROP_REGMAP_TYPE),
 	GAUGE_SYSFS_FIELD_RO(battery_cic2_get, GAUGE_PROP_CIC2),
+	GAUGE_SYSFS_FIELD_RO(battery_soc_ready_get, GAUGE_PROP_CHECK),
 };
 
 static struct attribute *mt6375_sysfs_attrs[GAUGE_PROP_MAX + 1];
@@ -3544,6 +3562,7 @@ signed int battery_meter_meta_tool_cali_car_tune(struct mtk_battery *gm,
 	return cali_car_tune;		/* 1000 base */
 }
 
+#if !IS_ENABLED(CONFIG_TC_CHARGER)
 #if IS_ENABLED(CONFIG_COMPAT)
 static long compat_adc_cali_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 {
@@ -3595,6 +3614,13 @@ static long adc_cali_ioctl(struct file *file, unsigned int cmd, unsigned long ar
 	int temp_car_tune;
 	int isdisNAFG = 0;
 	struct mtk_battery *gm;
+#if !IS_ENABLED(CONFIG_TC_CHARGER)
+	struct mtk_charger *info = get_mtk_charger();
+#endif
+	int *naram_data_addr;
+	int i=0;
+
+	bm_notice("%s enter\n", __func__);
 
 	gm = get_mtk_battery();
 	mutex_lock(&gm->gauge->fg_mutex);
@@ -3608,6 +3634,50 @@ static long adc_cali_ioctl(struct file *file, unsigned int cmd, unsigned long ar
 
 	switch (cmd) {
 		/* add for meta tool------------------------------- */
+	case TEST_ADC_CALI_PRINT:
+		g_ADC_Cali = false;
+		break;
+
+	case SET_ADC_CALI_Slop:
+		naram_data_addr = (int *)arg;
+		ret = copy_from_user(adc_cali_slop, naram_data_addr, 36);
+		g_ADC_Cali = false;
+		/* Protection */
+		for (i = 0; i < 14; i++) {
+			if ((*(adc_cali_slop + i) == 0)
+				|| (*(adc_cali_slop + i) == 1))
+				*(adc_cali_slop + i) = 1000;
+		}
+		for (i = 0; i < 14; i++)
+			bm_err("adc_cali_slop[%d] = %d\n", i,
+				*(adc_cali_slop + i));
+		bm_err("**** unlocked_ioctl : SET_ADC_CALI_Slop Done!\n");
+		break;
+
+	case SET_ADC_CALI_Offset:
+		naram_data_addr = (int *)arg;
+		ret = copy_from_user(adc_cali_offset, naram_data_addr, 36);
+		g_ADC_Cali = false;
+		for (i = 0; i < 14; i++)
+			bm_err("adc_cali_offset[%d] = %d\n", i,
+				*(adc_cali_offset + i));
+		bm_err("**** unlocked_ioctl : SET_ADC_CALI_Offset Done!\n");
+		break;
+
+	case SET_ADC_CALI_Cal:
+		naram_data_addr = (int *)arg;
+		ret = copy_from_user(adc_cali_cal, naram_data_addr, 4);
+		g_ADC_Cali = true;
+		if (adc_cali_cal[0] == 1)
+			g_ADC_Cali = true;
+		else
+			g_ADC_Cali = false;
+
+		for (i = 0; i < 1; i++)
+			bm_err("adc_cali_cal[%d] = %d\n", i,
+				*(adc_cali_cal + i));
+		bm_err("**** unlocked_ioctl : SET_ADC_CALI_Cal Done!\n");
+		break;
 
 	case Get_META_BAT_VOL:
 		adc_out_data[0] =
@@ -3700,6 +3770,76 @@ static long adc_cali_ioctl(struct file *file, unsigned int cmd, unsigned long ar
 		bm_err("**** unlocked_ioctl Set_CARTUNE_TO_KERNEL[%d,%d], ret=%d\n",
 			adc_in_data[0], adc_in_data[1], ret);
 		break;
+
+	case ADC_CHANNEL_READ:
+		/* g_ADC_Cali = KAL_FALSE; *//* 20100508 Infinity */
+		if (adc_in_data[0] == 0) {
+			/* I_SENSE */
+			adc_out_data[0] =
+				gauge_get_int_property(GAUGE_PROP_BATTERY_VOLTAGE) * adc_in_data[1];
+		} else if (adc_in_data[0] == 1) {
+			/* BAT_SENSE */
+			adc_out_data[0] =
+				gauge_get_int_property(GAUGE_PROP_BATTERY_VOLTAGE) * adc_in_data[1];
+#if IS_ENABLED(CONFIG_TC_CHARGER)
+		} else if (adc_in_data[0] == 3) {
+			/* V_Charger */
+			adc_out_data[0] = tc_get_vbus() * adc_in_data[1];
+			/* adc_out_data[0] = adc_out_data[0] / 100; */
+		} else if (adc_in_data[0] == 30) {
+			/* V_Bat_temp magic number */
+			adc_out_data[0] =
+				tc_get_battery_temperature() * adc_in_data[1];
+		} else if (adc_in_data[0] == 66)
+			adc_out_data[0] = tc_get_battery_current();
+#else
+		} else if (adc_in_data[0] == 3) {
+			/* V_Charger */
+			adc_out_data[0] = get_vbus(info) * adc_in_data[1];
+			/* adc_out_data[0] = adc_out_data[0] / 100; */
+		} else if (adc_in_data[0] == 30) {
+			/* V_Bat_temp magic number */
+			adc_out_data[0] =
+				get_battery_temperature(info) * adc_in_data[1];
+		} else if (adc_in_data[0] == 66) {
+			adc_out_data[0] = get_battery_current(info);
+		}
+#endif
+		else {
+			bm_err("unknown channel(%d,%d)\n",
+				adc_in_data[0], adc_in_data[1]);
+		}
+
+		if (adc_out_data[0] < 0)
+			adc_out_data[1] = 1;	/* failed */
+		else
+			adc_out_data[1] = 0;	/* success */
+
+		if (adc_in_data[0] == 30)
+			adc_out_data[1] = 0;	/* success */
+
+		if (adc_in_data[0] == 66)
+			adc_out_data[1] = 0;	/* success */
+
+		ret = copy_to_user(user_data_addr, adc_out_data, 8);
+		bm_err(
+				"**** unlocked_ioctl : Channel %d * %d times = %d\n",
+				adc_in_data[0], adc_in_data[1], adc_out_data[0]);
+		break;
+
+	case BAT_STATUS_READ:
+		user_data_addr = (int *)arg;
+		ret = copy_from_user(battery_in_data, user_data_addr, 4);
+		/* [0] is_CAL */
+		if (g_ADC_Cali)
+			battery_out_data[0] = 1;
+		else
+			battery_out_data[0] = 0;
+		ret = copy_to_user(user_data_addr, battery_out_data, 4);
+		bm_err(
+			"unlocked_ioctl : CAL:%d\n", battery_out_data[0]);
+		break;
+
 	default:
 		bm_err("**** unlocked_ioctl unknown IOCTL: 0x%08x\n", cmd);
 		mutex_unlock(&gm->gauge->fg_mutex);
@@ -3761,6 +3901,7 @@ static int adc_cali_cdev_init(struct platform_device *pdev)
 
 	return 0;
 }
+#endif
 
 static void mtk_gauge_netlink_handler(struct sk_buff *skb)
 {
@@ -3876,6 +4017,10 @@ static int psy_gauge_get_property(struct power_supply *psy,
 		if (gm != NULL)
 			val->intval = gm->precise_uisoc;
 		break;
+	case POWER_SUPPLY_PROP_CALIBRATE:
+		gm = gauge->gm;
+		val->intval = gm->rtc_soc_ready;
+		break;
 	default:
 		return -EINVAL;
 	}
@@ -3931,6 +4076,11 @@ static int psy_gauge_set_property(struct power_supply *psy,
 		if (gm != NULL && val->intval != 0)
 			gm->precise_uisoc = val->intval;
 		break;
+	case POWER_SUPPLY_PROP_CALIBRATE:
+		gm = gauge->gm;
+		gm->rtc_soc_ready = true;
+		bm_err("%s set rtc soc ready\n", __func__);
+		break;
 	default:
 		ret = -EINVAL;
 		break;
@@ -3952,7 +4102,7 @@ static int mtk_gauge_proprietary_init(struct mt6375_priv *priv)
 	gauge->attr = mt6375_sysfs_field_tbl;
 
 	if (battery_psy_init(gauge->pdev))
-		return -ENOMEM;
+		return -EPROBE_DEFER;
 
 	gauge->psy_desc.name = "mtk-gauge";
 	gauge->psy_desc.type = POWER_SUPPLY_TYPE_UNKNOWN;
@@ -3969,7 +4119,10 @@ static int mtk_gauge_proprietary_init(struct mt6375_priv *priv)
 	bat_create_netlink(gauge->pdev);
 	initial_set(gauge, 0, 0);
 	battery_init(gauge->pdev);
+
+#if !IS_ENABLED(CONFIG_TC_CHARGER)
 	adc_cali_cdev_init(gauge->pdev);
+#endif
 
 	return 0;
 }

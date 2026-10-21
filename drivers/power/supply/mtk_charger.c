@@ -58,7 +58,7 @@
 #include <linux/of_irq.h>
 #include <linux/of_address.h>
 #include <linux/reboot.h>
-
+#include "adapter_class.h"
 #include <asm/setup.h>
 
 #include "mtk_charger.h"
@@ -608,6 +608,10 @@ static void mtk_charger_parse_dt(struct mtk_charger *info,
 	info->enable_fast_charging_indicator =
 			of_property_read_bool(np, "enable_fast_charging_indicator")
 			|| of_property_read_bool(np, "enable-fast-charging-indicator");
+	/*	adapter priority */
+	if (of_property_read_u32(np, "adapter-priority", &val)>= 0)
+		info->setting.adapter_priority = val;
+
 }
 
 static void mtk_charger_start_timer(struct mtk_charger *info)
@@ -932,35 +936,34 @@ static ssize_t chr_type_store(struct device *dev, struct device_attribute *attr,
 
 static DEVICE_ATTR_RW(chr_type);
 
-static ssize_t pd_type_show(struct device *dev, struct device_attribute *attr,
+static ssize_t ta_type_show(struct device *dev, struct device_attribute *attr,
 					       char *buf)
 {
 	struct mtk_charger *pinfo = dev->driver_data;
-	char *pd_type_name = "None";
+	char *ta_type_name = "None";
+	int ta_type = MTK_CAP_TYPE_UNKNOWN;
 
-	switch (pinfo->pd_type) {
-	case MTK_PD_CONNECT_NONE:
-		pd_type_name = "None";
+	ta_type = adapter_dev_get_property(pinfo->select_adapter, CAP_TYPE);
+
+	switch (ta_type) {
+	case MTK_CAP_TYPE_UNKNOWN:
+		ta_type_name = "None";
 		break;
-	case MTK_PD_CONNECT_PE_READY_SNK:
-		pd_type_name = "PD";
+	case MTK_PD:
+		ta_type_name = "PD";
 		break;
-	case MTK_PD_CONNECT_PE_READY_SNK_PD30:
-		pd_type_name = "PD";
+	case MTK_UFCS:
+		ta_type_name = "UFCS";
 		break;
-	case MTK_PD_CONNECT_PE_READY_SNK_APDO:
-		pd_type_name = "PD with PPS";
-		break;
-	case MTK_PD_CONNECT_TYPEC_ONLY_SNK:
-		pd_type_name = "normal";
+	case MTK_PD_APDO:
+		ta_type_name = "PD with PPS";
 		break;
 	}
-	chr_err("%s: %d\n", __func__, pinfo->pd_type);
-	return sprintf(buf, "%s\n", pd_type_name);
+	chr_err("%s: %d\n", __func__, ta_type);
+	return snprintf(buf, sizeof(char), "%s\n", ta_type_name);
 }
 
-static DEVICE_ATTR_RO(pd_type);
-
+static DEVICE_ATTR_RO(ta_type);
 
 static ssize_t Pump_Express_show(struct device *dev,
 				 struct device_attribute *attr, char *buf)
@@ -2757,7 +2760,6 @@ static int mtk_charger_plug_out(struct mtk_charger *info)
 	chr_err("%s\n", __func__);
 	info->chr_type = POWER_SUPPLY_TYPE_UNKNOWN;
 	info->charger_thread_polling = false;
-	info->pd_reset = false;
 	info->dpdmov_stat = false;
 	info->lst_dpdmov_stat = false;
 
@@ -2781,6 +2783,7 @@ static int mtk_charger_plug_out(struct mtk_charger *info)
 	if (info->enable_vbat_mon)
 		charger_dev_enable_6pin_battery_charging(info->chg1_dev, false);
 
+	mtk_adapter_protocol_init(info);
 	return 0;
 }
 
@@ -2885,7 +2888,7 @@ static void kpoc_power_off_check(struct mtk_charger *info)
 	if (boot_mode == 8 || boot_mode == 9) {
 		vbus = get_vbus(info);
 		if (vbus >= 0 && vbus < 2500 && !mtk_is_charger_on(info) &&
-		    !info->pd_reset && info->cc_hi <= 0) {
+			info->ta_status[info->select_adapter_idx] != TA_HARD_RESET) {
 			chr_err("Unplug Charger/USB in KPOC mode, vbus=%d, shutdown\n", vbus);
 			while (1) {
 				if (counter >= 20000) {
@@ -3016,7 +3019,7 @@ static int charger_routine_thread(void *arg)
 		if (vbat_min != 0)
 			vbat_min = vbat_min / 1000;
 
-		chr_err("Vbat=%d vbats=%d vbus:%d ibus:%d I=%d T=%d uisoc:%d type:%s>%s pd:%d swchg_ibat:%d cv:%d cmd_pp:%d\n",
+		chr_err("Vbat=%d vbats=%d vbus:%d ibus:%d I=%d T=%d uisoc:%d type:%s>%s idx:%d ta_stat:%d swchg_ibat:%d cv:%d cmd_pp:%d\n",
 			get_battery_voltage(info),
 			vbat_min,
 			get_vbus(info),
@@ -3026,7 +3029,8 @@ static int charger_routine_thread(void *arg)
 			get_uisoc(info),
 			dump_charger_type(info->chr_type, info->usb_type),
 			dump_charger_type(get_charger_type(info), get_usb_type(info)),
-			info->pd_type, get_ibat(info), chg_cv, info->cmd_pp);
+			info->select_adapter_idx, info->ta_status[info->select_adapter_idx],
+			get_ibat(info), chg_cv, info->cmd_pp);
 
 		is_charger_on = mtk_is_charger_on(info);
 
@@ -3036,6 +3040,7 @@ static int charger_routine_thread(void *arg)
 		check_battery_exist(info);
 		check_dynamic_mivr(info);
 		charger_check_status(info);
+		mtk_check_ta_status(info);
 		kpoc_power_off_check(info);
 
 		if (is_disable_charger(info) == false &&
@@ -3168,7 +3173,7 @@ static int mtk_charger_setup_files(struct platform_device *pdev)
 	if (ret)
 		goto _out;
 
-	ret = device_create_file(&(pdev->dev), &dev_attr_pd_type);
+	ret = device_create_file(&(pdev->dev), &dev_attr_ta_type);
 	if (ret)
 		goto _out;
 
@@ -3344,6 +3349,8 @@ static const enum power_supply_property charger_psy_properties[] = {
 	POWER_SUPPLY_PROP_INPUT_CURRENT_LIMIT,
 	POWER_SUPPLY_PROP_VOLTAGE_BOOT,
 	POWER_SUPPLY_PROP_USB_TYPE,
+	POWER_SUPPLY_PROP_CHARGE_NOW,
+	POWER_SUPPLY_PROP_POWER_NOW,
 };
 
 static int psy_charger_get_property(struct power_supply *psy,
@@ -3351,7 +3358,7 @@ static int psy_charger_get_property(struct power_supply *psy,
 {
 	struct mtk_charger *info;
 	struct charger_device *chg;
-	int ret = 0, idx;
+	int ret = 0, idx = 0, chg_vbat = 0, vsys_min = 0, vsys_max = 0, vbat_max = 0;
 	struct chg_alg_device *alg = NULL;
 
 	info = (struct mtk_charger *)power_supply_get_drvdata(psy);
@@ -3429,18 +3436,23 @@ static int psy_charger_get_property(struct power_supply *psy,
 		val->intval = get_charger_zcv(info, chg);
 		break;
 	case POWER_SUPPLY_PROP_USB_TYPE:
-		switch (info->pd_type) {
-		case MTK_PD_CONNECT_PE_READY_SNK_APDO:
-			val->intval = POWER_SUPPLY_USB_TYPE_PD_PPS;
-			break;
-		case MTK_PD_CONNECT_PE_READY_SNK:
-		case MTK_PD_CONNECT_PE_READY_SNK_PD30:
-			val->intval = POWER_SUPPLY_USB_TYPE_PD;
-			break;
-		default:
-			val->intval = info->usb_type;
-			break;
-		}
+		chr_err("not yet\n");
+		break;
+	case POWER_SUPPLY_PROP_CHARGE_NOW:
+		ret = charger_dev_get_adc(info->chg1_dev,
+			ADC_CHANNEL_VBAT, &chg_vbat, &vbat_max);
+		if (ret < 0)
+			val->intval = 0;
+		else
+			val->intval = chg_vbat;
+		break;
+	case POWER_SUPPLY_PROP_POWER_NOW:
+		ret = charger_dev_get_adc(info->chg1_dev,
+			ADC_CHANNEL_VSYS, &vsys_min, &vsys_max);
+		if (ret < 0)
+			val->intval = 0;
+		else
+			val->intval = vsys_min;
 		break;
 	default:
 		return -EINVAL;
@@ -3655,83 +3667,63 @@ int notify_adapter_event(struct notifier_block *notifier,
 	struct mtk_charger *pinfo = NULL;
 	u32 boot_mode = 0;
 	bool report_psy = true;
+	int index = 0;
+	struct info_notifier_block *ta_nb;
 
-	chr_err("%s %lu\n", __func__, evt);
+	ta_nb = container_of(notifier, struct info_notifier_block, nb);
+	pinfo = ta_nb->info;
+	index = ta_nb - pinfo->ta_nb;
+	chr_err("%s %lu, %d\n", __func__, evt, index);
 
-	pinfo = container_of(notifier,
-		struct mtk_charger, pd_nb);
 	boot_mode = pinfo->bootmode;
 
 	switch (evt) {
-	case MTK_PD_CONNECT_NONE:
-		mutex_lock(&pinfo->pd_lock);
-		chr_err("PD Notify Detach\n");
-		pinfo->pd_type = MTK_PD_CONNECT_NONE;
-		pinfo->pd_reset = false;
-		mutex_unlock(&pinfo->pd_lock);
+	case TA_DETACH:
+		mutex_lock(&pinfo->ta_lock);
+		chr_err("TA Notify Detach\n");
+		pinfo->ta_status[index] = TA_DETACH;
+		mutex_unlock(&pinfo->ta_lock);
 		mtk_chg_alg_notify_call(pinfo, EVT_DETACH, 0);
-		/* reset PE40 */
-		break;
-
-	case MTK_PD_CONNECT_HARD_RESET:
-		mutex_lock(&pinfo->pd_lock);
-		chr_err("PD Notify HardReset\n");
-		pinfo->pd_type = MTK_PD_CONNECT_NONE;
-		pinfo->pd_reset = true;
-		mutex_unlock(&pinfo->pd_lock);
-		mtk_chg_alg_notify_call(pinfo, EVT_HARDRESET, 0);
 		_wake_up_charger(pinfo);
 		/* reset PE40 */
 		break;
 
-	case MTK_PD_CONNECT_SOFT_RESET:
-		mutex_lock(&pinfo->pd_lock);
-		chr_err("PD Notify SoftReset\n");
-		pinfo->pd_type = MTK_PD_CONNECT_SOFT_RESET;
-		pinfo->pd_reset = false;
-		mutex_unlock(&pinfo->pd_lock);
-		mtk_chg_alg_notify_call(pinfo, EVT_SOFTRESET, 0);
+	case TA_ATTACH:
+		mutex_lock(&pinfo->ta_lock);
+		chr_err("TA Notify Attach\n");
+		pinfo->ta_status[index] = TA_ATTACH;
+		mutex_unlock(&pinfo->ta_lock);
+		_wake_up_charger(pinfo);
+		/* reset PE40 */
+		break;
+
+	case TA_DETECT_FAIL:
+		mutex_lock(&pinfo->ta_lock);
+		chr_err("TA Notify Detect Fail\n");
+		pinfo->ta_status[index] = TA_DETECT_FAIL;
+		mutex_unlock(&pinfo->ta_lock);
 		_wake_up_charger(pinfo);
 		/* reset PE50 */
 		break;
 
-	case MTK_PD_CONNECT_PE_READY_SNK:
-		mutex_lock(&pinfo->pd_lock);
-		chr_err("PD Notify fixed voltage ready\n");
-		pinfo->pd_type = MTK_PD_CONNECT_PE_READY_SNK;
-		pinfo->pd_reset = false;
-		mutex_unlock(&pinfo->pd_lock);
+	case TA_HARD_RESET:
+		mutex_lock(&pinfo->ta_lock);
+		chr_err("TA Notify Hard Reset\n");
+		pinfo->ta_status[index] = TA_HARD_RESET;
+		mutex_unlock(&pinfo->ta_lock);
+		_wake_up_charger(pinfo);
 		/* PD is ready */
 		break;
 
-	case MTK_PD_CONNECT_PE_READY_SNK_PD30:
-		mutex_lock(&pinfo->pd_lock);
-		chr_err("PD Notify PD30 ready\r\n");
-		pinfo->pd_type = MTK_PD_CONNECT_PE_READY_SNK_PD30;
-		pinfo->pd_reset = false;
-		mutex_unlock(&pinfo->pd_lock);
+	case TA_SOFT_RESET:
+		mutex_lock(&pinfo->ta_lock);
+		chr_err("TA Notify Soft Reset\n");
+		pinfo->ta_status[index] = TA_SOFT_RESET;
+		mutex_unlock(&pinfo->ta_lock);
+		_wake_up_charger(pinfo);
 		/* PD30 is ready */
 		break;
 
-	case MTK_PD_CONNECT_PE_READY_SNK_APDO:
-		mutex_lock(&pinfo->pd_lock);
-		chr_err("PD Notify APDO Ready\n");
-		pinfo->pd_type = MTK_PD_CONNECT_PE_READY_SNK_APDO;
-		pinfo->pd_reset = false;
-		mutex_unlock(&pinfo->pd_lock);
-		/* PE40 is ready */
-		_wake_up_charger(pinfo);
-		break;
-
-	case MTK_PD_CONNECT_TYPEC_ONLY_SNK:
-		mutex_lock(&pinfo->pd_lock);
-		chr_err("PD Notify Type-C Ready\n");
-		pinfo->pd_type = MTK_PD_CONNECT_TYPEC_ONLY_SNK;
-		pinfo->pd_reset = false;
-		mutex_unlock(&pinfo->pd_lock);
-		/* type C is ready */
-		_wake_up_charger(pinfo);
-		break;
 	case MTK_TYPEC_WD_STATUS:
 		chr_err("wd status = %d\n", *(bool *)val);
 		pinfo->water_detected = *(bool *)val;
@@ -3754,6 +3746,8 @@ int notify_adapter_event(struct notifier_block *notifier,
 		_wake_up_charger(pinfo);
 		break;
 	}
+	chr_debug("%s: evt: pd:%d, ufcs:%d\n", __func__,
+	pinfo->ta_status[PD], pinfo->ta_status[UFCS]);
 	if (report_psy)
 		power_supply_changed(pinfo->psy1);
 	return NOTIFY_DONE;
@@ -3790,6 +3784,7 @@ static int mtk_charger_probe(struct platform_device *pdev)
 	mutex_init(&info->cable_out_lock);
 	mutex_init(&info->charger_lock);
 	mutex_init(&info->pd_lock);
+	mutex_init(&info->ta_lock);
 	for (i = 0; i < CHG2_SETTING + 1; i++) {
 		mutex_init(&info->pp_lock[i]);
 		info->force_disable_pp[i] = false;
@@ -3953,13 +3948,19 @@ static int mtk_charger_probe(struct platform_device *pdev)
 
 	info->log_level = CHRLOG_ERROR_LEVEL;
 
-	info->pd_adapter = get_adapter_by_name("pd_adapter");
-	if (!info->pd_adapter)
-		chr_err("%s: No pd adapter found\n", __func__);
-	else {
-		info->pd_nb.notifier_call = notify_adapter_event;
-		register_adapter_device_notifier(info->pd_adapter,
-						 &info->pd_nb);
+	mtk_adapter_protocol_init(info);
+
+	for (i = 0;i < MAX_TA_IDX;i++) {
+		info->adapter_dev[i] =
+			get_adapter_by_name(adapter_type_names[i]);
+		if (!info->adapter_dev[i])
+			chr_err("%s: No %s found\n", __func__, adapter_type_names[i]);
+		else {
+			info->ta_nb[i].nb.notifier_call = notify_adapter_event;
+			info->ta_nb[i].info = info;
+			register_adapter_device_notifier(info->adapter_dev[i],
+						 &(info->ta_nb[i].nb));
+		}
 	}
 
 	sc_init(&info->sc);
@@ -3967,6 +3968,7 @@ static int mtk_charger_probe(struct platform_device *pdev)
 
 	info->fast_charging_indicator = 0;
 	info->enable_meta_current_limit = 1;
+
 	info->is_charging = false;
 	info->safety_timer_cmd = -1;
 	info->cmd_pp = -1;
