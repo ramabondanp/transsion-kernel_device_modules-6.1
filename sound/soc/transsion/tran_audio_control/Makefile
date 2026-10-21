@@ -1,0 +1,1 @@
+obj-m += tran_audio_control.o
