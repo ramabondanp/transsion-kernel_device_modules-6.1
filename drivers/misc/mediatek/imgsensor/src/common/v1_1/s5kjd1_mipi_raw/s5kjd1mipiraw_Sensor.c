@@ -5279,7 +5279,7 @@ static kal_uint32 Custom2(MSDK_SENSOR_EXPOSURE_WINDOW_STRUCT *image_window,
 }				/*    Custome1  staggered HDR    */
 
 static kal_uint32 get_resolution(
-	MSDK_SENSOR_RESOLUTION_INFO_STRUCT *sensor_resolution)
+	MSDK_SENSOR_RESOLUTION_INFO_STRUCT * sensor_resolution)
 {
 	LOG_INF("E\n");
 	sensor_resolution->SensorFullWidth =

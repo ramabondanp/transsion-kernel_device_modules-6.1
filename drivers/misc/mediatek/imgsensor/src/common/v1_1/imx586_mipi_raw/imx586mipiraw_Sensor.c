@@ -69,7 +69,7 @@ static kal_uint8 otp_flag;
 
 #if USE_BURST_MODE
 static kal_uint16 imx586_table_write_cmos_sensor(
-		kal_uint16 *para, kal_uint32 len);
+		kal_uint16 * para, kal_uint32 len);
 #endif
 static DEFINE_SPINLOCK(imgsensor_drv_lock);
 
@@ -2506,7 +2506,6 @@ static kal_uint16 imx586_custom3_setting[] = {
 
 static void sensor_init(void)
 {
-	pr_debug("[%s] start\n", __func__);
 	#if USE_BURST_MODE
 	imx586_table_write_cmos_sensor(imx586_init_setting,
 		sizeof(imx586_init_setting)/sizeof(kal_uint16));
@@ -2611,7 +2610,6 @@ static void sensor_init(void)
 	write_cmos_sensor_8(0x0138, 0x01);
 
 	set_mirror_flip(imgsensor.mirror);
-	pr_debug("[%s] End\n", __func__);
 }	/*	  sensor_init  */
 
 static void preview_setting(void)
@@ -3537,7 +3535,6 @@ static kal_uint32 slim_video(MSDK_SENSOR_EXPOSURE_WINDOW_STRUCT *image_window,
 static kal_uint32 custom1(MSDK_SENSOR_EXPOSURE_WINDOW_STRUCT *image_window,
 			  MSDK_SENSOR_CONFIG_STRUCT *sensor_config_data)
 {
-	pr_debug("%s.\n", __func__);
 
 	spin_lock(&imgsensor_drv_lock);
 	imgsensor.sensor_mode = IMGSENSOR_MODE_CUSTOM1;
@@ -3557,7 +3554,6 @@ static kal_uint32 custom1(MSDK_SENSOR_EXPOSURE_WINDOW_STRUCT *image_window,
 static kal_uint32 custom2(MSDK_SENSOR_EXPOSURE_WINDOW_STRUCT *image_window,
 			  MSDK_SENSOR_CONFIG_STRUCT *sensor_config_data)
 {
-	pr_debug("%s.\n", __func__);
 
 	spin_lock(&imgsensor_drv_lock);
 	imgsensor.sensor_mode = IMGSENSOR_MODE_CUSTOM2;
@@ -3576,7 +3572,6 @@ static kal_uint32 custom2(MSDK_SENSOR_EXPOSURE_WINDOW_STRUCT *image_window,
 static kal_uint32 custom3(MSDK_SENSOR_EXPOSURE_WINDOW_STRUCT *image_window,
 			  MSDK_SENSOR_CONFIG_STRUCT *sensor_config_data)
 {
-	pr_debug("%s.\n", __func__);
 
 	spin_lock(&imgsensor_drv_lock);
 	imgsensor.sensor_mode = IMGSENSOR_MODE_CUSTOM3;
@@ -4302,8 +4297,7 @@ static kal_uint32 set_test_pattern_mode(kal_uint32 modes,
 			write_cmos_sensor_8(0x0608, (Color_Gb >> 8) & 0x3);
 			write_cmos_sensor_8(0x0609, Color_Gb & 0xFF);
 		}
-	}
-	else
+	} else
 		write_cmos_sensor_8(0x0601, 0x00); /*No pattern*/
 
 	spin_lock(&imgsensor_drv_lock);

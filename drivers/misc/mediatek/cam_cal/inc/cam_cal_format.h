@@ -21,6 +21,10 @@
 #define CAM_CAL_AF_BITEN (0x01<<1)
 #define CAM_CAL_NONE_BITEN (0x00)
 
+#define CAM_CAL_PREISP_Data_SIZE 5688
+#define CAM_CAL_OIS_GyroGainXY_SIZE 22
+#define CAM_CAL_Stereo_TS_Data_SIZE 2048
+
 #define CAM_CAL_ERR_NO_DEVICE       0x8FFFFFFF
 #define CAM_CAL_ERR_NO_CMD          0x1FFFFFFF
 #define CAM_CAL_ERR_NO_ERR          0x00000000
@@ -34,7 +38,9 @@
 #define CAM_CAL_ERR_NO_LENS_ID      0x00400000
 #define CAM_CAL_ERR_NO_SHADING_16_9 0x00800000
 
-#define CamCalReturnErr_MAX 8
+#define CAM_CAL_ERR_NO_TS_Stereo_Data    0x01000000
+#define CAM_CAL_ERR_W_TS_Stereo_Data     0x10000000
+#define CamCalReturnErr_MAX 9
 
 /*****************************************************************************
  * Enums
@@ -53,6 +59,20 @@ enum ENUM_CAMERA_CAM_CAL_TYPE_ENUM {
 	CAMERA_CAM_CAL_DATA_DUMP,
 	CAMERA_CAM_CAL_DATA_LENS_ID,
 	CAMERA_CAM_CAL_DATA_SHADING_TABLE_16_9,
+	CAMERA_CAM_CAL_DATA_PREISP_LSC,
+	CAMERA_CAM_CAL_DATA_OISGyroGainXY,
+//DualCam
+	TS_CAMERA_CAM_CAL_DATA_R_VSDOF,
+	TS_CAMERA_CAM_CAL_DATA_W_VSDOF,
+	TS_CAMERA_CAM_CAL_DATA_R_VSDOFT,
+	TS_CAMERA_CAM_CAL_DATA_W_VSDOFT,
+//SAT
+	TS_CAMERA_CAM_CAL_DATA_R_SAT_W,
+	TS_CAMERA_CAM_CAL_DATA_W_SAT_W,
+	TS_CAMERA_CAM_CAL_DATA_R_SAT_T,
+	TS_CAMERA_CAM_CAL_DATA_W_SAT_T,
+	TS_CAMERA_CAM_CAL_DATA_R_SAT_P,
+	TS_CAMERA_CAM_CAL_DATA_W_SAT_P,
 	CAMERA_CAM_CAL_DATA_LIST
 };
 
@@ -74,6 +94,10 @@ struct STRUCT_CAM_CAL_Stereo_Data_STRUCT {
 	unsigned char Data[CAM_CAL_Stereo_Data_SIZE];
 };
 
+struct CAM_CAL_Stereo_TS_STRUCT {
+	unsigned int Size_of_Stereo_Data;
+	unsigned char Data[CAM_CAL_Stereo_TS_Data_SIZE];
+};
 /** @brief This Structure defines the LSC Table.  */
 
 struct STRUCT_CAM_CAL_LSC_MTK_TYPE {
@@ -184,6 +208,25 @@ struct STRUCT_CAM_CAL_PDAF_STRUCT {
 };
 
 /** @brief This enum defines the CAM_CAL Table.  */
+struct STRUCT_CAM_CAL_PREISP_LSC_STRUCT {
+	enum ENUM_CAMERA_CAM_CAL_TYPE_ENUM Command;
+	enum ENUM_CAM_CAL_DATA_VER_ENUM DataVer;
+	unsigned char PartNumber[24];
+	unsigned int  sensorID;
+	unsigned int  deviceID;
+	unsigned int Size_of_PREISP;
+	unsigned char Data[CAM_CAL_PREISP_Data_SIZE];
+};
+
+struct STRUCT_CAM_CAL_OISGyroGainXY_STRUCT {
+	enum ENUM_CAMERA_CAM_CAL_TYPE_ENUM Command;
+	enum ENUM_CAM_CAL_DATA_VER_ENUM DataVer;
+	unsigned char PartNumber[24];
+	unsigned int  sensorID;
+	unsigned int  deviceID;
+	unsigned int Size_of_OIS;
+	unsigned char Data[CAM_CAL_OIS_GyroGainXY_SIZE];
+};
 
 struct STRUCT_CAM_CAL_DATA_STRUCT {
 	enum ENUM_CAMERA_CAM_CAL_TYPE_ENUM Command;
@@ -196,6 +239,7 @@ struct STRUCT_CAM_CAL_DATA_STRUCT {
 	struct STRUCT_CAM_CAL_PDAF_STRUCT         PDAF;
 	struct STRUCT_CAM_CAL_Stereo_Data_STRUCT  Stereo_Data;
 	unsigned char LensDrvId[10];
+	struct CAM_CAL_Stereo_TS_STRUCT           Ts_Stereo_Data;
 };
 
 /**
@@ -225,7 +269,9 @@ struct STRUCT_CAM_CAL_PDAF_DATA_STRUCT {
 struct STRUCT_CAM_CAL_STEREO_DATA_STRUCT {
 	struct STRUCT_CAM_CAL_Stereo_Data_STRUCT  Stereo_Data;
 };
-
+struct STRUCT_CAM_CAL_STEREO_TS_STRUCT {
+	struct CAM_CAL_Stereo_TS_STRUCT  Ts_Stereo_Data;
+};
 struct STRUCT_CAM_CAL_LENS_ID_STRUCT {
 	unsigned char LensDrvId[10];
 };
@@ -253,7 +299,9 @@ static const unsigned int CamCalReturnErr[CAMERA_CAM_CAL_DATA_LIST] = {
 	CAM_CAL_ERR_NO_Stereo_Data,
 	CAM_CAL_ERR_DUMP_FAILED,
 	CAM_CAL_ERR_NO_LENS_ID,
-	CAM_CAL_ERR_NO_SHADING_16_9
+	CAM_CAL_ERR_NO_SHADING_16_9,
+	CAM_CAL_ERR_NO_TS_Stereo_Data,
+	CAM_CAL_ERR_W_TS_Stereo_Data
 };
 
 static const char CamCalErrString[CAMERA_CAM_CAL_DATA_LIST][24] = {
@@ -265,7 +313,9 @@ static const char CamCalErrString[CAMERA_CAM_CAL_DATA_LIST][24] = {
 	{"ERR_NO_Stereo_Data"},
 	{"ERR_Dump_Failed"},
 	{"ERR_NO_LENS_ID"},
-	{"ERR_NO_SHADING_16_9"}
+	{"ERR_NO_SHADING_16_9"},
+	{"ERR_NO_TS_Stereo_Data"},
+	{"ERR_W_TS_Stereo_Data"}
 };
 
 #endif /* __CAM_CAL_FORMAT_H */

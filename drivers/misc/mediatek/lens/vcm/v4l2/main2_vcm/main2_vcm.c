@@ -18,7 +18,7 @@
 	pr_info(DRIVER_NAME " [%s] " format, __func__, ##args)
 
 #define MAIN2_VCM_NAME				"main2_vcm"
-#define MAIN2_VCM_MAX_FOCUS_POS			1023
+#define MAIN2_VCM_MAX_FOCUS_POS			4095
 /*
  * This sets the minimum granularity for the focus positions.
  * A value of 1 gives maximum accuracy for a desired focus position
@@ -256,14 +256,6 @@ static int main2_vcm_release(struct main2_vcm_device *main2_vcm)
 	int i = 0;
 
 	struct i2c_client *client = v4l2_get_subdevdata(&main2_vcm->sd);
-
-#ifndef CONFIG_AF_NOISE_ELIMINATION
-	if (g_vcmconfig.origin_focus_pos == 0xffffffff) {
-		LOG_INF("%s Skip park lens.", __func__);
-		register_setting(client, g_vcmconfig.wr_rls_table, 8);
-		return 0;
-	}
-#endif
 
 	diff_dac = g_vcmconfig.origin_focus_pos - main2_vcm->focus->val;
 

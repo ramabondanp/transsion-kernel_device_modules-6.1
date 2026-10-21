@@ -14,7 +14,7 @@
  * @param data Buffer
  * @return size of data
  */
-unsigned int read_imx519_LRC(BYTE *data);
+unsigned int read_imx519_LRC(BYTE * data);
 
 /*
  * DCC

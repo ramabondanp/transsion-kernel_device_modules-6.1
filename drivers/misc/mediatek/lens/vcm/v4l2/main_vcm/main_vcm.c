@@ -257,14 +257,6 @@ static int main_vcm_release(struct main_vcm_device *main_vcm)
 
 	struct i2c_client *client = v4l2_get_subdevdata(&main_vcm->sd);
 
-#ifndef CONFIG_AF_NOISE_ELIMINATION
-	if (g_vcmconfig.origin_focus_pos == 0xffffffff) {
-		LOG_INF("%s Skip park lens.", __func__);
-		register_setting(client, g_vcmconfig.wr_rls_table, 8);
-		return 0;
-	}
-#endif
-
 	diff_dac = g_vcmconfig.origin_focus_pos - main_vcm->focus->val;
 
 	nStep_count = (diff_dac < 0 ? (diff_dac*(-1)) : diff_dac) /
@@ -307,7 +299,9 @@ static int main_vcm_init(struct main_vcm_device *main_vcm)
 	LOG_INF("+\n");
 
 	client->addr = g_vcmconfig.slave_addr >> 1;
-
+	#if defined(TRAN_CM7)
+	msleep(10);
+	#endif
 	register_setting(client, g_vcmconfig.wr_table, 16);
 
 	LOG_INF("-\n");

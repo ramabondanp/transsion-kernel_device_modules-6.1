@@ -46,7 +46,11 @@
 #define FLASHLIGHT_MAX_DUTY_NUM 40
 
 /* flashlight arguments */
+#if defined(CONFIG_TRAN_FLASHLIGHT_TELE_SUPPORT)
+#define FLASHLIGHT_TYPE_MAX 3
+#else
 #define FLASHLIGHT_TYPE_MAX 2
+#endif
 #define FLASHLIGHT_CT_MAX 3
 #define FLASHLIGHT_PART_MAX 2
 struct flashlight_user_arg {
@@ -65,6 +69,7 @@ struct flashlight_user_arg {
 #define FLASHLIGHTIOC_T_STATE              _IOW(FLASHLIGHT_MAGIC, 20, int)
 #define FLASHLIGHTIOC_G_FLASHTYPE          _IOR(FLASHLIGHT_MAGIC, 25, int)
 #define FLASHLIGHTIOC_X_SET_DRIVER         _IOWR(FLASHLIGHT_MAGIC, 30, int)
+#define FLASHLIGHTIOC_X_SET_DEBUG         _IOWR(FLASHLIGHT_MAGIC, 31, int)
 #define FLASHLIGHTIOC_T_DELAY              _IOW(FLASHLIGHT_MAGIC, 35, int)
 
 /* ioctl protocol version 1. */
@@ -111,5 +116,19 @@ struct flashlight_user_arg {
 #define FLASH_IOC_GET_HW_FAULT             _IOR(FLASHLIGHT_MAGIC, 250, int)
 #define FLASH_IOC_GET_HW_FAULT2            _IOR(FLASHLIGHT_MAGIC, 251, int)
 
+#ifdef CONFIG_MTK_FLASHLIGHT_SCREEN
+#define FLASH_IOC_STROBE_BV_TRIGGER        _IOR(FLASHLIGHT_MAGIC, 252, int)
+#define FLASH_IOC_SET_CMERA_OPEN_STATE 	_IOR(FLASHLIGHT_MAGIC, 253, int)
+#endif
+#define FLASH_IOC_SET_SLIDE_CONTROL        _IOR(FLASHLIGHT_MAGIC, 254, int)
+#define FLASH_IOC_SET_TORCH_REG            _IOR(FLASHLIGHT_MAGIC, 255, int)
+#define FLASH_IOC_SET_FLASH_REG            _IOR(FLASHLIGHT_MAGIC, 256, int)
+
+//tran ext ioctl,just use in kernel space for now.
+#define FLASH_IOC_GENERATE_DEV_PARA       20
+#define FLASH_IOC_SET_CURRENT             21
+#define FLASH_IOC_TRY_TO_PROBE_COMPATIBLE_DRIVER     22
+#define FLASH_IOC_TRY_TO_REMOVE_COMPATIBLE_DRIVER    23
+#define FLASH_IOC_TRY_TO_SHARE_COMPATIBLE_PINCTRL    24
 #endif /* _FLASHLIGHT_H */
 

@@ -926,7 +926,6 @@ static kal_uint16 imx576_init_setting[] = {
 
 static void sensor_init(void)
 {
-	LOG_INF("%s enter\n", __func__);
 
 	imx576_table_write_cmos_sensor(imx576_init_setting,
 		sizeof(imx576_init_setting) / sizeof(kal_uint16));
@@ -2811,7 +2810,7 @@ static kal_uint32 feature_control(MSDK_SENSOR_FEATURE_ENUM feature_id,
 				   (UINT16)*(feature_data+2));
 		break;
 	case SENSOR_FEATURE_GET_VC_INFO:
-		LOG_INF("SENSOR_FEATURE_GET_VC_INFO %d\n", (UINT16) * feature_data);
+		LOG_INF("SENSOR_FEATURE_GET_VC_INFO %d\n", (UINT16) *feature_data);
 		pvcinfo =
 	     (struct SENSOR_VC_INFO_STRUCT *) (uintptr_t) (*(feature_data + 1));
 		switch (*feature_data_32) {
