@@ -92,17 +92,8 @@ int conn_pwr_get_low_battery_level(struct conn_pwr_update_info *info)
 	if (conn_pwr_get_drv_status(CONN_PWR_DRV_WIFI) == CONN_PWR_DRV_STATUS_ON ||
 		(info->reason == CONN_PWR_ARB_SUBSYS_ON_OFF &&
 		 info->drv == CONN_PWR_DRV_WIFI && info->status == CONN_PWR_DRV_STATUS_ON)) {
-		switch (low_battery_power_level) {
-		case LOW_BATTERY_LEVEL_0:
-		case LOW_BATTERY_LEVEL_1:
-		case LOW_BATTERY_LEVEL_2:
-			break;
-		case LOW_BATTERY_LEVEL_3:
+		if (low_battery_power_level >= LOW_BATTERY_LEVEL_3)
 			ret = CONN_PWR_THR_LV_1;
-			break;
-		default:
-			break;
-		}
 	}
 #endif
 
@@ -207,11 +198,6 @@ int conn_pwr_set_level(struct conn_pwr_update_info *info, int radio_power_level[
 		if (radio_power_level[i] < radio_value && radio_value < CONN_PWR_THR_LV_MAX)
 			radio_power_level[i] = radio_value;
 	}
-
-	pr_info("%s low_battery=%d, thermal=%d, customer=0x%08x\n", __func__,
-		g_platform_pwr_level[CONN_PWR_PLAT_LOW_BATTERY],
-		g_platform_pwr_level[CONN_PWR_PLAT_THERMAL],
-		g_platform_pwr_level[CONN_PWR_PLAT_CUSTOMER]);
 
 	return 0;
 }
@@ -334,9 +320,12 @@ int conn_pwr_arbitrate(struct conn_pwr_update_info *info)
 				CONN_PWR_EVENT_MAX_TEMP, &g_thermal_info);
 	}
 
-	pr_info("%s reason=%d, bt=%d, FM=%d, GPS=%d, Wi-Fi=%d\n", __func__,
+	pr_info("%s reason=%d, bt=%d, FM=%d, GPS=%d, Wi-Fi=%d, low_battery=%d, thermal=%d, customer=0x%08x\n", __func__,
 			info->reason, g_radio_pwr_level[0],
-		g_radio_pwr_level[1], g_radio_pwr_level[2], g_radio_pwr_level[3]);
+		g_radio_pwr_level[1], g_radio_pwr_level[2], g_radio_pwr_level[3],
+		g_platform_pwr_level[CONN_PWR_PLAT_LOW_BATTERY],
+		g_platform_pwr_level[CONN_PWR_PLAT_THERMAL],
+		g_platform_pwr_level[CONN_PWR_PLAT_CUSTOMER]);
 
 	spin_unlock_irqrestore(&pwr_core_lock, flag);
 

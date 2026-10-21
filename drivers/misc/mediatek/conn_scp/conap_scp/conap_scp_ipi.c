@@ -152,7 +152,7 @@ int ipi_recv_cb(unsigned int id, void *prdata, void *data, unsigned int len)
 static int conap_scp_ipi_send(void *data, uint32_t len)
 {
 #ifdef MTK_CONAP_IPI_SUPPORT
-	unsigned int retry_time = 500;
+	unsigned int retry_time = 5;
 	unsigned int retry_cnt = 0;
 	int ipi_result = -1;
 
@@ -165,7 +165,7 @@ static int conap_scp_ipi_send(void *data, uint32_t len)
 							0);
 		if (ipi_result == IPI_ACTION_DONE)
 			break;
-		udelay(1000);
+		msleep(20);
 	}
 	if (ipi_result != 0) {
 		pr_err("[ipi_send_data] send fail [%d]", ipi_result);
@@ -204,6 +204,7 @@ int conap_scp_ipi_send_data(enum conap_scp_drv_type drv_type, uint16_t msg_id, u
 int conap_scp_ipi_send_cmd(enum conap_scp_drv_type drv_type, uint16_t msg_id,
 					uint32_t p0, uint32_t p1, uint32_t p2)
 {
+#ifdef MTK_CONAP_IPI_SUPPORT
 	struct msg_cmd cmd;
 	int r;
 
@@ -219,6 +220,7 @@ int conap_scp_ipi_send_cmd(enum conap_scp_drv_type drv_type, uint16_t msg_id,
 							sizeof(struct msg_cmd));
 	if (r)
 		return r;
+#endif
 
 	return 0;
 }
@@ -226,6 +228,7 @@ int conap_scp_ipi_send_cmd(enum conap_scp_drv_type drv_type, uint16_t msg_id,
 int conap_scp_ipi_send_shm_cmd(enum conap_scp_drv_type drv_type, uint16_t msg_id,
 					uint32_t p0, uint32_t p1, uint32_t p2, uint32_t p3)
 {
+#ifdef MTK_CONAP_IPI_SUPPORT
 	struct shm_msg_cmd cmd;
 	int r;
 
@@ -240,6 +243,7 @@ int conap_scp_ipi_send_shm_cmd(enum conap_scp_drv_type drv_type, uint16_t msg_id
 							sizeof(struct shm_msg_cmd));
 	if (r)
 		return r;
+#endif
 
 	return 0;
 }
@@ -247,6 +251,7 @@ int conap_scp_ipi_send_shm_cmd(enum conap_scp_drv_type drv_type, uint16_t msg_id
 
 int conap_scp_shm_write(uint8_t *msg_buf, uint32_t msg_sz)
 {
+#ifdef MTK_CONAP_IPI_SUPPORT
 	struct conap_shm_ctx *ctx = &g_conap_shm_ctx;
 	uint32_t buf_len = ctx->tx_buf.size;
 	phys_addr_t wbf_addr = ctx->tx_buf.buf;
@@ -276,17 +281,21 @@ int conap_scp_shm_write(uint8_t *msg_buf, uint32_t msg_sz)
 	ctx->tx_buf.cur_ptr = wptr;
 
 	return ret;
+#else
+	return 0;
+#endif
 }
 
 int conap_scp_shm_read(uint8_t *msg_buf, uint32_t oft, uint32_t msg_sz)
 {
+#ifdef MTK_CONAP_IPI_SUPPORT
 	struct conap_shm_ctx *ctx = &g_conap_shm_ctx;
 	uint32_t buf_len = ctx->rx_buf.size;
 	phys_addr_t rbf_addr = ctx->rx_buf.buf;
 	phys_addr_t rptr = oft;
 	uint32_t cpsz1, cpsz2;
 
-	if (msg_sz >= CONAP_SHM_MAX_PKT_SZ)
+	if (msg_sz > CONAP_SHM_MAX_PKT_SZ)
 		return -1;
 
 	if (oft > buf_len)
@@ -305,17 +314,23 @@ int conap_scp_shm_read(uint8_t *msg_buf, uint32_t oft, uint32_t msg_sz)
 
 	ctx->rx_buf.cur_ptr = rptr;
 
+#endif
 	return 0;
 }
 
 
 bool conap_scp_ipi_shm_support(void)
 {
+#ifdef MTK_CONAP_IPI_SUPPORT
 	return g_conap_shm_ctx.enable;
+#else
+	return 0;
+#endif
 }
 
 static int conap_scp_shm_init(void)
 {
+#ifdef MTK_CONAP_IPI_SUPPORT
 	phys_addr_t mem_addr = 0;
 	phys_addr_t mem_size = 0;
 
@@ -345,6 +360,7 @@ static int conap_scp_shm_init(void)
 				mem_addr, mem_size,
 				g_conap_shm_ctx.tx_buf.buf, g_conap_shm_ctx.rx_buf.buf);
 
+#endif
 	return 0;
 }
 
