@@ -1,0 +1,17 @@
+import rtconfig
+from building import *
+
+cwd     = GetCurrentDir()
+
+src     = Glob('rtos/*.c')
+src     += Glob('common/*.c')
+
+path = [cwd + '/rtos/']
+path += [cwd + '/common/']
+
+LOCAL_CCFLAGS = ''
+CPPDEFINES = ['RTT_IPC']
+
+group = DefineGroup('ComDrivers', src, CPPPATH = path, depend = [''], LOCAL_CCFLAGS = LOCAL_CCFLAGS, CPPDEFINES = CPPDEFINES)
+
+Return('group')
