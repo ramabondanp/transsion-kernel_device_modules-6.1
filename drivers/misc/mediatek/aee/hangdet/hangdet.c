@@ -165,6 +165,7 @@ static unsigned int get_kick_bit(void)
 	return kick_bit;
 }
 
+
 static int start_kicker_thread_with_default_setting(void)
 {
 	g_kinterval = DEFAULT_INTERVAL;
@@ -376,6 +377,15 @@ static void kwdt_time_sync(void)
 		tm_android.tm_mon + 1, tm_android.tm_mday, tm_android.tm_hour,
 		tm_android.tm_min, tm_android.tm_sec,
 		(unsigned int)(tv_android.tv_nsec / 1000));
+
+        trace_printk("[thread:%d] %d-%02d-%02d %02d:%02d:%02d.%u UTC;"
+                "android time %d-%02d-%02d %02d:%02d:%02d.%03d\n",
+                current->pid, tm.tm_year + 1900, tm.tm_mon + 1,
+                tm.tm_mday, tm.tm_hour, tm.tm_min, tm.tm_sec,
+                (unsigned int)(tv.tv_nsec / 1000), tm_android.tm_year + 1900,
+                tm_android.tm_mon + 1, tm_android.tm_mday, tm_android.tm_hour,
+                tm_android.tm_min, tm_android.tm_sec,
+                (unsigned int)(tv_android.tv_nsec / 1000));
 }
 
 static const int irq_to_ipi_type(int irq)
@@ -635,6 +645,7 @@ static void kwdt_dump_func(void)
 	}
 
 	dump_wdk_bind_info(true);
+
 
 #if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR)
 	if (p_mt_aee_dump_irq_info)

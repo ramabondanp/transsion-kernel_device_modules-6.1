@@ -217,8 +217,10 @@ static void kick_vqs_dbg(struct work_struct *work)
 				continue;
 
 			ise_enqueue_nop(tctx->dev->parent, &tvr->kick_nop);
+			preempt_disable();
 			dev_info(tctx->dev, "enqueue_nop on cpu %u vring[%lu] done\n",
 				smp_processor_id(), vring_id);
+			preempt_enable();
 			goto enqueued;
 		}
 	}

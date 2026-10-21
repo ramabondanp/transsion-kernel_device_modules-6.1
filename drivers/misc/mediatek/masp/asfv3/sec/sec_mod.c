@@ -308,6 +308,8 @@ static int __init masp_get_from_dts(void)
 	for (i = 0; i < NUM_SBC_PUBK_HASH; i++)
 		g_sbc_pubk_hash[i] = tags->sbc_pubk_hash[i];
 
+	pr_notice("rid_0=0x%x,rid_1=0x%x,rid_2=0x%x,rid_2=0x%x\n", g_random_id[0],g_random_id[1],g_random_id[2],g_random_id[3]);
+
 	return 0;
 }
 

@@ -794,7 +794,6 @@ void scp_aed(enum SCP_RESET_TYPE type, enum scp_core_id id)
 
 	pr_debug("[SCP] scp exception dump is done\n");
 }
-
 void scp_aed_reset_bypass_once(void)
 {
 	/* trigger scp reset, but no need dump next one */
@@ -856,7 +855,6 @@ struct bin_attribute bin_attr_scp_dump = {
 	.size = 0,
 	.read = scp_A_dump_show,
 };
-
 
 
 /*
@@ -937,7 +935,6 @@ int scp_excep_init(void)
 	return 0;
 }
 
-
 /******************************************************************************
  * This function is called in the interrupt context. Note that scp_region_info
  * was initialized in scp_region_info_init() which must be called before this
@@ -949,7 +946,6 @@ void scp_ram_dump_init(void)
 	pr_debug("[SCP] get scp_A_task_context_addr: 0x%x\n",
 		scp_A_task_context_addr);
 }
-
 
 /*
  * cleanup scp exception

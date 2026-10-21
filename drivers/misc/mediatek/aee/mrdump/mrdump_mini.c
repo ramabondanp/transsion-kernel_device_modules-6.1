@@ -95,6 +95,9 @@ static void fill_ko_list(unsigned int idx, struct module *mod)
 	if (idx >= MAX_KO_NUM)
 		return;
 
+	if (mod->sect_attrs == NULL)
+		return;
+
 	search_nm = 2;
 	for (i = 0; i < mod->sect_attrs->nsections; i++) {
 		if (!strcmp(mod->sect_attrs->attrs[i].battr.attr.name,
@@ -433,8 +436,9 @@ static void mrdump_mini_build_task_info(struct pt_regs *regs)
 		(void *)(unsigned long)cur_proc->ke_frame.pc);
 	snprintf(cur_proc->ke_frame.lr_symbol, AEE_SZ_SYMBOL_L,
 		"[<%px>] %pS",
-		(void *)(unsigned long)cur_proc->ke_frame.lr,
-		(void *)(unsigned long)cur_proc->ke_frame.lr);
+		(void *)(unsigned long)ptrauth_strip_insn_pac(cur_proc->ke_frame.lr),
+		(void *)(unsigned long)ptrauth_strip_insn_pac(cur_proc->ke_frame.lr));
+
 }
 
 /*
@@ -664,6 +668,7 @@ static void mrdump_mini_build_elf_misc(void)
 				0, "_MODULES_INFO_");
 	}
 #endif
+
 }
 
 void mrdump_mini_add_hang_raw(unsigned long vaddr, unsigned long size)

@@ -115,7 +115,7 @@ void mrdump_arch_show_regs(const struct pt_regs *regs)
 		sp = regs->compat_sp;
 		top_reg = 12;
 	} else {
-		lr = regs->regs[30];
+		lr = ptrauth_strip_insn_pac(regs->regs[30]);
 		sp = regs->sp;
 		top_reg = 29;
 	}

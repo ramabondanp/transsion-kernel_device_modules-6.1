@@ -28,6 +28,7 @@ obj-$(CONFIG_MTK_USB_TYPEC) += typec/
 obj-$(CONFIG_MTPROF) += mtprof/
 obj-$(CONFIG_MTK_IRQ_MONITOR) += mtprof/
 obj-$(CONFIG_MTK_LOCKING_AEE) += locking/
+obj-m += trancam_driver_elapsedtime/
 obj-$(CONFIG_MTK_CAMERA_ISP_SUPPORT) += cameraisp/
 obj-$(CONFIG_MTK_CAMERA_MEM_SUPPORT) += camera_mem/
 obj-$(CONFIG_MTK_CAM_TIMESYNC) += cam_timesync/
@@ -105,4 +106,11 @@ obj-$(CONFIG_MTK_WIDEVINE_DRM) += widevine_drm/
 obj-$(CONFIG_MTK_PGBOOST) += pgboost/
 obj-$(CONFIG_MTK_MBRAINK)      += mbraink/
 obj-$(CONFIG_MTK_IPS_HELPER) += ips/
-
+$(info lyf $(CONFIG_TRAN_PREISP)) 
+ifeq ($(CONFIG_TRAN_PREISP),y)
+obj-$(CONFIG_TRAN_PREISP) += tetras_aiisp/
+endif
+obj-y += tran_lra/
+obj-$(CONFIG_MTK_LINE_HALL) += hall_rlk/
+obj-$(CONFIG_TRAN_AW95016) += aw95016/
+obj-$(CONFIG_TRAN_HALL_HOLSTER) += hall_holster/

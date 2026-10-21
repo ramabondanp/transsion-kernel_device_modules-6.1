@@ -46,6 +46,8 @@ static struct pm_qos_request lpm_qos_request;
 
 #define S2IDLE_STATE_NAME "s2idle"
 
+
+
 static inline int lpm_suspend_common_enter(unsigned int *susp_status)
 {
 	unsigned int status = PLAT_VCORE_LP_MODE

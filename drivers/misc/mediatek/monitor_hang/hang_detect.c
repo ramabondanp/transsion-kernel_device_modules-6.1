@@ -59,6 +59,10 @@
 #include "hang_unwind.h"
 #include "mrdump/mrdump_private.h"
 #include "mrdump/mrdump_mini.h"
+#if IS_ENABLED(CONFIG_TRAN_FUTEX_HANG_DETECT)
+#include <linux/futex.h>
+#include <trace/hooks/futex.h>
+#endif
 
 #ifdef CONFIG_MTK_HANG_DETECT_DB
 #define MAX_HANG_INFO_SIZE (4*1024*1024) /* 4M info */
@@ -114,6 +118,7 @@ DECLARE_WAIT_QUEUE_HEAD(dump_bt_start_wait);
 DECLARE_WAIT_QUEUE_HEAD(dump_bt_done_wait);
 DEFINE_RAW_SPINLOCK(white_list_lock);
 DEFINE_MUTEX(thread_array_lock);
+
 
 static void show_status(int flag);
 static void monitor_hang_kick(int lParam);
@@ -829,6 +834,7 @@ static void dump_mem_info(void)
 }
 #endif
 
+
 void trigger_hang_db(void)
 {
 	pr_notice("[Hang_Detect] we  triger DB.\n");
@@ -839,6 +845,7 @@ void trigger_hang_db(void)
 		&& reboot_flag == false)
 		aee_rr_rec_hang_detect_timeout_count(COUNT_ANDROID_REBOOT);
 #endif
+
 
 #if IS_ENABLED(CONFIG_MTK_AEE_IPANIC)
 		crash_setup_regs(&saved_regs, NULL);
@@ -855,7 +862,7 @@ void trigger_hang_db(void)
 #ifdef CONFIG_STACKTRACE
 static void get_kernel_bt(struct task_struct *tsk)
 {
-	unsigned long stacks[32];
+	struct unwind_state stacks[24];
 	int nr_entries;
 	int i;
 
@@ -865,10 +872,10 @@ static void get_kernel_bt(struct task_struct *tsk)
 	nr_entries = hang_kernel_trace(tsk, stacks, ARRAY_SIZE(stacks));
 #endif
 	for (i = 0; i < nr_entries; i++) {
-		log_hang_info("<%lx> %pS\n", (long)stacks[i],
-				(void *)stacks[i]);
-		hang_log("<%lx> %pS\n", (long)stacks[i],
-				(void *)stacks[i]);
+		log_hang_info("<%lx> %pS at %lx\n", (long)stacks[i].fp,
+				(void *)stacks[i].pc, (long)stacks[i].pc);
+		hang_log("<%lx> %pS at %lx\n", (long)stacks[i].fp,
+				(void *)stacks[i].pc, (long)stacks[i].pc);
 	}
 }
 #endif
@@ -1759,6 +1766,95 @@ static bool check_white_list(void)
 	return true;
 }
 
+#if IS_ENABLED(CONFIG_TRAN_FUTEX_HANG_DETECT)
+static bool watchdog_blocked_in_futex_wait = false;
+static unsigned long watchdog_last_switch_ts;
+static unsigned long watchdog_futex_uaddr;
+static struct task_struct *watchdog_thread = NULL;
+
+static bool check_watchdog_futex_hang(void)
+{
+	bool ret = false;
+	unsigned long interval;
+	u32 futex_uval[2] = {0}, tid;
+
+	if (watchdog_blocked_in_futex_wait && !IS_ERR_OR_NULL(watchdog_thread) &&
+		time_is_before_eq_jiffies(watchdog_last_switch_ts + (hd_timeout - hang_detect_counter) * HD_INTER * HZ)) {
+		ret = true;
+		interval = (jiffies - watchdog_last_switch_ts) / HZ;
+		log_hang_info("watchdog blocked futex uaddr %lx for more than %lu seconds in state:%c\n",
+					watchdog_futex_uaddr, interval, task_state_to_char(watchdog_thread));
+		if (access_process_vm(watchdog_thread, watchdog_futex_uaddr, futex_uval, sizeof(futex_uval), 0) != sizeof(futex_uval)) {
+			pr_notice("%s: access_process_vm %lx failed\n", __func__, watchdog_futex_uaddr);
+		} else {
+			/*
+			 * If watchdog is blocked in art mutex lock. futex_uval[0] is the blocked futex word
+			 * and futex_uval[1] is the art mutex owner tid.
+			 */
+			log_hang_info("futex uval: [%u, %u]\n", futex_uval[0], futex_uval[1]);
+			tid = futex_uval[1];
+			if (tid < 1 || tid > PID_MAX_DEFAULT) {
+				pr_notice("%s: invaild futex owner tid: %u\n", __func__, tid);
+			} else {
+				log_hang_info("futex owner tid: %u, show bt and call tne\n", tid);
+				show_bt_by_pid(tid);
+			}
+		}
+	}
+
+	return ret;
+}
+
+static void tran_trace_futex_wait_end(void *data, unsigned int flags, u32 bitset)
+{
+	if (!strcmp(current->comm, "watchdog") && (!IS_ERR_OR_NULL(current->group_leader)
+		&& !strcmp(current->group_leader->comm, "system_server")))
+		watchdog_blocked_in_futex_wait = false;
+}
+
+/* kprobe post_handler: called after the probed instruction is executed */
+void kp_futex_handler_post(struct kprobe *p, struct pt_regs *regs, unsigned long flags)
+{
+	if (!strcmp(current->comm, "watchdog") && (!IS_ERR_OR_NULL(current->group_leader)
+		&& !strcmp(current->group_leader->comm, "system_server"))) {
+		watchdog_blocked_in_futex_wait = true;
+		watchdog_last_switch_ts = jiffies;
+		/* The futex uaddr comes from the first reg of 32 or 64 bit. */
+#ifndef __aarch64__
+		watchdog_futex_uaddr = regs->ARM_r0;
+#else
+		watchdog_futex_uaddr = regs->user_regs.regs[0];
+#endif
+		watchdog_thread = current;
+	}
+}
+
+static struct kprobe kp_futex_handler = {
+	.symbol_name = "futex_wait",
+	.post_handler = kp_futex_handler_post,
+};
+
+static int tran_register_trace_handler(void)
+{
+	int ret;
+
+	ret = register_kprobe(&kp_futex_handler);
+	if (ret < 0) {
+		pr_err("[Hang_Detect] register kp_futex_handler failed: %d\n", ret);
+		return ret;
+	}
+
+	ret = register_trace_android_vh_futex_wait_end(tran_trace_futex_wait_end, NULL);
+	if (ret != 0) {
+		pr_err("[Hang_Detect] register_trace_android_vh_futex_wait_end failed: %d\n", ret);
+		unregister_kprobe(&kp_futex_handler);
+		return ret;
+	}
+
+	return ret;
+}
+#endif
+
 static int hang_detect_thread(void *arg)
 {
 	/* unsigned long flags; */
@@ -1788,12 +1884,27 @@ static int hang_detect_thread(void *arg)
 				wake_up(&hang_wait);
 			}
 
-			if (hang_detect_counter <= 0) {
+#if IS_ENABLED(CONFIG_TRAN_FUTEX_HANG_DETECT)
+			if (hang_detect_counter == 1) {
 #ifdef CONFIG_MTK_HANG_DETECT_DB
 				if (!Hang_first_done) {
 					memset(Hang_Info, 0, MaxHangInfoSize);
 					Hang_Info_Size = 0;
 				}
+#endif
+				if (check_watchdog_futex_hang())
+					pr_notice("[Hang_Detect] system_server watchdog futex hang\n");
+			}
+#endif
+
+			if (hang_detect_counter <= 0) {
+#if !IS_ENABLED(CONFIG_TRAN_FUTEX_HANG_DETECT)
+#ifdef CONFIG_MTK_HANG_DETECT_DB
+				if (!Hang_first_done) {
+					memset(Hang_Info, 0, MaxHangInfoSize);
+					Hang_Info_Size = 0;
+				}
+#endif
 #endif
 				log_hang_info(
 					"[Hang_detect]Dump the %d time process bt.\n",
@@ -1870,10 +1981,12 @@ void monitor_hang_kick(int lParam)
 	reset_hang_info();
 }
 
+
 int hang_detect_init(void)
 {
 
 	struct task_struct *hd_thread;
+
 
 	pr_debug("[Hang_Detect] Initialize proc\n");
 	hd_thread = kthread_create(hang_detect_thread, NULL, "hang_detect");
@@ -1948,6 +2061,10 @@ static int __init monitor_hang_init(void)
 		pr_info("debugfs_create_file monitor_hang failed!");
 #endif
 	from_dt_get_monitor_hang_boot_up_status();
+#if IS_ENABLED(CONFIG_TRAN_FUTEX_HANG_DETECT)
+	tran_register_trace_handler();
+#endif
+
 	return err;
 }
 
@@ -1959,6 +2076,10 @@ static void __exit monitor_hang_exit(void)
 #ifdef CONFIG_MTK_HANG_DETECT_DB
 	/* kfree(NULL) is safe */
 	kfree(Hang_Info);
+#endif
+#if IS_ENABLED(CONFIG_TRAN_FUTEX_HANG_DETECT)
+	unregister_kprobe(&kp_futex_handler);
+	unregister_trace_android_vh_futex_wait_end(tran_trace_futex_wait_end, NULL);
 #endif
 }
 
