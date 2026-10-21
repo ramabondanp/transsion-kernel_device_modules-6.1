@@ -48,6 +48,7 @@
 #define MFG_AXCOHERENCE_CON             (MFG_TOP_CFG_BASE + 0x168)            /* 0x13FBF168 */
 #define MFG_DEBUG_SEL                   (MFG_TOP_CFG_BASE + 0x170)            /* 0x13FBF170 */
 #define MFG_DEBUG_TOP                   (MFG_TOP_CFG_BASE + 0x178)            /* 0x13FBF178 */
+#define MFG_DEBUG_ASYNC                 (MFG_TOP_CFG_BASE + 0x17C)            /* 0x13FBF17C */
 #define MFG_ACTIVE_POWER_CON_CG         (MFG_TOP_CFG_BASE + 0x100)            /* 0x13FBF100 */
 #define MFG_ACTIVE_POWER_CON_ST0        (MFG_TOP_CFG_BASE + 0x120)            /* 0x13FBF120 */
 #define MFG_ACTIVE_POWER_CON_ST1        (MFG_TOP_CFG_BASE + 0x140)            /* 0x13FBF140 */
@@ -155,6 +156,9 @@
 #define MFG_RPC_IPS_SES_PWR_CON         (MFG_RPC_BASE + 0x10FC)               /* 0x13F910FC */
 #define MFG_RPC_PWR_CON_STATUS          (MFG_RPC_BASE + 0x1200)               /* 0x13F91200 */
 #define MFG_RPC_PWR_CON_2ND_STATUS      (MFG_RPC_BASE + 0x1204)               /* 0x13F91204 */
+
+#define GPUEB_MBOX_BASE                 (g_gpueb_mbox_base)                   /* 0x13C62000 */
+#define GPUEB_MBOX_PDCA_STA             (GPUEB_MBOX_BASE + 0xA8)              /* 0x13C620A8 */
 
 #define SPM_BASE                        (g_sleep)                             /* 0x1C001000 */
 #define SPM_SPM2GPUPM_CON               (SPM_BASE + 0x410)                    /* 0x1C001410 */

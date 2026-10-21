@@ -33,6 +33,7 @@
 #include "ged_eb.h"
 #include "ged_dcs.h"
 #include "ged_async.h"
+#include "ged_perfetto.h"
 
 #define MTK_DEFER_DVFS_WORK_MS          10000
 #define MTK_DVFS_SWITCH_INTERVAL_MS     50
@@ -662,6 +663,17 @@ unsigned long ged_query_info(GED_INFO eType)
 }
 EXPORT_SYMBOL(ged_query_info);
 
+bool ged_gpu_is_heavy(void)
+{
+	unsigned int gpu_loading;
+	int freq_id = ged_get_cur_oppidx();
+
+	gpu_loading = gpu_util_history_query_loading(16 * 1000);
+
+	return ((gpu_loading >= 85) && (freq_id <= 5));
+}
+EXPORT_SYMBOL(ged_gpu_is_heavy);
+
 void ged_opp_stat_step(void)
 {
 	int cur_idx = gpufreq_get_cur_oppidx(TARGET_DEFAULT);
@@ -1027,6 +1039,7 @@ bool ged_dvfs_gpu_freq_commit(unsigned long ui32NewFreqID,
 						batch_freq, BATCH_STR_SIZE);
 
 			trace_tracing_mark_write(5566, "gpu_freq", avg_freq);
+			ged_perfetto_update_frequency(ged_get_cur_stack_freq(), 0);
 
 			trace_GPU_DVFS__Frequency(avg_freq,
 				gpufreq_get_cur_freq(TARGET_DEFAULT) / 1000,
@@ -1034,6 +1047,7 @@ bool ged_dvfs_gpu_freq_commit(unsigned long ui32NewFreqID,
 		} else {
 			trace_tracing_mark_write(5566, "gpu_freq",
 				(long long) ged_get_cur_stack_freq() / 1000);
+			ged_perfetto_update_frequency(ged_get_cur_stack_freq(), 0);
 
 			trace_GPU_DVFS__Frequency(ged_get_cur_stack_freq() / 1000,
 				ged_get_cur_real_stack_freq() / 1000, ged_get_cur_top_freq() / 1000);
@@ -1178,6 +1192,7 @@ bool ged_dvfs_gpu_freq_dual_commit(unsigned long stackNewFreqID,
 					batch_freq, BATCH_STR_SIZE);
 
 		trace_tracing_mark_write(5566, "gpu_freq", avg_freq);
+		ged_perfetto_update_frequency(ged_get_cur_stack_freq(), 0);
 
 		trace_GPU_DVFS__Frequency(avg_freq,
 			gpufreq_get_cur_freq(TARGET_DEFAULT) / 1000,
@@ -1185,6 +1200,7 @@ bool ged_dvfs_gpu_freq_dual_commit(unsigned long stackNewFreqID,
 	} else {
 		trace_tracing_mark_write(5566, "gpu_freq",
 			(long long) ged_get_cur_stack_freq() / 1000);
+		ged_perfetto_update_frequency(ged_get_cur_stack_freq(), 0);
 
 		trace_GPU_DVFS__Frequency(ged_get_cur_stack_freq() / 1000,
 			ged_get_cur_real_stack_freq() / 1000, ged_get_cur_top_freq() / 1000);
