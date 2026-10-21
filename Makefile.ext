@@ -4,6 +4,7 @@ ifeq ($(CONFIG_DEVICE_MODULES_ALLOW_BUILTIN),y)
 
 LINUXINCLUDE := $(DEVCIE_MODULES_INCLUDE) $(LINUXINCLUDE)
 
+
 subdir-ccflags-y += -Werror \
 		-I$(srctree)/$(src)/include \
 		-I$(srctree)/$(src)/include/uapi \
@@ -80,6 +81,8 @@ obj-y += ../$(DEVICE_MODULES_REL_DIR)/drivers/gpu/drm/mediatek/
 
 obj-y += ../$(DEVICE_MODULES_REL_DIR)/drivers/input/touchscreen/
 
+obj-y += ../$(DEVICE_MODULES_REL_DIR)/drivers/input/fingerprint/
+
 obj-y += ../$(DEVICE_MODULES_REL_DIR)/drivers/gpu/drm/panel/
 
 obj-y += ../$(DEVICE_MODULES_REL_DIR)/drivers/gpu/mediatek/
@@ -92,10 +95,20 @@ obj-y += ../$(DEVICE_MODULES_REL_DIR)/drivers/devfreq/
 
 obj-y += ../$(DEVICE_MODULES_REL_DIR)/drivers/misc/mediatek/
 
+
 obj-y += ../$(DEVICE_MODULES_REL_DIR)/sound/soc/codecs/
 
 obj-y += ../$(DEVICE_MODULES_REL_DIR)/sound/soc/mediatek/
 
+obj-y += ../$(DEVICE_MODULES_REL_DIR)/sound/soc/transsion/
+
 obj-y += ../$(DEVICE_MODULES_REL_DIR)/drivers/pci/controller/
 
+obj-$(CONFIG_NXP_NFC_SNXXX_DEVICE) += ../$(DEVICE_MODULES_REL_DIR)/drivers/nfc/pn560/
+
+obj-$(CONFIG_SEC_NFC) += ../$(DEVICE_MODULES_REL_DIR)/drivers/nfc/rn4v/
+
+obj-y += ../$(DEVICE_MODULES_REL_DIR)/drivers/misc/hiber/
+
 endif
+

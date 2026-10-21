@@ -4,6 +4,7 @@ ifneq ($(CONFIG_DEVICE_MODULES_ALLOW_BUILTIN),y)
 
 LINUXINCLUDE := $(DEVCIE_MODULES_INCLUDE) $(LINUXINCLUDE)
 
+
 subdir-ccflags-y += -Werror \
 		-I$(srctree)/$(src)/include \
 		-I$(srctree)/$(src)/include/uapi \
@@ -80,6 +81,8 @@ obj-y += drivers/gpu/drm/mediatek/
 
 obj-y += drivers/input/touchscreen/
 
+obj-y += drivers/input/fingerprint/
+
 obj-y += drivers/gpu/drm/panel/
 
 obj-y += drivers/gpu/mediatek/
@@ -92,10 +95,20 @@ obj-y += drivers/devfreq/
 
 obj-y += drivers/misc/mediatek/
 
+
 obj-y += sound/soc/codecs/
 
 obj-y += sound/soc/mediatek/
 
+obj-y += sound/soc/transsion/
+
 obj-y += drivers/pci/controller/
 
+obj-$(CONFIG_NXP_NFC_SNXXX_DEVICE) += drivers/nfc/pn560/
+
+obj-$(CONFIG_SEC_NFC) += drivers/nfc/rn4v/
+
+obj-y += drivers/misc/hiber/
+
 endif
+
