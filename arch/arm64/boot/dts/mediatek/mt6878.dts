@@ -2827,27 +2827,30 @@
 	};
 
 	mtk_leds: mtk-leds {
+		compatible = "mediatek,i2c-leds";
 		backlight {
 			label = "lcd-backlight";
 			max-brightness = <2047>;
 			min-brightness = <4>;
 			max-hw-brightness = <2047>;
+			led-mode = <6>;
+			gate-enable = <1>;
+			pwm-config = <0 1 0 0 0>;
 		};
 	};
-
-	mtk_leds1: mtk-leds1 {
-		backlight {
-			label = "lcd-backlight1";
-			max-brightness = <2047>;
-			min-brightness = <4>;
-			max-hw-brightness = <2047>;
-		};
-	};
+//	mtk_leds1: mtk-leds1 {
+//		backlight {
+//			label = "lcd-backlight1";
+//			max-brightness = <2047>;
+//			min-brightness = <4>;
+//			max-hw-brightness = <2047>;
+//		};
+//	};
 
 	regulator_vibrator: regulator-vibrator {
 		compatible = "regulator-vibrator";
 		label = "vibrator";
-		min-volt = <2800000>;
+		min-volt = <3000000>;
 		max-volt = <3500000>;
 		vib-supply = <&mt6369_vibr>;
 	};
@@ -2972,6 +2975,7 @@
 	smi-test {
 		compatible = "mediatek,smi-testcase";
 		mediatek,larbs = <&smi_larb2>;
+		skip-set-common-bw;
 	};
 
 	smi_larb2: smi-larb2@1f002000 {
@@ -3547,6 +3551,14 @@
 		vmmrc-on-table = <0x2e788>;
 		vmmrc-off-table = <0x2e7a8>;
 		mminfra-base = <0x1e800000>;
+		dvfsrc-level-base = <0x1c00f000>;
+		required-opps = <&dvfsrc_freq_opp0>,
+				<&dvfsrc_freq_opp1>,
+				<&dvfsrc_freq_opp2>,
+				<&dvfsrc_freq_opp3>,
+				<&dvfsrc_freq_opp4>,
+				<&dvfsrc_freq_opp5>,
+				<&dvfsrc_freq_opp6>;
 	};
 
 	ccucammain: ccucammain {
@@ -3561,17 +3573,7 @@
 
 	gpio_keys: gpio-keys {
 		compatible = "gpio-keys";
-		status = "okay";
-		pinctrl-names = "default";
-		pinctrl-0 = <&key_gpio_default>;
-		volumedown {
-			label = "Volume_Down";
-			linux,code = <114>;
-			linux,input-type = <1>;
-			gpios = <&pio 54 1>;
-			wakeup-source;
-			debounce-interval = <30>;
-		};
+		status = "disabled";
 	};
 
 	soc {
@@ -4191,7 +4193,7 @@
 		};
 
 		mrdump_ext_rst:mrdump_ext_rst {
-			compatible = "mediatek, mrdump_ext_rst-eint";
+			compatible = "mediatek, disable_mrdump_key";
 			mode = "IRQ";
 			status = "okay";
 		};
@@ -4248,6 +4250,11 @@
 				#size-cells = <0>;
 		};
 
+		pmic_tia: pmic-tia@1c0130fc {
+			compatible = "mediatek,pmic_tia";
+			reg = <0 0x1c0130fc 0 0>;
+		};
+
 		spmi_pmif_mpu: spmi-pmif-mpu@1cc04900 {
 			compatible = "mediatek,mt6878-spmi-pmif-mpu";
 			reg = <0 0x1cc04900 0 0x000500>;
@@ -4294,7 +4301,6 @@
 			compatible = "mediatek,mailbox-gce-sec";
 			reg = <0 0x1e980000 0 0x4000>;
 			virtio-supply = <&trusty_virtio>;
-			mtee-supply = <&mtee>;
 			#mbox-cells = <3>;
 			power-domains = <&scpsys MT6878_POWER_DOMAIN_MM_INFRA>;
 			mboxes = <&gce 15 CMDQ_NO_TIMEOUT CMDQ_THR_PRIO_1>;
@@ -4340,7 +4346,6 @@
 			reg = <0 0x1e990000 0 0x4000>;
 			#mbox-cells = <3>;
 			virtio-supply = <&trusty_virtio>;
-			mtee-supply = <&mtee>;
 			power-domains = <&scpsys MT6878_POWER_DOMAIN_MM_INFRA>;
 			mboxes = <&gce_m 15 CMDQ_NO_TIMEOUT CMDQ_THR_PRIO_1>;
 			clocks = <&mminfra_config_clk CLK_MMINFRA_GCE_M>;
@@ -5505,6 +5510,7 @@
 		dispsys_config: dispsys-config@14000000 {
 			compatible = "mediatek,mt6878-disp";
 			reg = <0 0x14000000 0 0x1000>;
+			relay-aal-hw = <1>;
 			#address-cells = <2>;
 			#size-cells = <2>;
 			mmqos-supply = <&mmqos>;
@@ -5739,7 +5745,7 @@
 				<0>, /*MTK_DRM_OPT_SODI_SUPPORT*/
 				<1>, /*MTK_DRM_OPT_IDLE_MGR*/
 				<0>, /*MTK_DRM_OPT_IDLEMGR_SWTCH_DECOUPLE*/
-				<1>, /*MTK_DRM_OPT_IDLEMGR_BY_REPAINT*/
+				<0>, /*MTK_DRM_OPT_IDLEMGR_BY_REPAINT*/
 				<0>, /*MTK_DRM_OPT_IDLEMGR_ENTER_ULPS*/
 				<0>, /*MTK_DRM_OPT_IDLEMGR_KEEP_LP11*/
 				<0>, /*MTK_DRM_OPT_DYNAMIC_RDMA_GOLDEN_SETTING*/
@@ -5808,7 +5814,7 @@
 				<0>, /*MTK_DRM_OPT_VIDLE_VDO_PANEL*/
 				<0>, /*MTK_DRM_OPT_VIDLE_HOME_SCREEN_IDLE*/
 				<0>, /*MTK_DRM_OPT_DPC_PRE_TE_EN*/
-				<1>; /*"MTK_DRM_OPT_PER_LARB_PORT_PEAK"*/
+				<0>; /*"MTK_DRM_OPT_PER_LARB_PORT_PEAK"*/
 		};
 
 		disp_mutex0: disp-mutex0@14001000 {
@@ -6506,6 +6512,7 @@
 			clock-div = <1>;
 			scl-gpio-id = <135>;
 			sda-gpio-id = <136>;
+			mediatek,fifo-use-polling;
 		};
 
 		i2c6: i2c@11e01000 {
@@ -9002,6 +9009,9 @@
 			wakeup-source;
 			usb-role-switch;
 			cdp-block;
+			usb-psy-name="charger";
+			typec-name="rt-pd-manager";
+			typec-port-name="port0";
 			port {
 				mtu3_drd_switch: endpoint {
 					remote-endpoint = <&usb_role>;
@@ -9569,36 +9579,37 @@
 	/* feature : $enable $dl_mem $ul_mem $ref_mem $size */
 	snd_audio_dsp: snd-audio-dsp {
 		compatible = "mediatek,snd-audio-dsp";
-		mtk-dsp-voip = <0x1f 0xffffffff 0xffffffff 0xffffffff 0x30000>;
-		mtk-dsp-primary = <0x5 0xffffffff 0xffffffff \
+		mtk-dsp-voip = <0x0 0xffffffff 0xffffffff 0xffffffff 0x30000>;
+		mtk-dsp-primary = <0x0 0xffffffff 0xffffffff \
 				   0xffffffff 0x30000>;
-		mtk-dsp-offload = <0x1d 0xffffffff 0xffffffff \
+		mtk-dsp-offload = <0x0 0xffffffff 0xffffffff \
 				   0xffffffff 0x400000>;
-		mtk-dsp-deep = <0x5 0xffffffff 0xffffffff 0xffffffff 0x30000>;
-		mtk-dsp-playback = <0x1 0xc 0xffffffff 0x10 0x30000>;
-		mtk-dsp-music = <0x1 0xffffffff 0xffffffff 0xffffffff 0x0>;
-		mtk-dsp-capture1 = <0x1 0xffffffff 0x16 0xe 0x20000>;
-		mtk-dsp-a2dp = <0x1 0xffffffff 0xffffffff 0xffffffff 0x40000>;
-		mtk-dsp-bledl = <0x1 0xffffffff 0xffffffff 0xffffffff 0x30000>;
+		mtk-dsp-deep = <0x0 0xffffffff 0xffffffff 0xffffffff 0x30000>;
+		mtk-dsp-dynamic = <0x8000005 0xffffffff 0xffffffff 0xffffffff 0x30000>;
+		mtk-dsp-playback = <0x0 0xc 0xffffffff 0x10 0x30000>;
+		mtk-dsp-music = <0x0 0xffffffff 0xffffffff 0xffffffff 0x0>;
+		mtk-dsp-capture1 = <0x0 0xffffffff 0x16 0xe 0x20000>;
+		mtk-dsp-a2dp = <0x0 0xffffffff 0xffffffff 0xffffffff 0x40000>;
+		mtk-dsp-bledl = <0x0 0xffffffff 0xffffffff 0xffffffff 0x30000>;
 		mtk-dsp-dataprovider = <0x0 0xffffffff 0x14 0xffffffff 0x30000>;
-		mtk-dsp-call-final = <0x5 0xc 0x11 0x10 0x18000>;
-		mtk-dsp-fast = <0x5 0xffffffff 0xffffffff 0xffffffff 0x5000>;
+		mtk-dsp-call-final = <0x0 0xc 0x11 0x10 0x18000>;
+		mtk-dsp-fast = <0x0 0xffffffff 0xffffffff 0xffffffff 0x5000>;
 		mtk-dsp-spatializer = <0x0 0xffffffff 0xffffffff 0xffffffff 0x5000>;
-		mtk-dsp-ktv = <0x1 0x5 0x12 0xffffffff 0x10000>;
-		mtk-dsp-capture-raw = <0x1 0xffffffff 0xffffffff 0xffffffff 0x20000>;
-		mtk-dsp-fm = <0x1 0xffffffff 0x11 0xffffffff 0x10000>;
-		mtk-dsp-bleul = <0x1 0xffffffff 0xffffffff 0xffffffff 0x20000>;
-		mtk-dsp-ulproc = <0x1 0xffffffff 0xffffffff 0xffffffff 0x20000>;
-		mtk-dsp-echoref = <0x1 0xffffffff 0xe 0xffffffff 0x20000>;
-		mtk-dsp-echodl = <0x1 0x6 0xffffffff 0xffffffff 0x30000>;
-		mtk-dsp-usbdl = <0x1 0xffffffff 0xffffffff 0xffffffff 0x30000>;
-		mtk-dsp-usbul = <0x1 0xffffffff 0xffffffff 0xffffffff 0x30000>;
+		mtk-dsp-ktv = <0x0 0x5 0x12 0xffffffff 0x10000>;
+		mtk-dsp-capture-raw = <0x0 0xffffffff 0xffffffff 0xffffffff 0x20000>;
+		mtk-dsp-fm = <0x0 0xffffffff 0x11 0xffffffff 0x10000>;
+		mtk-dsp-bleul = <0x0 0xffffffff 0xffffffff 0xffffffff 0x20000>;
+		mtk-dsp-ulproc = <0x0 0xffffffff 0xffffffff 0xffffffff 0x20000>;
+		mtk-dsp-echoref = <0x0 0xffffffff 0xe 0xffffffff 0x20000>;
+		mtk-dsp-echodl = <0x0 0x6 0xffffffff 0xffffffff 0x30000>;
+		mtk-dsp-usbdl = <0x0 0xffffffff 0xffffffff 0xffffffff 0x30000>;
+		mtk-dsp-usbul = <0x0 0xffffffff 0xffffffff 0xffffffff 0x30000>;
 		mtk-dsp-mddl = <0x1 0xffffffff 0xe 0xffffffff 0x30000>;
 		mtk-dsp-mdul = <0x1 0x2 0xffffffff 0xffffffff 0x30000>;
 		mtk-dsp-a2dp-irq = <0x1>;
 		mtk-dsp-ver = <0x1>;
 		mtk-dsp-type = "RV55";
-		swdsp-smartpa-process-enable = <0x5>;
+		swdsp-smartpa-process-enable = <0x0>;
 		mtk-dsp-mem-afe = <0x1 0x40000>;
 		mtk-dsp-btdl = <0x0 0x9 0xffffffff 0xffffffff 0x30000>;
 		mtk-dsp-btul = <0x0 0xffffffff 0x19 0xe 0x20000>;
@@ -9631,6 +9642,9 @@
 
 	gpio_usage_mapping:gpio {
 		compatible = "mediatek,gpio_usage_mapping";
+	};
+
+	msdc1_ins:msdc1_ins{
 	};
 
 	md1_sim1_hot_plug_eint:MD1-SIM1-HOT-PLUG-EINT {
@@ -9783,7 +9797,9 @@
 		ccf-fmeter-support;
 		scp-dvfs-flag = "enable"; /* enable/disable */
 	};
-
+	tran_sensor_cust: tran_sensor_cust {
+		compatible = "mediatek,tran_sensor";
+	};
 	u3fpgaphy: usb-phy {
 		compatible = "mediatek,fpga-u3phy";
 		mediatek,ippc = <0x11203e00>;
@@ -10502,23 +10518,52 @@
 		compatible = "mediatek,usb-logger";
 	};
 
-	low-battery-throttling {
+	low_battery_throttling: low-battery-throttling {
 		compatible = "mediatek,low_battery_throttling";
 
 		lvsys-thd-enable = <1>;
 		vbat-thd-enable = <1>;
-		thd-volts-l = <
+		bat0-thd-volts-l = <
+			3550 3100 2900
 			3550 3100 2900
 			4400 3400 3100
-			5000 4900 4400>;
-		thd-volts-h = <
+			4400 3400 3100>;
+		bat0-thd-volts-h = <
+			3600 3550 3100
 			3600 3550 3100
 			5000 4400 3400
-			5100 5000 4900>;
+			5000 4400 3400>;
+		bat1-thd-volts-l = <
+			3550 3100 2900
+			3550 3100 2900
+			4400 3400 3100
+			4400 3400 3100>;
+		bat1-thd-volts-h = <
+			3600 3550 3100
+			3600 3550 3100
+			5000 4400 3400
+			5000 4400 3400>;
 		lvsys-thd-volt-l = <2900>;
 		lvsys-thd-volt-h = <3100>;
-		temperature-max-stage = <2>;
-		temperature-stage-threshold = <11 0>;
+		temperature-stage-threshold = <25 10 0>;
+
+		bat0-aging-threshold = <1000 2000>;
+		bat0-aging-volts-t0 =  <0 0>;
+		bat0-aging-volts-t1 =  <0 0>;
+		bat0-aging-volts-t2 =  <0 0>;
+		bat0-aging-volts-t3 =  <0 0>;
+		bat1-aging-threshold = <1000 2000>;
+		bat1-aging-volts-t0 =  <0 0>;
+		bat1-aging-volts-t1 =  <0 0>;
+		bat1-aging-volts-t2 =  <0 0>;
+		bat1-aging-volts-t3 =  <0 0>;
+
+		throttle-level = <0 1 2 3>,
+						<0 1 2 3>,
+						<0 1 2 3>,
+						<0 1 2 3>;
+		bootmode = <&chosen>;
+		gauge = <&mtk_gauge>;
 	};
 
 	cpu_power_throttling: cpu-power-throttling {
@@ -10562,8 +10607,7 @@
 		oc-reduce-tx-lv1 = <0>;
 		oc-reduce-tx-lv2 = <6>;
 
-		soc-max-level = <1>;
-		soc-reduce-tx-lv1 = <6>;
+		soc-max-level = <0>;
 	};
 
 	bp_thl: bp-thl {
@@ -11380,6 +11424,11 @@ TOP_LDRO7,TOP_LDRO8,TOP_LDRO9,TOP_LDRO10,TOP_LDRO11,TOP_LDRO12,TOP_LDRO13,TOP_LD
 				scmi-ise = <12>;
 			};
 		};
+
+		android: android {
+			compatible = "android,firmware";
+			hardware = "mt6878";
+		};
 	};
 
 	sspm: sspm@1c300000 {
@@ -11940,7 +11989,7 @@ TOP_LDRO7,TOP_LDRO8,TOP_LDRO9,TOP_LDRO10,TOP_LDRO11,TOP_LDRO12,TOP_LDRO13,TOP_LD
 			otg-lbp = <2800>;
 			ircmp-r = <16700>;
 			ircmp-v = <32>;
-			chg-tmr = <10>;
+			chg-tmr = <15>;
 			chg-tmr-en;
 			dcdt-sel = <600>;
 			spec-ta-en;
@@ -11976,11 +12025,11 @@ TOP_LDRO7,TOP_LDRO8,TOP_LDRO9,TOP_LDRO10,TOP_LDRO11,TOP_LDRO12,TOP_LDRO13,TOP_LD
 			io-channels = <&mt6375_adc MT6375_ADC_SBU1>,
 				      <&mt6375_adc MT6375_ADC_SBU2>;
 			charger = <&mt6375_chg>;
-			tcpc,en-wd;
+			//tcpc,en-wd;
 			// tcpc,en-wd-dual-port;
 			tcpc,en-ctd;
-			tcpc,en-fod;
-			tcpc,en-typec-otp;
+			//tcpc,en-fod;
+			//tcpc,en-typec-otp;
 			// tcpc,en-floatgnd;
 			wd,sbu-calib-init = <1200>;	/* mV */
 			wd,sbu-pl-bound = <200>;	/* mV */
@@ -12005,14 +12054,14 @@ TOP_LDRO7,TOP_LDRO8,TOP_LDRO9,TOP_LDRO10,TOP_LDRO11,TOP_LDRO12,TOP_LDRO13,TOP_LD
 							      0x00 0x00 0x00 0x00
 							      0x00 0x00 0x00 0x00
 							      0x00 0x00 0x00 0x00
-							      0x00 0x00 0x01 0x07
+							      0x00 0x00 0x01 0x02
 							      0x00>;
 				pd,sink-cap-ext = /bits/ 8 <0xcf 0x29 0x75 0x63
 							    0x00 0x00 0x00 0x00
 							    0x00 0x00 0x01 0x00
 							    0x00 0x00 0x00 0x00
 							    0x01 0x0b 0x01 0x0a
-							    0x0a 0x00 0x00 0x00>;
+							    0x12 0x00 0x00 0x00>;
 				pd,mfrs = "RichtekTCPC";
 
 				/*
@@ -12020,13 +12069,12 @@ TOP_LDRO7,TOP_LDRO8,TOP_LDRO9,TOP_LDRO10,TOP_LDRO11,TOP_LDRO12,TOP_LDRO13,TOP_LD
 				 *	MAX_POWER_LV = 0x21, MAX_POWER_LVIC = 0x31
 				 *	MAX_POWER_HV = 0x41, MAX_POWER_HVIC = 0x51
 				 */
-				pd,charging-policy = <0x31>;
 
-				pd,source-pdo-size = <1>;
-				pd,source-pdo-data = <0x00019096>; /* 5V, 1500 mA */
-				pd,sink-pdo-size = <1>;
-				pd,sink-pdo-data = <0x000190c8>;
-
+				pd,charging-policy = <2>;
+				pd,source-pdo-size = <2>;
+				pd,source-pdo-data = <0x00019032 0x000190c8>; /*1:5V, 500 mA 2:5V,2A */
+				pd,sink-pdo-size = <2>;
+				pd,sink-pdo-data = <0x000190c8 0x0002d0c8>;
 				/*
 				 * No DP, host + device
 				 *	pd,id-vdo-size = <6>;
@@ -12107,6 +12155,7 @@ TOP_LDRO7,TOP_LDRO8,TOP_LDRO9,TOP_LDRO10,TOP_LDRO11,TOP_LDRO12,TOP_LDRO13,TOP_LD
 				      <&mt6375_auxadc MT6375_AUXADC_BATSNS_DBG>;
 			io-channel-names = "chg_vbat", "auxadc_vbat";
 			charger = <&mt6375_chg>;
+			gauge = <&mtk_gauge>;
 			isink-load-supply = <&mt6363_isink_load>;
 			imix-r {
 				val = <90>;
@@ -12297,7 +12346,7 @@ TOP_LDRO7,TOP_LDRO8,TOP_LDRO9,TOP_LDRO10,TOP_LDRO11,TOP_LDRO12,TOP_LDRO13,TOP_LD
 
 	gate_ic: gate-ic@11 {
 		compatible = "mediatek,gate-ic-i2c";
-		gate-power-gpios = <&pio 149 0>;
+		//gate-power-gpios = <&pio 149 0>;
 		reg = <0x11>;
 		id = <6>;
 		status = "okay";
@@ -12699,8 +12748,8 @@ TOP_LDRO7,TOP_LDRO8,TOP_LDRO9,TOP_LDRO10,TOP_LDRO11,TOP_LDRO12,TOP_LDRO13,TOP_LD
 /delete-node/ &mt6363_vbuck1_sshub;
 /delete-node/ &mt6363_vbuck2_sshub;
 /delete-node/ &mt6363_vbuck4_sshub;
-/delete-node/ &mt6369_vmch;
-/delete-node/ &mt6369_vmch_eint_low;
+// /delete-node/ &mt6369_vmch;
+// /delete-node/ &mt6369_vmch_eint_low;
 /delete-node/ &mt6369_vdigrf;
 
 &main_pmic {
@@ -12744,3 +12793,7 @@ TOP_LDRO7,TOP_LDRO8,TOP_LDRO9,TOP_LDRO10,TOP_LDRO11,TOP_LDRO12,TOP_LDRO13,TOP_LD
 &mt6369codec {
 	mediatek,bypass-vant18 = <1>; /* 0: do not bypass; 1: bypass */
 };
+
+#include "mediatek/tran_mt6878_tee.dtsi"
+
+#include "mediatek/cust_mt6878_camera_v4l2.dtsi"

@@ -15335,10 +15335,49 @@
 
 	low-battery-throttling {
 		compatible = "mediatek,low_battery_throttling";
-		thd-volts-l = <3400 3100 2900>;
-		thd-volts-h = <3500 3400 3100>;
 		lvsys-thd-enable = <1>;
 		vbat-thd-enable = <1>;
+		bat0-thd-volts-l = <
+			3400 3100 2900
+			3400 3100 2900
+			3400 3100 2900
+			3400 3100 2900>;
+		bat0-thd-volts-h = <
+			3500 3400 3100
+			3500 3400 3100
+			3500 3400 3100
+			3500 3400 3100>;
+		bat1-thd-volts-l = <
+			3400 3100 2900
+			3400 3100 2900
+			3400 3100 2900
+			3400 3100 2900>;
+		bat1-thd-volts-h = <
+			3500 3400 3100
+			3500 3400 3100
+			3500 3400 3100
+			3500 3400 3100>;
+		lvsys-thd-volt-l = <2900>;
+		lvsys-thd-volt-h = <3100>;
+		temperature-stage-threshold = <25 10 0>;
+
+		bat0-aging-threshold = <1000 2000>;
+		bat0-aging-volts-t0 =  <0 0>;
+		bat0-aging-volts-t1 =  <0 0>;
+		bat0-aging-volts-t2 =  <0 0>;
+		bat0-aging-volts-t3 =  <0 0>;
+		bat1-aging-threshold = <1000 2000>;
+		bat1-aging-volts-t0 =  <0 0>;
+		bat1-aging-volts-t1 =  <0 0>;
+		bat1-aging-volts-t2 =  <0 0>;
+		bat1-aging-volts-t3 =  <0 0>;
+
+		throttle-level = <0 1 2 3>,
+						<0 1 2 3>,
+						<0 1 2 3>,
+						<0 1 2 3>;
+		bootmode = <&chosen>;
+		gauge = <&mtk_gauge>;
 	};
 
 	pbm: pbm {
@@ -15390,8 +15429,7 @@
 		oc-max-level = <1>;
 		oc-reduce-tx-lv1 = <6>;
 
-		soc-max-level = <1>;
-		soc-reduce-tx-lv1 = <6>;
+		soc-max-level = <0>;
 	};
 
 	bp_thl: bp-thl {
@@ -16758,6 +16796,7 @@ FLL0_out,FLL1_out,FLL2_out,FLL4_out,FLL5_out,FLL6_out";
 					  <&mt6375_auxadc MT6375_AUXADC_BATSNS_DBG>;
 			io-channel-names = "chg_vbat", "auxadc_vbat";
 			charger = <&mt6375_chg>;
+			gauge = <&mtk_gauge>;
 			isink_load-supply = <&mt6363_isink_load>;
 			imix_r {
 				val = <90>;
@@ -17347,4 +17386,3 @@ FLL0_out,FLL1_out,FLL2_out,FLL4_out,FLL5_out,FLL6_out";
 &hypervisor {
 	status = "okay";
 };
-

@@ -17,6 +17,18 @@ bootargs_ext = "8250.nr_uarts=4";
 	hardware = "mt8792";
 };
 
+&clkbuf_ctrl {
+	compatible = "mediatek,mt8792-clkbuf";
+};
+
+&mt6685_clkbuf {
+	compatible = "mediatek,mt6685-tb-clkbuf";
+};
+
+&mddriver {
+	ref-args = "md_disable";
+};
+
 &mtk_leds {
 	compatible = "mediatek,i2c-leds";
 
@@ -28,7 +40,7 @@ bootargs_ext = "8250.nr_uarts=4";
 };
 
 &pdc {
-	pd-vbus-upper-bound = <9000000>;
+	pd-vbus-upper-bound = <12000000>;
 };
 
 &connfem {
@@ -235,19 +247,6 @@ bootargs_ext = "8250.nr_uarts=4";
 			};
 		};
 	};
-	panel3@2 {
-		compatible = "nt37801,cmd,fhd";
-		reg = <2>;
-		pm-enable-gpios = <&pio 64 0>;
-		reset-gpios = <&pio 41 0>;
-		gate-ic = <4831>;
-		pinctrl-names = "default";
-		port {
-			panel_in3: endpoint {
-				remote-endpoint = <&dsi_out3>;
-			};
-		};
-	};
 	ports {
 		port {
 			dsi_out: endpoint {
@@ -255,9 +254,6 @@ bootargs_ext = "8250.nr_uarts=4";
 			};
 			dsi_out2: endpoint2 {
 				remote-endpoint = <&panel_in2>;
-			};
-			dsi_out3: endpoint3 {
-				remote-endpoint = <&panel_in3>;
 			};
 		};
 	};
@@ -332,27 +328,11 @@ bootargs_ext = "8250.nr_uarts=4";
 	};
 };
 
-&mt6363_vbuck1 {
-	regulator-always-on;
-};
-
 &mt6363_vbuck2 {
 	regulator-always-on;
 };
 
-&mt6363_vsram_digrf {
-	regulator-always-on;
-};
-
 &mt6363_vsram_modem {
-	regulator-always-on;
-};
-
-&mt6363_vcn15 {
-	regulator-always-on;
-};
-
-&mt6363_vrf12 {
 	regulator-always-on;
 };
 

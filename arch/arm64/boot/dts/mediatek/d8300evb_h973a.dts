@@ -1,0 +1,461 @@
+// SPDX-License-Identifier: (GPL-2.0 OR MIT)
+/*
+ * Copyright (C) 2022 MediaTek Inc.
+ */
+/dts-v1/;
+/plugin/;
+#include <dt-bindings/interrupt-controller/arm-gic.h>
+#include <dt-bindings/interrupt-controller/irq.h>
+#include <dt-bindings/pinctrl/mt6897-pinfunc.h>
+#include <dt-bindings/phy/phy.h>
+#include <dt-bindings/iio/mt635x-auxadc.h>
+
+&chosen {
+bootargs_ext = "8250.nr_uarts=4";
+
+};
+
+&md_auxadc{
+    io-channels = <&pmic_adc (ADC_PURES_OPEN_MASK | AUXADC_VIN1)>;
+};
+
+&pdc {
+	pd-vbus-upper-bound = <9000000>;
+};
+
+&connfem {
+/* Enable epa_elna node to support Wifi & BT ePA/eLNA FEM on customer load */
+#if 1
+	epa-elna {
+		parts = <&qm42195 &nofem>;	/* [0] */
+		wifi {
+			flags-0 {
+				/*open-loop;*/
+			};
+		};
+		bt {
+			flags-0 {
+				/* choose one of: epa-elna/epa/elna/bypass */
+				epa-elna;
+			};
+		};
+	};
+#endif
+};
+&tran_sensor_cust {
+    /*lcm info for sensor start*/
+    /*als sensor support state*/
+    un_als_support = <1 0 0 0>;/*ML MSL SL SSL*/
+    /*main sensor:ML*/
+    ml_lcm_info = <843 63 43 43>;/*offset_x, offset_y, clip_w, clip_h*/
+    /*main sub als lcm info:MSL*/
+    /*lcm info for sensor end*/
+	ml_nv_info = <1 1 1>; /*vendortype:SensorTek,  algotype:Cutout, version:V1_0_0*/
+	nv_restore_time = <3>;
+};
+&spi3 {
+    fingerprint@0 {
+        compatible = "tran_fp";
+        reg = <0>;
+        spi-max-frequency = <35000000>;
+        interrupt-parent = <&pio>;
+        interrupts = <8 1 8 0>;
+        debounce = <27 0>;
+        irq-gpio = <8>;
+        irq-gpio-std = <&pio 8 0x0>;
+        reset-gpio = <134>;
+        reset-gpio-std = <&pio 134 0x0>;
+        vmch-supply = <&mt6368_vfp>;
+        pinctrl-names ="tran_fp_default",
+            "tran_fp_pin_irq",
+            "tran_fp_irq_pull_down",
+            "tran_fp_reset_high",
+            "tran_fp_reset_low",
+            "tran_fp_spi_default";
+        pinctrl-0 = <&fingerprint_default>;
+        pinctrl-1 = <&fingerprint_eint>;
+        pinctrl-2 = <&fingerprint_eint_pull_down>;
+        pinctrl-3 = <&fingerprint_rst_one>;
+        pinctrl-4 = <&fingerprint_rst_zero>;
+        pinctrl-5 = <&fingerprint_spi_default>;
+        status = "okay";
+    };
+};
+&pio {
+    fingerprint_default: fingerprint_default {
+	};
+    fingerprint_eint: gpio8_eint {
+    pins_cmd_dat {
+        pinmux = <PINMUX_GPIO8__FUNC_GPIO8>;
+        slew-rate = <0>;
+        bias-disable;
+        };
+    };
+    fingerprint_eint_pull_down: gpio8_eint_pull_down {
+    pins_cmd_dat {
+        pinmux = <PINMUX_GPIO8__FUNC_GPIO8>;
+        slew-rate = <0>;
+        bias-pull-down = <00>;
+        output-low;
+        };
+    };
+    fingerprint_rst_one: rst_out_one {
+    pins_cmd_dat {
+        pinmux = <PINMUX_GPIO134__FUNC_GPIO134>;
+        slew-rate = <1>;
+        bias-disable;
+        output-high;
+        };
+    };
+    fingerprint_rst_zero: rst_out_zero {
+    pins_cmd_dat {
+        pinmux = <PINMUX_GPIO134__FUNC_GPIO134>;
+        slew-rate = <1>;
+        bias-disable;
+        output-low;
+        };
+    };
+    fingerprint_spi_default: spimode_default {
+        pins_cmd_dat {
+        pinmux = <PINMUX_GPIO27__FUNC_SPI3_CLK>,
+                <PINMUX_GPIO28__FUNC_SPI3_CSB>,
+                <PINMUX_GPIO29__FUNC_SPI3_MI>,
+                <PINMUX_GPIO30__FUNC_SPI3_MO>;
+                drive-strength = <7>;
+         };
+     };
+};
+
+/* GPS GPIO standardization start */
+&pio {
+	gps_pins_default: gps-default {
+	};
+	gps_l1_lna_pins_ol: gps-l1-lna0 {
+		pins-cmd-dat {
+			pinmux = <PINMUX_GPIO190__FUNC_GPIO190>;
+			output-low;
+		};
+	};
+	gps_l1_lna_pins_dsp_ctrl: gps-l1-lna1 {
+		pins-cmd-dat {
+			pinmux = <PINMUX_GPIO190__FUNC_GPS_L1_ELNA_EN>;
+		};
+	};
+	gps_l1_lna_pins_oh: gps-l1-lna2 {
+		pins-cmd-dat {
+			pinmux = <PINMUX_GPIO190__FUNC_GPIO190>;
+			output-high;
+		};
+	};
+	gps_l5_lna_pins_ol: gps-l5-lna0 {
+		pins-cmd-dat {
+			pinmux = <PINMUX_GPIO191__FUNC_GPIO191>;
+			output-low;
+		};
+	};
+	gps_l5_lna_pins_dsp_ctrl: gps-l5-lna1 {
+		pins-cmd-dat {
+			pinmux = <PINMUX_GPIO191__FUNC_GPS_L5_ELNA_EN>;
+		};
+	};
+	gps_l5_lna_pins_oh: gps-l5-lna2 {
+		pins-cmd-dat {
+			pinmux = <PINMUX_GPIO191__FUNC_GPIO191>;
+			output-high;
+		};
+	};
+};
+&gps {
+	pinctrl-names = "default",
+		"gps_l1_lna_disable",
+		"gps_l1_lna_dsp_ctrl",
+		"gps_l1_lna_enable",
+		"gps_l5_lna_disable",
+		"gps_l5_lna_dsp_ctrl",
+		"gps_l5_lna_enable";
+	pinctrl-0 = <&gps_pins_default>;
+	pinctrl-1 = <&gps_l1_lna_pins_ol>;
+	pinctrl-2 = <&gps_l1_lna_pins_dsp_ctrl>;
+	pinctrl-3 = <&gps_l1_lna_pins_oh>;
+	pinctrl-4 = <&gps_l5_lna_pins_ol>;
+	pinctrl-5 = <&gps_l5_lna_pins_dsp_ctrl>;
+	pinctrl-6 = <&gps_l5_lna_pins_oh>;
+	status = "okay";
+};
+/* GPS GPIO standardization end */
+
+&i2c7 {
+	#address-cells = <1>;
+	#size-cells = <0>;
+	//clock-frequency = <400000>;
+	//mediatek,use-open-drain;
+
+	et5904@28 {
+		compatible = "tran,et5904";
+		reg = <0x28>;
+
+		regulators {
+			ET5904LDO17:ET5904LDO17 {
+				regulator-name = "ET5904LDO17";
+				regulator-min-microvolt = <600000>;
+				regulator-max-microvolt = <1800000>;
+			};
+			ET5904LDO27:ET5904LDO27 {
+				regulator-name = "ET5904LDO27";
+				regulator-min-microvolt = <600000>;
+				regulator-max-microvolt = <1800000>;
+			};
+			ET5904LDO37:ET5904LDO37 {
+				regulator-name = "ET5904LDO37";
+				regulator-min-microvolt = <1200000>;
+				regulator-max-microvolt = <3300000>;
+			};
+			ET5904LDO47:ET5904LDO47 {
+				regulator-name = "ET5904LDO47";
+				regulator-min-microvolt = <1200000>;
+				regulator-max-microvolt = <3300000>;
+			};
+		};
+	};
+};
+
+&mtk_leds {
+	compatible = "mediatek,disp-leds";
+
+	backlight {
+		led_mode = <4>;
+		gate_enable = <0>;
+		pwm_config = <0 1 0 0 0>;
+		max-brightness = <511>;
+		min-brightness = <0>;
+		max-hw-brightness = <511>;
+	};
+};
+
+&pio {
+	mtkfb_pins_lcm_reset0: lcm_rst_out0_gpio {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO41__FUNC_GPIO41>;
+			slew-rate = <1>;
+			output-low;
+		};
+	};
+
+	mtkfb_pins_lcm_reset1: lcm_rst_out1_gpio {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO41__FUNC_GPIO41>;
+			slew-rate = <1>;
+			output-high;
+		};
+	};
+
+	mtkfb_pins_lcm_dsi_te: lcm_dsi_te {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO43__FUNC_DSI_TE>;
+		};
+	};
+};
+
+&mtkfb {
+	pinctrl-names = "lcm_rst_out0_gpio", "lcm_rst_out1_gpio",
+		"mode_te_te";
+	pinctrl-1 = <&mtkfb_pins_lcm_reset0>;
+	pinctrl-2 = <&mtkfb_pins_lcm_reset1>;
+	pinctrl-3 = <&mtkfb_pins_lcm_dsi_te>;
+	status = "okay";
+};
+
+&dispsys_config {
+	pinctrl-names = "lcm_rst_out0_gpio", "lcm_rst_out1_gpio",
+		"mode_te_te";
+	pinctrl-1 = <&mtkfb_pins_lcm_reset0>;
+	pinctrl-2 = <&mtkfb_pins_lcm_reset1>;
+	pinctrl-3 = <&mtkfb_pins_lcm_dsi_te>;
+	status = "okay";
+};
+
+&dsi0 {
+	status = "okay";
+	#address-cells = <1>;
+	#size-cells = <0>;
+	panel1@0 {
+		compatible = "nt37703a,fhdp,dsi,vdo,tm,tm,d8300";
+		reg = <0>;
+		vddi-gpios = <&pio 135 0>;
+		dvdd-supply = <&ET5904LDO27>;
+		vci-gpios = <&pio 136 0>;
+		reset-gpios = <&pio 41 0>;
+		pinctrl-names = "default";
+		port {
+			panel_in1: endpoint {
+				remote-endpoint = <&dsi_out>;
+			};
+		};
+	};
+
+	ports {
+		port {
+			dsi_out: endpoint {
+				remote-endpoint = <&panel_in1>;
+			};
+		};
+	};
+};
+
+/* usb typec mux start */
+&mt6375_typec {
+	//tcpc,en-fod;
+	port {
+		tcpc_typec_usb: endpoint {
+			remote-endpoint = <&ssusb_mux>;
+		};
+	};
+};
+
+&typec_mux_switch {
+	orientation-switch;
+	mode-switch;
+	accessory;
+	port {
+		ssusb_mux: endpoint {
+			remote-endpoint = <&tcpc_typec_usb>;
+		};
+	};
+};
+
+#if 0
+&ps5170 {
+	pinctrl-names = "enable", "disable";
+	pinctrl-0 = <&ps_enable>;
+	pinctrl-1 = <&ps_disable>;
+	status = "okay";
+};
+
+&pio {
+
+	ps_enable: ps-enable {
+		pins-cmd-dat {
+			pinmux = <PINMUX_GPIO34__FUNC_GPIO34>;
+			output-high;
+		};
+	};
+
+	ps_disable: ps-disable {
+		pins-cmd-dat {
+			pinmux = <PINMUX_GPIO34__FUNC_GPIO34>;
+			output-low;
+		};
+	};
+
+};
+#endif
+
+&ssusb {
+	maximum-speed = "super-speed";
+};
+
+&usb_dp_selector {
+	status = "okay";
+};
+/* usb typec mux end */
+
+&i2c3 {
+       clock-frequency = <1000000>;
+       nfc_nxp@28 {
+               compatible = "nxp,pn544";
+               reg = <0x28>;
+               nxp,pn544-irq = <&pio 37 0x0>;
+               nxp,pn544-ven = <&pio 36 0x0>;
+       };
+};
+&i2c6 {
+	aw883xx_smartpa_0: aw883xx@34 {
+		compatible = "awinic,aw883xx_smartpa";
+		#sound-dai-cells = <0>;
+		reg = <0x34>;
+		reset-gpio = <&pio 140 0x0>;
+		#irq-gpio = <&pio 37 0x0>;
+		sync-load = <1>;
+		sound-channel = <0>;
+		re-min = <1000>;
+		re-max= <40000>;
+		status = "okay";
+	};
+	aw883xx_smartpa_1: aw883xx@35 {
+		compatible = "awinic,aw883xx_smartpa";
+		#sound-dai-cells = <0>;
+		reg = <0x35>;
+		reset-gpio = <&pio 139 0x0>;
+		#irq-gpio = <&pio 19 0x0>;
+		sync-load = <1>;
+		sound-channel = <1>;
+		re-min = <1000>;
+		re-max= <40000>;
+		status = "okay";
+	};
+	was4783: was4783@42 {
+		status = "ok";
+		compatible = "mediatek,was4783-audioswitch";
+		reg = <0x42>;
+	};
+};
+
+&sound {
+	mediatek,spk-i2s = <21 20>;
+	mediatek,speaker-codec {
+		sound-dai = <&aw883xx_smartpa_0 &aw883xx_smartpa_1>;
+	};
+};
+
+&odm {
+    tran_audio_controller:tran_audio_controller {
+        compatible = "tran-audio-controller";
+        tran_pa_type = <3>;
+    };
+};
+
+&mt6363_vbuck1 {
+	regulator-always-on;
+};
+
+&mt6363_vbuck2 {
+	regulator-always-on;
+};
+
+&mt6363_vsram_digrf {
+	regulator-always-on;
+};
+
+&mt6363_vsram_modem {
+	regulator-always-on;
+};
+
+&mt6363_vcn15 {
+	regulator-always-on;
+};
+
+&mt6363_vrf12 {
+	regulator-always-on;
+};
+
+&irtx_pwm {
+	pwm_ch = <2>;
+	status = "okay";
+};
+
+#include "mediatek/cust_k6897_connfem.dtsi"
+#include "mediatek/tc_led.dtsi"
+#include "mediatek/touch/d8300evb_h973a/tran_mt6897_touch.dtsi"
+#include "mediatek/msdc/d8300evb_h973a/cust_mt6897_msdc.dtsi"
+#include "mediatek/camera/d8300evb/cust_mt6897_camera_v4l2.dtsi"
+#include "mediatek/charge/d8300evb_h973a/tc_sc8565.dtsi"
+#include "mediatek/charge/d8300evb_h973a/cps4021.dtsi"
+#include "mediatek/charge/d8300evb_h973a/tran_usb_ctrl.dtsi"
+#include "mediatek/charge/d8300evb_h973a/tc_pe50.dtsi"
+#include "mediatek/charge/d8300evb_h973a/protocol_ta.dtsi"
+#include "mediatek/charge/d8300evb_h973a/tc_charger.dtsi"
+#include "mediatek/charge/d8300evb_h973a/tc_charger_lk.dtsi"
+#include "mediatek/charge/d8300evb_h973a/bat_setting/mt6897_battery_prop.dtsi"
+#include <d8300evb_h973a/cust.dtsi>
+#include "sensor/tran_mt6881_d8300evb_h973a_sensor.dtsi"
+/*End of this file, DO NOT ADD ANYTHING HERE*/

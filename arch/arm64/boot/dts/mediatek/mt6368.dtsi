@@ -205,13 +205,12 @@
 				regulator-max-microvolt = <3500000>;
 				regulator-enable-ramp-delay = <680>;
 				regulator-allowed-modes = <0 2>;
-				regulator-always-on;
 			};
 			mt6368_vfp: vfp {
 				regulator-compatible = "VFP";
 				regulator-name = "mt6368_vfp";
-				regulator-min-microvolt = <1200000>;
-				regulator-max-microvolt = <3500000>;
+				regulator-min-microvolt = <3300000>;
+				regulator-max-microvolt = <3300000>;
 				regulator-enable-ramp-delay = <680>;
 				regulator-allowed-modes = <0 2>;
 			};
