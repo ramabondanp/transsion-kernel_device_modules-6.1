@@ -125,4 +125,15 @@ config MTK_VTSKIN_THERMAL
 	  This driver collects other sensor temperature with coefficient to calculate
 	  virtual skin temperatrure.
 
+config TRAN_HBM_THERMAL_CTL
+        bool "TRANSSION HBM THERMAL CTL"
+        default n
+
+config TRAN_HBM_THERMAL_TEMP_TRIG
+	int "Define Transsion HBM trig temp"
+	default 44000
+
+config TRAN_HBM_THERMAL_TEMP_CLR
+	int "Define Transsion HBM clear temp"
+	default 42000
 endif
