@@ -12,6 +12,7 @@
 #include "vip.h"
 #include <mt-plat/mtk_irq_mon.h>
 
+
 bool skip_hiIRQ_enable;
 void init_skip_hiIRQ(void)
 {
@@ -458,6 +459,7 @@ static void mtk_rt_energy_aware_wake_cpu(struct task_struct *p,
 
 			if (cpu_high_irqload(cpu))
 				continue;
+
 
 			/* RT task skips cpu that runs latency_sensitive or vip tasks */
 #if IS_ENABLED(CONFIG_MTK_SCHED_VIP_TASK)

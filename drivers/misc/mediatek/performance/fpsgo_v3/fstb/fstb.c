@@ -19,6 +19,7 @@
 #include <linux/vmalloc.h>
 #include <linux/sched/clock.h>
 #include <linux/sched.h>
+#include <linux/kmemleak.h>
 #include <asm/div64.h>
 #include <mt-plat/fpsgo_common.h>
 #include "../fbt/include/fbt_cpu.h"
@@ -28,6 +29,7 @@
 #include "fstb.h"
 #include "fstb_usedext.h"
 #include "fpsgo_usedext.h"
+#include "fps_composer.h"
 
 #if IS_ENABLED(CONFIG_MTK_GPU_SUPPORT)
 #include "ged_kpi.h"
@@ -121,6 +123,12 @@ EXPORT_SYMBOL(fstb_delete_render_info_fp);
 int (*fpsgo2msync_hint_frameinfo_fp)(unsigned int render_tid, unsigned int reader_bufID,
 		unsigned int target_fps, unsigned long q2q_time, unsigned long q2q_time2);
 EXPORT_SYMBOL(fpsgo2msync_hint_frameinfo_fp);
+
+int (*fstb_get_logic_head_trace_event_fp)(int pid, unsigned long long bufID, int tgid,
+	unsigned long long cur_queue_end_ts, unsigned long long prev_queue_end_ts,
+	unsigned long long pprev_queue_end_ts, unsigned long long dequeue_start_ts,
+	unsigned long long *logical_head, int *has_logic_head);
+EXPORT_SYMBOL(fstb_get_logic_head_trace_event_fp);
 
 // AutoTest
 int (*test_fstb_hrtimer_info_update_fp)(int *tmp_tid, unsigned long long *tmp_ts, int tmp_num,
@@ -271,6 +279,7 @@ static int fstb_arbitrate_target_fps(int raw_target_fps, int *margin,
 	hlist_for_each_entry(rtfiter, &fstb_render_target_fps, hlist) {
 		if (!strncmp(iter->proc_name, rtfiter->process_name, 16) ||
 			rtfiter->pid == iter->pid) {
+
 			for (i = rtfiter->nr_level-1; i >= 0; i--) {
 				if (rtfiter->level[i].start >= raw_target_fps) {
 					final_target_fps =
@@ -549,6 +558,7 @@ int fpsgo_other2fstb_get_fps(int pid, unsigned long long bufID,
 
 	return 0;
 }
+EXPORT_SYMBOL_GPL(fpsgo_other2fstb_get_fps);
 
 static int fstb_enter_delete_render_info(int pid, unsigned long long bufID)
 {
@@ -577,11 +587,12 @@ static int fstb_enter_get_target_fps(int pid, unsigned long long bufID, int tgid
 
 	mutex_lock(&fstb_ko_lock);
 
-	if (fstb_get_target_fps_fp)
+	if (fstb_get_target_fps_fp) {
 		ret = fstb_get_target_fps_fp(pid, bufID, tgid,
 			dfps_ceiling, fstb_max_dep_path_num, fstb_max_dep_task_num,
 			target_fps_margin, &ctrl_fps_tid, &ctrl_fps_flag,
 			cur_queue_end_ts, eara_is_active);
+	}
 	else {
 		ret = -ENOENT;
 		mtk_fstb_dprintk_always("fstb_get_target_fps_fp is NULL\n");
@@ -674,11 +685,27 @@ static void switch_fstb_active(void)
 	enable_fstb_timer();
 }
 
+static int is_exceed_max_fstb_frame_info_num(void)
+{
+	int num = 0;
+	struct FSTB_FRAME_INFO *iter = NULL;
+	struct hlist_node *h = NULL;
+
+	hlist_for_each_entry_safe(iter, h, &fstb_frame_infos, hlist) {
+		num++;
+	}
+
+	return (num > FPSGO_MAX_RENDER_INFO_SIZE);
+}
+
 static struct FSTB_FRAME_INFO *add_new_frame_info(int pid, unsigned long long bufID,
 	int hwui_flag, unsigned long master_type)
 {
 	struct task_struct *tsk = NULL, *gtsk = NULL;
 	struct FSTB_FRAME_INFO *new_frame_info;
+
+	if (is_exceed_max_fstb_frame_info_num())
+		return NULL;
 
 	new_frame_info = vmalloc(sizeof(*new_frame_info));
 	if (new_frame_info == NULL)
@@ -739,6 +766,7 @@ static struct FSTB_FRAME_INFO *add_new_frame_info(int pid, unsigned long long bu
 	}
 
 out:
+	kmemleak_not_leak(new_frame_info);
 	return new_frame_info;
 }
 
@@ -1390,8 +1418,12 @@ out:
 		fstb_post_process_target_fps(local_final_tfps, tolerence_fps, iter->target_fps_diff,
 				&local_final_tfps, NULL, NULL, iter->vsync_app_fps_disable);
 
-		ged_kpi_set_target_FPS_margin(iter->bufid, local_final_tfps, tolerence_fps,
-			iter->target_fps_diff, iter->cpu_time);
+		if (!fpsgo_com_get_mfrc_is_on())
+			ged_kpi_set_target_FPS_margin(iter->bufid, local_final_tfps, tolerence_fps,
+				iter->target_fps_diff, iter->cpu_time);
+		else
+			ged_kpi_set_target_FPS_margin(iter->bufid, local_final_tfps * 2, tolerence_fps,
+				iter->target_fps_diff, iter->cpu_time);
 	}
 
 	if (fpsgo2msync_hint_frameinfo_fp)
@@ -1606,6 +1638,30 @@ static int get_gpu_frame_time(struct FSTB_FRAME_INFO *iter)
 	fpsgo_systrace_c_fstb(iter->pid, iter->bufid, ret,
 			"quantile_weighted_gpu_time");
 	return ret;
+}
+
+int fpsgo_comp2fstb_get_logic_head(int pid, unsigned long long bufID, int tgid,
+	unsigned long long cur_queue_end, unsigned long long prev_queue_end_ts,
+	unsigned long long pprev_queue_end_ts, unsigned long long dequeue_start_ts,
+	unsigned long long *logic_head_ts, int *has_logic_head)
+{
+	int get_logic_ret = 0;
+
+	if (!logic_head_ts || !has_logic_head) {
+		get_logic_ret = -ENOMEM;
+		goto out;
+	}
+
+	mutex_lock(&fstb_ko_lock);
+	if (fstb_get_logic_head_trace_event_fp) {
+		get_logic_ret = fstb_get_logic_head_trace_event_fp(pid, bufID, tgid, cur_queue_end,
+			prev_queue_end_ts, pprev_queue_end_ts, dequeue_start_ts, logic_head_ts, has_logic_head);
+	}
+	mutex_unlock(&fstb_ko_lock);
+out:
+	fpsgo_main_trace("[%s] ret=%d, logic_head_ts=%llu, q_ts=%llu", __func__, get_logic_ret,
+		logic_head_ts? *logic_head_ts : 0, cur_queue_end);
+	return get_logic_ret;
 }
 
 void fpsgo_comp2fstb_queue_time_update(int pid, unsigned long long bufID,
@@ -2909,6 +2965,7 @@ int mtk_fstb_init(void)
 	fstb_policy_cmd_tree = RB_ROOT;
 
 	init_fstb_callback();
+
 
 	mtk_fstb_dprintk_always("init done\n");
 

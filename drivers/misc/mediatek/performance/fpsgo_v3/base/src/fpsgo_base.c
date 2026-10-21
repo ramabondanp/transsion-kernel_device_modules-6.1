@@ -23,6 +23,7 @@
 #include <linux/miscdevice.h>
 #include <linux/uaccess.h>
 #include <linux/wait.h>
+#include <linux/kmemleak.h>
 
 #include "mt-plat/fpsgo_common.h"
 #include "fpsgo_usedext.h"
@@ -755,11 +756,13 @@ void fpsgo_render_tree_lock(const char *tag)
 {
 	mutex_lock(&fpsgo_render_lock);
 }
+EXPORT_SYMBOL(fpsgo_render_tree_lock);
 
 void fpsgo_render_tree_unlock(const char *tag)
 {
 	mutex_unlock(&fpsgo_render_lock);
 }
+EXPORT_SYMBOL(fpsgo_render_tree_unlock);
 
 void fpsgo_lockprove(const char *tag)
 {
@@ -983,6 +986,7 @@ void fpsgo_reset_attr(struct fpsgo_boost_attr *boost_attr)
 		boost_attr->limit_rfreq2cap_by_pid = BY_PID_DEFAULT_VAL;
 		boost_attr->limit_cfreq2cap_m_by_pid = BY_PID_DEFAULT_VAL;
 		boost_attr->limit_rfreq2cap_m_by_pid = BY_PID_DEFAULT_VAL;
+		boost_attr->engine_cooler_enable_by_pid = BY_PID_DEFAULT_VAL;
 	}
 }
 
@@ -1120,8 +1124,11 @@ struct render_info *fpsgo_search_and_add_render_info(int pid,
 	iter_thr->t_last_start = 0;
 	set_bit(FPSGO_TYPE, &local_master_type);
 	iter_thr->master_type = local_master_type;
+	iter_thr->frame_count = 0;
 
 	fbt_set_render_boost_attr(iter_thr);
+
+	kmemleak_not_leak(iter_thr);
 
 	rb_link_node(&iter_thr->render_key_node, parent, p);
 	rb_insert_color(&iter_thr->render_key_node, &render_pid_tree);
@@ -1304,7 +1311,8 @@ int is_to_delete_fpsgo_attr(struct fpsgo_attr_by_pid *fpsgo_attr)
 			boost_attr.limit_cfreq2cap_by_pid == BY_PID_DEFAULT_VAL &&
 			boost_attr.limit_rfreq2cap_by_pid == BY_PID_DEFAULT_VAL &&
 			boost_attr.limit_cfreq2cap_m_by_pid == BY_PID_DEFAULT_VAL &&
-			boost_attr.limit_rfreq2cap_m_by_pid == BY_PID_DEFAULT_VAL) {
+			boost_attr.limit_rfreq2cap_m_by_pid == BY_PID_DEFAULT_VAL &&
+			boost_attr.engine_cooler_enable_by_pid == BY_PID_DEFAULT_VAL) {
 		return 1;
 	}
 	return 0;
@@ -1736,6 +1744,8 @@ static void fpsgo_check_acquire_info_status(void)
 static void fpsgo_check_adpf_render_status(void)
 {
 	int local_tgid = 0;
+	int local_rtid = 0;
+	unsigned long long local_bufID = 0;
 	struct render_info *iter = NULL;
 	struct rb_node *rbn = NULL;
 
@@ -1754,12 +1764,13 @@ static void fpsgo_check_adpf_render_status(void)
 			rbn = rb_next(rbn);
 			fpsgo_thread_unlock(&iter->thr_mlock);
 		} else {
-			rb_erase(rbn, &render_pid_tree);
-			total_render_info_num--;
-			fpsgo_fstb2other_info_update(iter->pid,
-				iter->buffer_id, FPSGO_DELETE, 0, 0, 0, 0);
+			local_tgid = iter->tgid;
+			local_rtid = iter->pid;
+			local_bufID = iter->buffer_id;
 			fpsgo_thread_unlock(&iter->thr_mlock);
-			vfree(iter);
+			fpsgo_render_tree_unlock(__func__);
+			fpsgo_ctrl2comp_adpf_close(local_tgid, local_rtid, local_bufID);
+			fpsgo_render_tree_lock(__func__);
 			rbn = rb_first(&render_pid_tree);
 		}
 	}
@@ -2747,6 +2758,64 @@ int fpsgo_ctrl2base_query_sbe_spid_loading(void)
 	return ret;
 }
 
+int fpsgo_get_lr_pair(unsigned long long sf_buffer_id,
+	unsigned long long *cur_queue_ts,
+	unsigned long long *l2q_ns, unsigned long long *logic_head_ts,
+	unsigned int *is_logic_head_alive,
+	unsigned long long *now_ts)
+{
+	struct render_info *iter, *curr_iter;
+	struct rb_node *n;
+	struct FSTB_FRAME_L2Q_INFO *cur_l2q_info;
+	int i = 0, buf_index = -1, ret = 0;
+	unsigned long long now_ktime_ns, now_queue_end_ns = 0;
+
+	now_ktime_ns = fpsgo_get_time();
+
+	fpsgo_render_tree_lock(__func__);
+
+	for (n = rb_first(&render_pid_tree); n != NULL; n = rb_next(n)) {
+		iter = rb_entry(n, struct render_info, render_key_node);
+		for (i = 0; i < MAX_SF_BUFFER_SIZE; i++) {
+			cur_l2q_info = &(iter->l2q_info[i]);
+				if (!cur_l2q_info)
+					continue;
+			if (cur_l2q_info->sf_buf_id == sf_buffer_id &&
+				cur_l2q_info->queue_end_ns > now_queue_end_ns) {
+				buf_index = i;
+				now_queue_end_ns = cur_l2q_info->queue_end_ns;
+				curr_iter = iter;
+			}
+		}
+	}
+
+	if (buf_index == -1 || !curr_iter) {
+		ret = -EINVAL;
+		goto out;
+	}
+
+	cur_l2q_info = &(curr_iter->l2q_info[buf_index]);
+
+	if (logic_head_ts)
+		*logic_head_ts = cur_l2q_info->logic_head_fixed_ts;
+	if (cur_queue_ts)
+		*cur_queue_ts = cur_l2q_info->queue_end_ns;
+	if (l2q_ns)
+		*l2q_ns = cur_l2q_info->l2q_ts;
+	if (is_logic_head_alive)
+		*is_logic_head_alive = cur_l2q_info->is_logic_head_alive;
+	if (now_ts)
+		*now_ts = now_ktime_ns;
+
+out:
+	fpsgo_main_trace("[%s] sf_buf_id=%llu, idx=%d, queue_ts=%llu, l2q_ns=%llu, is_logic_alive=%d, now_ts=%llu",
+		__func__, sf_buffer_id, buf_index, cur_l2q_info->queue_end_ns, cur_l2q_info->l2q_ts,
+		cur_l2q_info->is_logic_head_alive, now_ktime_ns);
+
+	fpsgo_render_tree_unlock(__func__);
+	return ret;
+}
+
 static unsigned long long fpsgo_traverse_render_rb_tree(struct rb_root *rbr,
 	unsigned long long target_addr)
 {
@@ -3014,7 +3083,7 @@ static ssize_t render_info_params_show(struct kobject *kobj,
 				" boost_VIP, RT_prio1, RT_prio2, RT_prio3, vip_mask, set_ls, ls_groupmask, set_vvip\n");
 	pos += length;
 	length = scnprintf(temp + pos, FPSGO_SYSFS_MAX_BUFF_SIZE - pos,
-				" aa_b_minus_idle_time\n");
+				" aa_b_minus_idle_time, engine_cooler_enable\n");
 	pos += length;
 
 	fpsgo_render_tree_lock(__func__);
@@ -3155,10 +3224,10 @@ static ssize_t render_info_params_show(struct kobject *kobj,
 			pos += length;
 
 			length = scnprintf(temp + pos,
-				FPSGO_SYSFS_MAX_BUFF_SIZE - pos, " %4d\n",
-				attr_item.aa_b_minus_idle_t_by_pid);
+				FPSGO_SYSFS_MAX_BUFF_SIZE - pos, " %4d, %4d\n",
+				attr_item.aa_b_minus_idle_t_by_pid,
+				attr_item.engine_cooler_enable_by_pid);
 			pos += length;
-
 			put_task_struct(tsk);
 		}
 	}

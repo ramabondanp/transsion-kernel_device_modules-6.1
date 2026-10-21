@@ -48,23 +48,21 @@ static void md_pt_low_battery_cb(enum LOW_BATTERY_LEVEL_TAG level, void *data)
 	if (level > md_pt_info[LBAT_POWER_THROTTLING].max_lv)
 		return;
 
-	if (level <= LOW_BATTERY_LEVEL_3) {
-		if (level != LOW_BATTERY_LEVEL_0)
-			intensity = md_pt_info[LBAT_POWER_THROTTLING].reduce_tx[level-1];
-		else
-			intensity = 0;
-		md_throttle_cmd = TMC_CTRL_CMD_TX_POWER | level << 8 |
-			PT_LOW_BATTERY_VOLTAGE << 16 | intensity << 24;
-		ret = exec_ccci_kern_func(ID_THROTTLING_CFG,
-			(char *)&md_throttle_cmd, 4);
+	if (level != LOW_BATTERY_LEVEL_0)
+		intensity = md_pt_info[LBAT_POWER_THROTTLING].reduce_tx[level-1];
+	else
+		intensity = 0;
+	md_throttle_cmd = TMC_CTRL_CMD_TX_POWER | level << 8 |
+		PT_LOW_BATTERY_VOLTAGE << 16 | intensity << 24;
+	ret = exec_ccci_kern_func(ID_THROTTLING_CFG,
+		(char *)&md_throttle_cmd, 4);
 
-		pr_notice("%s: send cmd to CCCI ret=%d, cmd=0x%x\n", __func__, ret,
-						md_throttle_cmd);
+	pr_notice("%s: send cmd to CCCI ret=%d, cmd=0x%x\n", __func__, ret,
+					md_throttle_cmd);
 
-		if (ret)
-			pr_notice("%s: error, ret=%d, cmd=0x%x l=%d\n", __func__, ret,
-				md_throttle_cmd, level);
-	}
+	if (ret)
+		pr_notice("%s: error, ret=%d, cmd=0x%x l=%d\n", __func__, ret,
+			md_throttle_cmd, level);
 }
 
 static void md_lbat_dedicate_callback(unsigned int thd)
@@ -86,6 +84,7 @@ static void md_lbat_dedicate_callback(unsigned int thd)
 }
 
 #endif
+
 #if IS_ENABLED(CONFIG_MTK_BATTERY_OC_POWER_THROTTLING)
 static void md_pt_over_current_cb(enum BATTERY_OC_LEVEL_TAG level, void *data)
 {
@@ -112,6 +111,7 @@ static void md_pt_over_current_cb(enum BATTERY_OC_LEVEL_TAG level, void *data)
 	}
 }
 #endif
+
 #if IS_ENABLED(CONFIG_MTK_BATTERY_PERCENT_THROTTLING)
 static void md_pt_battery_percent_cb(enum BATTERY_PERCENT_LEVEL_TAG level)
 {
@@ -121,24 +121,26 @@ static void md_pt_battery_percent_cb(enum BATTERY_PERCENT_LEVEL_TAG level)
 	if (level > md_pt_info[SOC_POWER_THROTTLING].max_lv)
 		return;
 
-	if (level != BATTERY_PERCENT_LEVEL_0)
-		intensity = md_pt_info[SOC_POWER_THROTTLING].reduce_tx[level-1];
-	else
-		intensity = 0;
-	md_throttle_cmd = TMC_CTRL_CMD_TX_POWER | level << 8 | PT_BATTERY_PERCENT << 16 |
-		intensity << 24;
-	ret = exec_ccci_kern_func(ID_THROTTLING_CFG,
-		(char *)&md_throttle_cmd, 4);
+	if (level < BATTERY_PERCENT_LEVEL_NUM) {
+		if (level != BATTERY_PERCENT_LEVEL_0)
+			intensity = md_pt_info[SOC_POWER_THROTTLING].reduce_tx[level-1];
+		else
+			intensity = 0;
+		md_throttle_cmd = TMC_CTRL_CMD_TX_POWER | level << 8 | PT_BATTERY_PERCENT << 16 |
+			intensity << 24;
+		ret = exec_ccci_kern_func(ID_THROTTLING_CFG,
+			(char *)&md_throttle_cmd, 4);
 
-	pr_notice("%s: send cmd to CCCI ret=%d, cmd=0x%x\n", __func__, ret,
-					md_throttle_cmd);
+		pr_notice("%s: send cmd to CCCI ret=%d, cmd=0x%x\n", __func__, ret,
+						md_throttle_cmd);
 
-	if (ret)
-		pr_notice("%s: error, ret=%d, cmd=0x%x l=%d\n", __func__, ret,
-			md_throttle_cmd, level);
-
+		if (ret)
+			pr_notice("%s: error, ret=%d, cmd=0x%x l=%d\n", __func__, ret,
+				md_throttle_cmd, level);
+	}
 }
 #endif
+
 static void md_limit_default_setting(struct device *dev, enum md_pt_type type)
 {
 	struct device_node *np = dev->of_node;
@@ -155,6 +157,7 @@ static void md_limit_default_setting(struct device *dev, enum md_pt_type type)
 	pt_info_p->max_lv = max_lv;
 	if (!pt_info_p->max_lv)
 		return;
+
 	pt_info_p->reduce_tx = kcalloc(pt_info_p->max_lv, sizeof(u32), GFP_KERNEL);
 	pt_info_p->reduce_tx[0] = MD_TX_REDUCE;
 	if (type == LBAT_POWER_THROTTLING) {
@@ -169,6 +172,7 @@ static void md_limit_default_setting(struct device *dev, enum md_pt_type type)
 	for (i = 1; i < pt_info_p->max_lv; i++)
 		memcpy(&pt_info_p->reduce_tx[i], &pt_info_p->reduce_tx[0], sizeof(u32));
 }
+
 static int parse_md_limit_table(struct device *dev)
 {
 	struct device_node *np = dev->of_node;

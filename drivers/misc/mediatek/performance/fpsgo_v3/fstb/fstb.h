@@ -50,6 +50,10 @@ int fpsgo_other2fstb_get_fps(int pid, unsigned long long bufID,
 int fpsgo_ktf2fstb_add_delete_render_info(int mode, int pid, unsigned long long bufID,
 	int target_fps, int queue_fps);
 int switch_thread_max_fps(int pid, int set_max);
+int fpsgo_comp2fstb_get_logic_head(int pid, unsigned long long bufID, int tgid,
+	unsigned long long cur_queue_end, unsigned long long prev_queue_end_ts,
+	unsigned long long pprev_queue_end_ts, unsigned long long dequeue_start_ts,
+	unsigned long long *logic_head_ts, int *has_logic_head);
 
 #if IS_ENABLED(CONFIG_MTK_FPSGO) || IS_ENABLED(CONFIG_MTK_FPSGO_V3)
 int is_fstb_enable(void);

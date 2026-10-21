@@ -32,6 +32,7 @@
 #define FPSGO_MAX_RENDER_INFO_SIZE 20
 #define FPSGO_MAX_BQ_ID_SIZE 200
 #define FPSGO_MAX_SBE_SPID_LOADING_SIZE 10
+#define MAX_SF_BUFFER_SIZE 10
 
 enum {
 	FPSGO_SET_UNKNOWN = -1,
@@ -39,9 +40,11 @@ enum {
 	FPSGO_SET_SCHED_RATE = 2,
 };
 
+
 typedef void (*fpsgo_notify_is_boost_cb)(int fpsgo_is_boosting);
 extern int (*register_get_fpsgo_is_boosting_fp)(fpsgo_notify_is_boost_cb func_cb);
 extern int (*unregister_get_fpsgo_is_boosting_fp)(fpsgo_notify_is_boost_cb func_cb);
+
 /* composite key for render_info rbtree */
 struct fbt_render_key {
 	int key1;
@@ -269,6 +272,20 @@ struct fpsgo_boost_attr {
 
 	/* Minus idle time*/
 	int aa_b_minus_idle_t_by_pid;
+	int engine_cooler_enable_by_pid;
+};
+
+struct FSTB_FRAME_L2Q_INFO {
+	unsigned long long sf_buf_id;
+	unsigned long long queue_end_ns;
+	unsigned long long logic_head_ts;
+	unsigned long long logic_head_fixed_ts;
+	unsigned long long l2l_ts;
+	unsigned long long l2q_ts;
+	unsigned int is_logic_head_alive;
+
+	unsigned int frame_id;
+	unsigned int is_magt_l2q_enabled;
 };
 
 struct render_info {
@@ -302,11 +319,13 @@ struct render_info {
 	unsigned long long enqueue_length;
 	unsigned long long enqueue_length_real;
 	unsigned long long dequeue_length;
+	unsigned long long prev_t_enqueue_end;
 	unsigned long long Q2Q_time;
 	unsigned long long running_time;
 	unsigned long long raw_runtime;
 	unsigned long long idle_time_b_us;
 	unsigned long long wall_b_runtime_us;
+	unsigned long long frame_count;
 
 	/*ux*/
 	unsigned long long t_last_start;
@@ -332,6 +351,10 @@ struct render_info {
 
 	/* boost policy */
 	struct fpsgo_boost_attr attr;
+
+	/* touch latency */
+	struct FSTB_FRAME_L2Q_INFO l2q_info[MAX_SF_BUFFER_SIZE];
+	int l2q_index;
 
 	int target_fps_origin;
 };
@@ -438,6 +461,11 @@ struct fpsgo_attr_by_pid *fpsgo_find_attr_by_tid(int pid, int add_new);
 void delete_attr_by_tid(int tid);
 int is_to_delete_fpsgo_tid_attr(struct fpsgo_attr_by_pid *fpsgo_attr);
 #endif  // FPSGO_MW
+int fpsgo_get_lr_pair(unsigned long long sf_buffer_id,
+	unsigned long long *cur_queue_ts,
+	unsigned long long *l2q_ns, unsigned long long *logic_head_ts,
+	unsigned int *is_logic_head_alive,
+	unsigned long long *now_ts);
 struct render_info *eara2fpsgo_search_render_info(int pid,
 		unsigned long long buffer_id);
 void fpsgo_delete_render_info(int pid,
@@ -499,6 +527,8 @@ enum FPSGO_FRAME_TYPE {
 	NON_VSYNC_ALIGNED_TYPE = 0,
 	BY_PASS_TYPE = 1,
 	FRAME_HINT_TYPE = 2,
+	MFRC_FRAME = 3,
+	MFRC_BY_PASS_FRAME = 4,
 };
 
 enum FPSGO_CONNECT_API {

@@ -10,6 +10,7 @@ scheduler-y += common.o
 scheduler-y += fair.o
 scheduler-$(CONFIG_MTK_CORE_PAUSE)+= eas/core_pause.o
 scheduler-$(CONFIG_MTK_SCHED_BIG_TASK_ROTATE)+= eas/rotate.o
+
 scheduler-$(CONFIG_MTK_SCHED_VIP_TASK)+= eas/vip.o
 scheduler-$(CONFIG_MTK_SCHED_FAST_LOAD_TRACKING)+= eas/flt_init.o
 scheduler-$(CONFIG_MTK_SCHED_FAST_LOAD_TRACKING)+= eas/flt_api.o
@@ -37,6 +38,7 @@ subdir-ccflags-y += -I$(DEVICE_MODULES_PATH)/drivers/thermal/mediatek
 subdir-ccflags-y += -I$(DEVICE_MODULES_PATH)/drivers/misc/mediatek/sched/
 subdir-ccflags-y += -I$(DEVICE_MODULES_PATH)/drivers/misc/mediatek/include/
 subdir-ccflags-y += -I$(DEVICE_MODULES_PATH)/drivers/cpufreq/
+
 
 obj-$(CONFIG_MTK_CORE_CTL) += mtk_core_ctl.o
 mtk_core_ctl-y += core_ctl/sched_avg.o

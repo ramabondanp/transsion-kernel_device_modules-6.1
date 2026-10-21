@@ -141,6 +141,32 @@ struct lbat_regs_t mt6377_lbat_regs = {
 	.volt_full = 1840,
 };
 
+#define MT6379_RG_CORE_CTRL0		0x001
+#define MT6379_MASK_CELL_COUNT		BIT(7)
+#define MT6379_BAT1_AUXADC_LBAT0	0x9AD
+#define MT6379_BAT1_AUXADC_LBAT1	0x9AE
+#define MT6379_BAT1_AUXADC_LBAT2	0x9AF
+#define MT6379_BAT1_AUXADC_LBAT3	0x9B0
+#define MT6379_BAT1_AUXADC_LBAT5	0x9B2
+#define MT6379_BAT1_AUXADC_LBAT6	0x9B3
+#define MT6379_BAT1_AUXADC_ADC_OUT_LBAT	0x91E
+
+static struct lbat_regs_t mt6379_lbat1_regs = {
+	.regmap_source = "dev_get_regmap",
+	.en = { MT6379_BAT1_AUXADC_LBAT0, BIT(0), 1 },
+	.debt_max = { MT6379_BAT1_AUXADC_LBAT1, GENMASK(3, 2), 1 },
+	.debt_min = { MT6379_BAT1_AUXADC_LBAT1, GENMASK(5, 4), 1 },
+	.det_prd = { MT6379_BAT1_AUXADC_LBAT1, GENMASK(1, 0), 1 },
+	.max_en = { MT6379_BAT1_AUXADC_LBAT2, GENMASK(1, 0), 1 },
+	.volt_max = { MT6379_BAT1_AUXADC_LBAT3, GENMASK(11, 0), 2 },
+	.min_en = { MT6379_BAT1_AUXADC_LBAT5, GENMASK(1, 0), 1 },
+	.volt_min = { MT6379_BAT1_AUXADC_LBAT6, GENMASK(11, 0), 2 },
+	.adc_out = { MT6379_BAT1_AUXADC_ADC_OUT_LBAT, GENMASK(11, 0), 2 },
+	.r_ratio_node_name = "lbat-service-1",
+	.volt_full = 1840,
+};
+
+
 static DEFINE_MUTEX(lbat_mutex);
 static struct list_head lbat_hv_list = LIST_HEAD_INIT(lbat_hv_list);
 static struct list_head lbat_lv_list = LIST_HEAD_INIT(lbat_lv_list);
@@ -1071,6 +1097,9 @@ static const struct of_device_id lbat_service_of_match[] = {
 	}, {
 		.compatible = "mediatek,mt6377-lbat-service",
 		.data = &mt6377_lbat_regs,
+	}, {
+		.compatible = "mediatek,mt6379-lbat-service-1",
+		.data = &mt6379_lbat1_regs,
 	}, {
 		/* sentinel */
 	}

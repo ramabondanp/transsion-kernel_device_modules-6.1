@@ -113,6 +113,8 @@ int fbt_cal_target_time_ns(int pid, unsigned long long buffer_id,
 	int quota_diff_clamp_min, int quota_diff_clamp_max, int limit_min_cap_final,
 	int separate_aa_active, long aa_n, long aa_b,
 	long aa_m, int limit_cap, int limit_cap_b, int limit_cap_m,
+	int rl_l2q_enable_final,
+	unsigned long long expected_l2q_ns_final, unsigned long long l2q_ts, int is_logic_head_alive,
 	unsigned long long *out_target_t_ns);
 void fbt_check_max_blc_locked(int pid);
 void fpsgo_get_fbt_mlock(const char *tag);
@@ -138,6 +140,9 @@ int fbt_get_rescue_opp_f(void);
 void fbt_set_max_blc_stage(int stage);
 void fbt_set_max_blc_cur(unsigned int blc);
 void fbt_get_setting_info(struct fbt_setting_info *sinfo);
+void fpsgo_set_rl_l2q_enable(int enable);
+void fpsgo_set_expected_l2q_us(int vsync_multiple, unsigned long long user_expected_l2q_us);
+int fpsgo_get_rl_l2q_enable(void);
 
 #else
 static inline void fpsgo_ctrl2fbt_dfrc_fps(int fps_limit) { }
@@ -185,6 +190,10 @@ static inline void fbt_set_render_last_cb(struct render_info *thr, unsigned long
 static inline int fpsgo_ctrl2fbt_buffer_quota(unsigned long long ts, int pid, int quota,
 			unsigned long long identifier) { return 0; }
 static inline void notify_rl_ko_is_ready(void) { }
+static inline int fpsgo_get_rl_l2q_enable(void) { return 0; }
+static inline void fpsgo_set_rl_l2q_enable(int enable) { }
+static inline void fpsgo_set_expected_l2q_us(int vsync_multiple,
+	unsigned long long user_expected_l2q_us) { }
 #endif
 
 #endif
