@@ -18,8 +18,6 @@
 #define USB2_PORT 2
 #define USB3_PORT 3
 
-#define SSUSB_SUSPEND_RESUME_TIMEOUT (HZ) /* 1 sec */
-
 static inline struct ssusb_mtk *otg_sx_to_ssusb(struct otg_switch_mtk *otg_sx)
 {
 	return container_of(otg_sx, struct ssusb_mtk, otg_switch);
@@ -217,7 +215,6 @@ static void ssusb_mode_sw_work_v2(struct work_struct *work)
 	enum usb_role desired_role;
 	enum usb_role current_role;
 	unsigned long flags;
-	size_t expire;
 
 	desired_role = work_data->desired_role;
 	current_role = otg_sx->current_role;
@@ -229,14 +226,6 @@ static void ssusb_mode_sw_work_v2(struct work_struct *work)
 		goto same_role;
 
 	mtu3_dbg_trace(ssusb->dev, "set role : %s", usb_role_string(desired_role));
-
-	expire = jiffies + SSUSB_SUSPEND_RESUME_TIMEOUT;
-	while (time_before(jiffies, expire)) {
-		if (!ssusb->is_suspended)
-			break;
-		dev_info(ssusb->dev, "wait for suspend/resume complete\n");
-		msleep(20);
-	}
 
 	pm_runtime_get_sync(ssusb->dev);
 

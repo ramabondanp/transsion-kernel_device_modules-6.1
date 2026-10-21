@@ -347,7 +347,6 @@ struct ssusb_mtk {
 	/* dp switch */
 	struct regmap *dp_switch;
 	u32 dp_switch_oft;
-	bool is_suspended;
 };
 
 /**
@@ -442,6 +441,10 @@ struct mtu3 {
 	unsigned delayed_status:1;
 	unsigned gen2cp:1;
 	unsigned connected:1;
+	unsigned suspend_flag:1;
+	unsigned reset_flag:1;
+	bool usb_current_lmt;
+	struct delayed_work reset_work;
 
 	u8 address;
 	u8 test_mode_nr;

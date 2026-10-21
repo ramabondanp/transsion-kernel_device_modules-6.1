@@ -14,6 +14,11 @@
 #include "mtu3_debug.h"
 #include "mtu3_trace.h"
 
+#if IS_ENABLED(CONFIG_TCPC_CLASS)
+#include "tcpm.h"
+#include "tcpci_core.h"
+#endif
+
 /* ep0 is always mtu3->in_eps[0] */
 #define	next_ep0_request(mtu)	next_request((mtu)->ep0)
 
@@ -48,10 +53,11 @@ static void set_usb_selfpower(struct mtu3 *mtu, bool selfpower)
 			if (selfpower) {
 				c->bmAttributes |= USB_CONFIG_ATT_SELFPOWER;
 				c->MaxPower = 0;
-				dev_info(mtu->dev, "set selfpower\n");
+				dev_info(mtu->dev, "set selfpower 0mA\n");
 			} else {
 				c->bmAttributes &= ~USB_CONFIG_ATT_SELFPOWER;
 				c->MaxPower = 500;
+				dev_info(mtu->dev, "set selfpower 500mA\n");
 			}
 		}
 	}
@@ -508,6 +514,8 @@ static int handle_standard_request(struct mtu3 *mtu,
 				usb_gadget_set_state(&mtu->g,
 						USB_STATE_ADDRESS);
 		}
+		pr_info("%s set usb config = %d\n", __func__, state);
+		mtu->reset_flag = 0;
 		handled = 0;
 		break;
 	case USB_REQ_CLEAR_FEATURE:
@@ -662,6 +670,103 @@ static void ep0_read_setup(struct mtu3 *mtu, struct usb_ctrlrequest *setup)
 	}
 }
 
+#if IS_ENABLED(CONFIG_TCPC_CLASS)
+static bool is_usb_pd(void)
+{
+#if IS_ENABLED (CONFIG_USB_POWER_DELIVERY)
+	struct tcpc_device *tcpc_dev;
+	struct pd_port *pd_port;
+	tcpc_dev = tcpc_dev_get_by_name("type_c_port0");
+	if (!tcpc_dev)
+		return false;
+	
+	pd_port = &tcpc_dev->pd_port;
+
+	pr_info("%s pe_ready=%d, explicit_contract=%d \n", __func__,
+	pd_port->pe_data.pe_ready, pd_port->pe_data.explicit_contract);
+
+	if (pd_port->pe_data.explicit_contract)
+		return true;
+		else
+	return false;
+#else
+	return false;
+#endif
+}
+#endif
+
+static struct usb_configuration* get_config_for_pd(struct usb_composite_dev *cdev, unsigned w_value)
+{
+	struct usb_gadget *gadget = cdev->gadget;
+
+	struct usb_configuration *c;
+
+	struct list_head  *pos;
+	int hs = 0;
+	u8 type = w_value >> 8;
+
+	enum usb_device_speed speed = USB_SPEED_UNKNOWN;
+
+	if (gadget->speed >= USB_SPEED_SUPER)
+		speed = gadget->speed;
+	else if (gadget_is_dualspeed(gadget)) {
+		hs = 0;
+		if (gadget->speed == USB_SPEED_HIGH)
+			hs = 1;
+		if (type == USB_DT_OTHER_SPEED_CONFIG)
+			hs = !hs;
+		if (hs)
+			speed = USB_SPEED_HIGH;
+	}
+
+	/* This is a lookup by config *INDEX* */
+
+	w_value &= 0xff;
+
+	pos = &cdev->configs;
+
+	c = cdev->os_desc_config;
+
+	if (c)
+		goto check_config;
+
+	while ((pos = pos->next) != &cdev->configs) {
+		c = list_entry(pos, typeof(*c), list);
+
+		/* skip OS Descriptors config which is handled separately */
+		if (c == cdev->os_desc_config)
+			continue;
+
+check_config:
+		/* ignore configs that won't work at this speed */
+		switch (speed) {
+		case USB_SPEED_SUPER_PLUS:
+			if (!c->superspeed_plus)
+				continue;
+			break;
+
+		case USB_SPEED_SUPER:
+			if (!c->superspeed)
+				continue;
+			break;
+
+		case USB_SPEED_HIGH:
+			if (!c->highspeed)
+				continue;
+			break;
+
+		default:
+			if (!c->fullspeed)
+				continue;
+		}
+		if (w_value == 0) {
+			return c;
+		}
+		w_value--;
+	}
+	return NULL;
+}
+
 static int ep0_handle_setup(struct mtu3 *mtu)
 __releases(mtu->lock)
 __acquires(mtu->lock)
@@ -669,7 +774,14 @@ __acquires(mtu->lock)
 	struct usb_ctrlrequest setup;
 	struct mtu3_request *mreq;
 	int handled = 0;
-
+#if IS_ENABLED(CONFIG_TCPC_CLASS)
+	bool isConfigChanged = false;
+	struct usb_configuration *config;
+	u8 bmAttributes_bak;
+	u16 MaxPower_bak;
+	struct usb_composite_dev *cdev = NULL; 
+	u16 w_value = 0;
+#endif
 	ep0_read_setup(mtu, &setup);
 	trace_mtu3_handle_setup(&setup);
 
@@ -683,8 +795,43 @@ __acquires(mtu->lock)
 		goto stall;
 	else if (handled > 0)
 		goto finish;
+#if IS_ENABLED(CONFIG_TCPC_CLASS)
+	if (setup.bRequest == USB_REQ_GET_DESCRIPTOR) {
+		cdev = get_gadget_data(&mtu->g);
 
+		w_value = le16_to_cpu(setup.wValue);
+
+		if (w_value >> 8 == USB_DT_CONFIG && is_usb_pd()) {
+
+			config = get_config_for_pd(cdev, w_value);
+
+			if (config) {
+
+				isConfigChanged = true;
+
+				bmAttributes_bak = config->bmAttributes;
+
+				MaxPower_bak = config->MaxPower;
+
+				config->bmAttributes |= USB_CONFIG_ATT_SELFPOWER;
+
+				config->MaxPower = 0;
+
+				dev_info(mtu->dev, "%s config for pd!\n", __func__);
+
+			}
+
+		}
+
+	}
+#endif
 	handled = forward_to_driver(mtu, &setup);
+#if IS_ENABLED(CONFIG_TCPC_CLASS)
+	if (isConfigChanged) {
+	   config->bmAttributes = bmAttributes_bak;
+	   config->MaxPower = MaxPower_bak;
+	}
+#endif
 	if (handled < 0) {
 stall:
 		dev_dbg(mtu->dev, "%s stall (%d)\n", __func__, handled);
@@ -804,7 +951,6 @@ irqreturn_t mtu3_ep0_isr(struct mtu3 *mtu)
 
 	return ret;
 }
-
 
 static int mtu3_ep0_enable(struct usb_ep *ep,
 	const struct usb_endpoint_descriptor *desc)

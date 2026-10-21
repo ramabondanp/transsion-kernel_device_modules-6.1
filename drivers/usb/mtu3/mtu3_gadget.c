@@ -866,6 +866,7 @@ void mtu3_gadget_resume(struct mtu3 *mtu)
 			mtu->gadget_driver->resume) {
 		spin_unlock(&mtu->lock);
 		mtu->gadget_driver->resume(&mtu->g);
+		mtu->suspend_flag = 0;
 		spin_lock(&mtu->lock);
 	}
 }
@@ -878,6 +879,7 @@ void mtu3_gadget_suspend(struct mtu3 *mtu)
 			mtu->gadget_driver->suspend) {
 		spin_unlock(&mtu->lock);
 		mtu->gadget_driver->suspend(&mtu->g);
+		mtu->suspend_flag = 1;
 		spin_lock(&mtu->lock);
 	}
 }
@@ -885,11 +887,18 @@ void mtu3_gadget_suspend(struct mtu3 *mtu)
 /* called when VBUS drops below session threshold, and in other cases */
 void mtu3_gadget_disconnect(struct mtu3 *mtu)
 {
+	struct usb_gadget_driver *driver;
+
 	dev_dbg(mtu->dev, "gadget DISCONNECT\n");
 	if (mtu->async_callbacks && mtu->gadget_driver &&
 			mtu->gadget_driver->disconnect) {
+		driver = mtu->gadget_driver;
 		spin_unlock(&mtu->lock);
-		mtu->gadget_driver->disconnect(&mtu->g);
+		/*
+		 * avoid kernel panic because mtu3_gadget_stop() assigned NULL
+		 * to mtu->gadget_driver.
+		 */
+		driver->disconnect(&mtu->g);
 		spin_lock(&mtu->lock);
 	}
 
@@ -906,4 +915,5 @@ void mtu3_gadget_reset(struct mtu3 *mtu)
 		mtu3_gadget_disconnect(mtu);
 	else
 		mtu3_state_reset(mtu);
+	mtu->reset_flag = 1;
 }
