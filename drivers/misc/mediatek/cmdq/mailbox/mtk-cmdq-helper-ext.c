@@ -2934,11 +2934,6 @@ static void cmdq_flush_async_cb(struct cmdq_cb_data data)
 #if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
 #ifdef CMDQ_SECURE_SUPPORT
 	debug_end[debug_cnt++] = sched_clock();
-#endif
-#endif
-	complete(&pkt->cmplt);
-#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
-#ifdef CMDQ_SECURE_SUPPORT
 	if (!pkt->sec_data) {
 		irq_long_times = cmdq_get_irq_long_times(client->chan);
 		if (debug_end[1] - debug_end[0] >= 500000 && !irq_long_times)
@@ -2946,6 +2941,7 @@ static void cmdq_flush_async_cb(struct cmdq_cb_data data)
 	}
 #endif
 #endif
+	complete(&pkt->cmplt);
 }
 #endif
 

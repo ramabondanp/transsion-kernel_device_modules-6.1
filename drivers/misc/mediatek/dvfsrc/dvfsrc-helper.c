@@ -71,6 +71,7 @@ int mtk_dvfsrc_vcore_uv_table(u32 opp)
 }
 EXPORT_SYMBOL(mtk_dvfsrc_vcore_uv_table);
 
+int roc_d4_vcore[] = {575000, 600000, 650000, 725000};
 static void dvfsrc_setup_opp_table(struct mtk_dvfsrc *dvfsrc)
 {
 	int i;
@@ -100,6 +101,12 @@ static void dvfsrc_setup_opp_table(struct mtk_dvfsrc *dvfsrc)
 
 		if (!ares.a0)
 			opp->vcore_uv = ares.a1;
+
+		int ddr_type = mtk_dramc_get_ddr_type();
+		if(ddr_type == TYPE_LPDDR4 || ddr_type == TYPE_LPDDR4X)
+		{
+			opp->vcore_uv = roc_d4_vcore[opp->vcore_opp];
+		}
 
 		arm_smccc_smc(MTK_SIP_VCOREFS_CONTROL,
 			MTK_SIP_VCOREFS_GET_DRAM_FREQ,

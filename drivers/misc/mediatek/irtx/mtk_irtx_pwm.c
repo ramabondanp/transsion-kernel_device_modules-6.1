@@ -11,14 +11,32 @@
 #include <linux/platform_device.h>
 #include <linux/regulator/consumer.h>
 #include <media/rc-core.h>
-
+#include <linux/of_gpio.h>
 #include <mt-plat/mtk_pwm.h>
 #include <mt-plat/mtk_pwm_hal.h>
+#include <linux/miscdevice.h>
 
 #define DRIVER_NAME	"mtk-pwm-ir-tx"
 #define DEVICE_NAME	"MTK PWM IR Transmitter"
 #define IRTX_PWM_CLOCK (26000000)
+#define IRTX_ATA_TX_DATA_LEN 72
+#define IRTX_ATA_TEST              _IOR('i', 0x00000000, __u32)
 //#define IRTX_DEBUG
+
+static struct rc_dev *prcdev;
+
+static int ata_tx_data[IRTX_ATA_TX_DATA_LEN+1] = {
+9000, 4500, 560, 560, 560, 560, 560, 560, 560, 560, 560, 560, 560, 560,
+560, 560, 560, 560, 560, 1680, 560, 1680, 560, 1680, 560, 1680, 560, 1680,
+560, 1680, 560, 1680, 560, 1680, 560, 560, 560, 1680, 560, 1680, 560, 560,
+560, 560, 560, 560, 560, 1680, 560, 560, 560, 1680, 560, 560, 560, 560,
+560, 1680, 560, 1680, 560, 1680, 560, 560, 560, 1680, 560, 40180, 9000, 2250,
+560, 96190
+};
+
+#if defined(CONFIG_IR_LED_EXTERNAL_LDO)
+#include "mtk_irtx_pwm.h"
+#endif
 
 struct mtk_pwm_ir {
 	struct regulator *regulator;
@@ -27,6 +45,7 @@ struct mtk_pwm_ir {
 	unsigned int carrier;
 	unsigned int duty_cycle;
 	unsigned int cycle;
+	unsigned int ldo_gpio;
 	struct platform_device *pdev;
 };
 
@@ -57,7 +76,13 @@ static int mtk_pwm_ir_tx(struct rc_dev *rcdev, unsigned int *txbuf,
 	int total_time = 0;
 	int len = 0;
 	int cur_bit = 0;
+#if defined(CONFIG_IR_LED_EXTERNAL_LDO) || defined(CONFIG_IR_LED_USE_VBAT_POWER)
+
+#elif defined(CONFIG_IR_LED_GPIO_CTRL_LDO)
+
+#else
 	int regulator_enabled = 0;
+#endif
 #ifdef IRTX_DEBUG
 	static char logbuf[4096];
 	int cur_idx = 0;
@@ -84,6 +109,7 @@ static int mtk_pwm_ir_tx(struct rc_dev *rcdev, unsigned int *txbuf,
 		buf_size +=
 		(int)(DIV_ROUND_CLOSEST_ULL((u64)(txbuf[i])*pwm_ir->carrier,
 		(u32)(NSEC_PER_SEC/1000))) * pwm_ir->cycle;
+		total_time += txbuf[i];
 	}
 
 	buf_size = ALIGN(buf_size, BITS_PER_BYTE * sizeof(unsigned int));
@@ -93,7 +119,7 @@ static int mtk_pwm_ir_tx(struct rc_dev *rcdev, unsigned int *txbuf,
 	buf_size = buf_size / BITS_PER_BYTE; /* byte size */
 
 	wave_vir = dma_alloc_coherent(&pwm_ir->pdev->dev, buf_size,
-		&wave_phy, GFP_KERNEL);
+		&wave_phy, GFP_DMA);
 	if (!wave_vir)
 		return -ENOMEM;
 
@@ -154,6 +180,13 @@ static int mtk_pwm_ir_tx(struct rc_dev *rcdev, unsigned int *txbuf,
 		pr_info("[%d] %s\n", cur_idx++, logbuf);
 #endif
 
+#if defined(CONFIG_IR_LED_EXTERNAL_LDO)
+	lcm_cam_single_ldo_control(3, 2800000);
+#elif defined(CONFIG_IR_LED_USE_VBAT_POWER)
+
+#elif defined(CONFIG_IR_LED_GPIO_CTRL_LDO)
+	gpio_set_value_cansleep(pwm_ir->ldo_gpio, 1);
+#else
 	if (pwm_ir->regulator != NULL) {
 		if (!regulator_is_enabled(pwm_ir->regulator)) {
 			ret = regulator_enable(pwm_ir->regulator);
@@ -166,6 +199,7 @@ static int mtk_pwm_ir_tx(struct rc_dev *rcdev, unsigned int *txbuf,
 			}
 		}
 	}
+#endif
 
 	ret = pwm_set_spec_config(&irtx_pwm_config);
 	if (ret < 0) {
@@ -178,6 +212,13 @@ static int mtk_pwm_ir_tx(struct rc_dev *rcdev, unsigned int *txbuf,
 	pr_info("[IRTX] done, clean up\n");
 	mt_pwm_disable(irtx_pwm_config.pwm_no, irtx_pwm_config.pmic_pad);
 
+#if defined(CONFIG_IR_LED_EXTERNAL_LDO)
+	lcm_cam_single_ldo_disable(3);
+#elif defined(CONFIG_IR_LED_USE_VBAT_POWER)
+
+#elif defined(CONFIG_IR_LED_GPIO_CTRL_LDO)
+	gpio_set_value_cansleep(pwm_ir->ldo_gpio, 0);
+#else
 	if (pwm_ir->regulator != NULL) {
 		if (regulator_enabled && regulator_is_enabled(pwm_ir->regulator)) {
 			ret = regulator_disable(pwm_ir->regulator);
@@ -188,6 +229,8 @@ static int mtk_pwm_ir_tx(struct rc_dev *rcdev, unsigned int *txbuf,
 			}
 		}
 	}
+#endif
+
 	ret = count;
 
 exit_free:
@@ -219,6 +262,54 @@ static int mtk_pwm_ir_set_carrier(struct rc_dev *dev, u32 carrier)
 	return 0;
 }
 
+static long irtx_unlocked_ioctl(struct file *file, unsigned int cmd,
+				       unsigned long arg)
+{
+	void __user *ptr = (void __user *)arg;
+	uint32_t para = 0;
+	struct mtk_pwm_ir *pwm_ir = prcdev->priv;
+
+	switch (cmd) {
+	case IRTX_ATA_TEST:
+		if (copy_from_user(&para, ptr, sizeof(para)))
+			return -EFAULT;
+
+		pwm_ir->carrier = 38000;
+		pwm_ir->cycle = 3;
+		pwm_ir->duty_cycle = 1;
+		mtk_pwm_ir_tx(prcdev, ata_tx_data, IRTX_ATA_TX_DATA_LEN+1);
+		pr_info("IRTX_ATA_TEST para:%d\n", para);
+		break;
+
+	default:
+		pr_info("unknown IOCTL: 0x%08x\n", cmd);
+		return -EFAULT;
+	}
+	return 0;
+}
+
+static int irtx_file_open(struct inode *inode, struct file *file)
+{
+	return nonseekable_open(inode, file);
+}
+
+static int irtx_release(struct inode *inode, struct file *file)
+{
+	return 0;
+}
+
+static const struct file_operations irtx_fops = {
+	.open = irtx_file_open,
+	.release = irtx_release,
+	.unlocked_ioctl = irtx_unlocked_ioctl,
+};
+
+static struct miscdevice irtx_device = {
+	.minor = MISC_DYNAMIC_MINOR,
+	.name = "irtx",
+	.fops = &irtx_fops,
+};
+
 static int mtk_pwm_ir_probe(struct platform_device *pdev)
 {
 	struct mtk_pwm_ir *pwm_ir;
@@ -230,7 +321,7 @@ static int mtk_pwm_ir_probe(struct platform_device *pdev)
 	if (!pwm_ir)
 		return -ENOMEM;
 
-	of_property_read_u32(pdev->dev.of_node, "pwm-ch",
+	of_property_read_u32(pdev->dev.of_node, "pwm_ch",
 		&pwm_ir->pwm_ch);
 	of_property_read_u32(pdev->dev.of_node, "pwm-data-invert",
 		&pwm_ir->pwm_data_invert);
@@ -240,15 +331,40 @@ static int mtk_pwm_ir_probe(struct platform_device *pdev)
 		return -ENODEV;
 	}
 
-	pwm_ir->regulator = devm_regulator_get(&pdev->dev, pwm_str);
-	if (IS_ERR(pwm_ir->regulator))
+#if defined(CONFIG_IR_LED_EXTERNAL_LDO) || defined(CONFIG_IR_LED_USE_VBAT_POWER)
+
+#elif defined(CONFIG_IR_LED_GPIO_CTRL_LDO)
+	pwm_ir->ldo_gpio = of_get_named_gpio(pdev->dev.of_node, "ldo-gpio", 0);
+
+	if (gpio_is_valid(pwm_ir->ldo_gpio)) {
+		pr_info("%s: enable gpio available\n", __func__);
+	} else {
+		pr_info("Could not get pwm-supply property form dts");
+		return -ENODEV;
+	}
+
+	rc = devm_gpio_request_one(&pdev->dev,
+				   pwm_ir->ldo_gpio,
+				   GPIOF_OUT_INIT_LOW,
+				   "irtx_ldo-gpio");
+	if (rc) {
+		pr_info("ldo-gpio request failes");
+		return -ENODEV;
+	}
+#else
+	pwm_ir->regulator = devm_regulator_get_optional(&pdev->dev, "pwm");
+	//devm_regulator_get(&pdev->dev, pwm_str);
+	if (IS_ERR(pwm_ir->regulator)) {
+		dev_err(&pdev->dev, "pwm regulator not found\n");
 		return PTR_ERR(pwm_ir->regulator);
+	}
 
-	pwm_ir->pdev = pdev;
-
-	rc = regulator_set_voltage(pwm_ir->regulator, 2800000, 2800000);
+	rc = regulator_set_voltage(pwm_ir->regulator, 3000000, 3000000);
 	if (rc < 0)
 		return rc;
+#endif
+
+	pwm_ir->pdev = pdev;
 
 	rcdev = devm_rc_allocate_device(&pdev->dev, RC_DRIVER_IR_RAW_TX);
 	if (!rcdev)
@@ -264,7 +380,11 @@ static int mtk_pwm_ir_probe(struct platform_device *pdev)
 	rc = devm_rc_register_device(&pdev->dev, rcdev);
 	if (rc < 0)
 		dev_err(&pdev->dev, "failed to register rc device\n");
+	prcdev = rcdev;
 
+	rc = misc_register(&irtx_device);
+	if (rc < 0)
+		dev_err(&pdev->dev, "failed to register misc irtx device\n");
 	return rc;
 }
 
@@ -286,3 +406,4 @@ module_platform_driver(pwm_ir_driver);
 MODULE_DESCRIPTION("MTK PWM IR Transmitter");
 MODULE_AUTHOR("Chang-An Chen <chang-an.chen@mediatek.com>");
 MODULE_LICENSE("GPL");
+

@@ -36,6 +36,7 @@
 #include <lpm_sys_res_mbrain_plat.h>
 #endif
 
+
 #define PCM_32K_TICKS_PER_SEC		(32768)
 #define PCM_TICK_TO_SEC(TICK)	(TICK / PCM_32K_TICKS_PER_SEC)
 
@@ -735,6 +736,7 @@ static int lpm_show_message(int type, const char *prefix, void *data)
 				spm_vcore_off_pct =
 					(100 * plat_mmio_read(SPM_SW_RSV_4))
 							/ wakesrc->timer_out;
+
 			}
 			log_size += scnprintf(log_buf + log_size,
 				LOG_BUF_OUT_SZ - log_size,

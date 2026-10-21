@@ -27,6 +27,9 @@ struct mtk_extcon_info {
 	struct delayed_work wq_detcable;
 	unsigned int vbus_limit_cur;
 	bool vbus_cur_inlimit;
+	struct notifier_block otg_nb;
+	struct delayed_work otg_dely_work;
+	unsigned int otg_event;
 };
 
 struct usb_role_info {

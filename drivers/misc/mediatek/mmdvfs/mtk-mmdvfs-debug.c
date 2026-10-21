@@ -71,6 +71,7 @@ struct mmdvfs_debug {
 	/* regulator and fmeter */
 	struct regulator *reg_vcore;
 	struct regulator *reg_vmm;
+	struct regulator *reg_vdisp;
 	u8 fmeter_count;
 	u8 *fmeter_id;
 	u8 *fmeter_type;
@@ -101,6 +102,24 @@ void mtk_mmdvfs_debug_release_step0(void)
 }
 EXPORT_SYMBOL_GPL(mtk_mmdvfs_debug_release_step0);
 
+static int mmdvfs_debug_get_force_step(char *buf, const struct kernel_param *kp)
+{
+	int len = 0, i;
+
+	for (i = 0; i < PWR_MMDVFS_NUM; i++) {
+		if (i == PWR_MMDVFS_VCORE && (!g_mmdvfs->debug_version ||
+			g_mmdvfs->debug_version & MMDVFS_DBG_VER1)) {
+			len += snprintf(buf + len, PAGE_SIZE - len, "not_support ");
+			continue;
+		}
+		if (g_mmdvfs->debug_version & MMDVFS_DBG_VER3)
+			len += snprintf(buf + len, PAGE_SIZE - len,
+				"%d ", mtk_mmdvfs_v3_get_force_step(i));
+	}
+
+	return len;
+}
+
 static int mmdvfs_debug_set_force_step(const char *val,
 	const struct kernel_param *kp)
 {
@@ -128,6 +147,7 @@ static int mmdvfs_debug_set_force_step(const char *val,
 
 static struct kernel_param_ops mmdvfs_debug_set_force_step_ops = {
 	.set = mmdvfs_debug_set_force_step,
+	.get = mmdvfs_debug_get_force_step,
 };
 module_param_cb(force_step, &mmdvfs_debug_set_force_step_ops, NULL, 0644);
 MODULE_PARM_DESC(force_step, "force mmdvfs to specified step");
@@ -591,6 +611,10 @@ static void mmdvfs_debug_work(struct work_struct *work)
 	if (!IS_ERR_OR_NULL(g_mmdvfs->reg_vmm))
 		MMDVFS_DBG("vmm enabled:%d voltage:%d", regulator_is_enabled(g_mmdvfs->reg_vmm),
 			regulator_get_voltage(g_mmdvfs->reg_vmm));
+
+	if (!IS_ERR_OR_NULL(g_mmdvfs->reg_vdisp))
+		MMDVFS_DBG("vdisp enabled:%d voltage:%d", regulator_is_enabled(g_mmdvfs->reg_vdisp),
+			regulator_get_voltage(g_mmdvfs->reg_vdisp));
 }
 
 static int mmdvfs_debug_smi_cb(struct notifier_block *nb, unsigned long action, void *data)
@@ -817,6 +841,12 @@ static int mmdvfs_debug_probe(struct platform_device *pdev)
 		MMDVFS_DBG("devm_regulator_get vmm-pmic failed:%ld", PTR_ERR(reg));
 	else
 		g_mmdvfs->reg_vmm = reg;
+
+	reg = devm_regulator_get(g_mmdvfs->dev, "vdisp-pmic");
+	if (IS_ERR_OR_NULL(reg))
+		MMDVFS_DBG("devm_regulator_get vdisp-pmic failed:%ld", PTR_ERR(reg));
+	else
+		g_mmdvfs->reg_vdisp = reg;
 
 	g_mmdvfs->smi_dbg_nb.notifier_call = mmdvfs_debug_smi_cb;
 	mtk_smi_dbg_register_notifier(&g_mmdvfs->smi_dbg_nb);

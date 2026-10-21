@@ -9,3 +9,18 @@ config MTK_IRTX_PWM_SUPPORT
 
 	   To compile this driver as a module, choose M here: the
 	   module will be called mtk-irtx-pwm.
+
+config IR_LED_EXTERNAL_LDO
+	tristate "IR transmitter use extern ldo"
+	default n
+
+config IR_LED_USE_VBAT_POWER
+	tristate "IR transmitter use vbat power"
+	default n
+    
+config IR_LED_GPIO_CTRL_LDO
+	tristate "IR transmitter use gpio control ldo"
+	default n
+
+
+

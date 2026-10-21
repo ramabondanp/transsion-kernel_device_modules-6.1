@@ -578,6 +578,7 @@ enum SMEM_USER_ID {
 	SMEM_USER_MD_CDMR, /* CDMR:Crash Dump Memory Region/MIDR:Modem Internals Dump Region */
 	SMEM_USER_RESERVED, //40
 	SMEM_USER_MD_DRDI, //41
+	SMEM_USER_MD_POST_DUMP = 46, //46
 	SMEM_USER_MAX,
 };
 

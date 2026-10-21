@@ -68,7 +68,8 @@ enum adsp_feature_id {
 	BTDL_FEATURE_ID                 = 29,
 	BTUL_FEATURE_ID                 = 30,
 	SPATIALIZER_FEATURE_ID          = 31,
-	PCIE_FEATURE_ID                 = 32,
+	DYNAMIC_FEATURE_ID              = 32,
+	PCIE_FEATURE_ID                 = 33,
 	ADSP_NUM_FEATURE_ID,
 };
 

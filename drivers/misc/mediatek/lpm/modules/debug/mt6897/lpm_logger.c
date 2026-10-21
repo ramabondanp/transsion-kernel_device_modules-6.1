@@ -30,6 +30,7 @@
 #include <mtk_lpm_sysfs.h>
 #include <mtk_cpupm_dbg.h>
 
+
 #define MT6897_LOG_DEFAULT_MS		5000
 
 #define PCM_32K_TICKS_PER_SEC		(32768)
@@ -757,6 +758,7 @@ static int lpm_show_message(int type, const char *prefix, void *data)
 				spm_vcore_off_pct =
 					(100 * plat_mmio_read(SPM_SW_RSV_4))
 							/ wakesrc->timer_out;
+
 			}
 			log_size += scnprintf(log_buf + log_size,
 				LOG_BUF_OUT_SZ - log_size,

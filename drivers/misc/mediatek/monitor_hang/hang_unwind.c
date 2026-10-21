@@ -9,9 +9,8 @@
 #include <asm/stacktrace.h>
 #include "hang_unwind.h"
 
-
 unsigned int hang_kernel_trace(struct task_struct *tsk,
-					unsigned long *store, unsigned int size)
+					struct unwind_state *store, unsigned int size)
 {
 	struct unwind_state frame;
 	unsigned long fp;
@@ -27,7 +26,7 @@ unsigned int hang_kernel_trace(struct task_struct *tsk,
 		pr_info("err stack:%lx\n", thread_saved_sp(tsk));
 		return 0;
 	}
-	*store = frame.pc;
+	*store = frame;
 	while(store_len < size) {
 		if (!on_task_stack(tsk, fp, 16) || !IS_ALIGNED(fp, 8))
 			break;
@@ -39,7 +38,7 @@ unsigned int hang_kernel_trace(struct task_struct *tsk,
 #ifdef __aarch64__
 		frame.pc = ptrauth_strip_insn_pac(frame.pc);
 #endif
-		*(++store) = frame.pc;
+		*(++store) = frame;
 		store_len += 1;
 	}
 	return store_len;

@@ -32,3 +32,17 @@ config MTK_HANG_PROC
 	  native backtrace by proc interface "sys/kernel/debug/monitor_hang".
 	  if value is 2, will dump all thread info; if value > 10,
 	  will dump backtrace of pid equals value.
+
+config TRAN_MANUAL_HANG
+	bool "tran manual hang function"
+	default y
+	help
+	  transsion config two key to trigger hang_detect.
+
+config TRAN_FUTEX_HANG_DETECT
+	bool "transsion watchdog futex hang detect"
+	depends on MTK_HANG_DETECT
+	default y
+	help
+	  Transsion watchdog futex hang detect feature support.
+
