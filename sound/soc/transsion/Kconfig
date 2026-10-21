@@ -1,0 +1,95 @@
+# SPDX-License-Identifier: GPL-2.0-only
+
+menu "transsion CODEC drivers"
+
+config SND_SMARTPA_AW883XX
+    tristate "SoC Audio for awinic aw883xx series"
+    depends on I2C
+    help
+      This option enables support for aw883xx series Smart PA.
+
+config SND_SOC_FS1589
+    tristate "SoC Audio for FS1589 Smart K PA"
+    depends on I2C
+    help
+      This option enables support for FS1589 Smart K PA.
+
+config SND_SOC_FS1589_FW
+    tristate "SoC Audio for FS1589 Smart K PA"
+    depends on I2C
+    help
+
+config SND_SOC_FS1599
+    tristate "SoC Audio for FS1599 Smart K PA"
+    depends on I2C
+    help
+      This option enables support for FS1599 Smart K PA.
+
+config USB_SWITCH_WAS4783C
+    tristate "WAS4783C USB Switch"
+    depends on I2C
+    help
+      The WAS4783C is a USB port accessory detector and switch.
+      The WAS4783C is fully controlled using I2C and enables USB data,
+      stereo and mono audio, video, microphone and UART data to use
+      a common connector port.
+
+config USB_SWITCH_SPLIT
+    tristate "USB Split Switch"
+    help
+      enables USB data, stereo and mono audio, video, microphone
+      and UART data to use a common connector port.
+
+config USB_SWITCH_DIO1520
+    tristate "DIO1520 USB Switch"
+    help
+      The DIO1520 is a USB port accessory detector and switch.
+      The DIO1520 is fully controlled using I2C and enables USB data,
+      stereo and mono audio, video, microphone and UART data to use
+      a common connector port.
+
+config SMARTPA_RESETGPIO_CONNECT_AW95016
+    tristate "smart pa reset-gpio connect to aw95016"
+    depends on I2C
+    help
+      if smart pa reset-gpio connect to aw95016, please enable here.
+
+config TRAN_AUDIO_CONTROL
+    tristate "TRAN AUDIO CONTROL"
+
+config SND_SOC_AW87XXX
+	tristate "SoC Audio for awinic AW87XXX Smart K PA"
+	depends on I2C
+	help
+	  This option enables support for AW87XXX Smart K PA.
+
+config FOUR_AW87XXX_PA
+	tristate "Number of awinic AW87XXX Smart K PA"
+	depends on SND_SOC_AW87XXX
+	help
+	  This option set four AW87XXX Smart K PA.
+
+config SND_SOC_OCA72XXX
+	tristate "SoC Audio for ocs OCA72XXX Smart K PA"
+	depends on I2C
+	help
+	  This option enables support for OCA72XXX Smart K PA.
+
+config USB_SWITCH_HL1280
+	tristate "HL1280 USB Switch"
+	depends on I2C
+	help
+	  This is a USB port accessory detector and switch.
+	  This is fully controlled using I2C and enables USB data
+endmenu
+
+menu "Ultra Configs"
+config TRAN_ELLIPTIC_ULTRASOUND_PROXIMITY
+	tristate "CONFIG_TRAN_ELLIPTIC_ULTRASOUND_PROXIMITY"
+	default n
+	help
+	  Say Y here if you have ELLIPTIC ULTRASOUND.
+	  If unsure, say N.
+	  To compile this dirver as a module, choose M here: the
+	  module will be called.
+endmenu # Ultra
