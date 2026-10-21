@@ -66,6 +66,7 @@ struct power_budget_t {
 	unsigned int temp_cur_stage;
 	unsigned int temp_max_stage;
 	int temp_thd[4];
+	unsigned int circuit_rdc;
 	unsigned int rdc[5];
 	unsigned int rac[5];
 	unsigned int uvlo;
@@ -84,6 +85,7 @@ struct ocv_table_t {
 	unsigned int mah;
 	unsigned int dod;
 	unsigned int voltage;
+	unsigned int rdc;
 };
 
 struct fg_info_t {

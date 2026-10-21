@@ -30,7 +30,6 @@ MODULE_LICENSE("GPL");
 #define IB_SAME_CLUSTER		(0x01)
 #define IB_OVERUTILIZATION	(0x04)
 
-DEFINE_PER_CPU(__u32, active_softirqs);
 
 struct cpumask __cpu_pause_mask;
 EXPORT_SYMBOL(__cpu_pause_mask);
@@ -467,9 +466,15 @@ inline void update_thermal_pressure_capacity(unsigned int current_thermal_freq, 
 		WRITE_ONCE(per_cpu(thermal_pressure, cpu), th_pressure);
 }
 
+static noinline int tracing_mark_write(const char *buf)
+{
+	trace_printk(buf);
+	return 0;
+}
+
 void mtk_tick_entry(void *data, struct rq *rq)
 {
-
+	char trace_buf[64];
 	struct em_perf_domain *pd;
 	unsigned int this_cpu = cpu_of(rq), gear_id;
 	unsigned int freq_thermal;
@@ -535,8 +540,12 @@ void mtk_tick_entry(void *data, struct rq *rq)
 	freq_thermal = get_cpu_ceiling_freq (gear_id);
 	update_thermal_pressure_capacity(freq_thermal, this_cpu);
 
-	if (trace_sched_frequency_limits_enabled())
+	if (trace_sched_frequency_limits_enabled()) {
 		trace_sched_frequency_limits(this_cpu, freq_thermal);
+		snprintf(trace_buf, 64, "C|0|sched_frequency_limits cluster_%d|%d\n", \
+                         gear_id, freq_thermal);
+		tracing_mark_write(trace_buf);
+        }
 	irq_log_store();
 }
 
@@ -738,7 +747,6 @@ void check_for_migration(struct task_struct *p)
 
 void hook_scheduler_tick(void *data, struct rq *rq)
 {
-
 	struct root_domain *rd = rq->rd;
 
 	rcu_read_lock();
@@ -827,7 +835,6 @@ void mtk_sched_switch(void *data, unsigned int sched_mode, struct task_struct *p
 {
 	if (next->pid == 0)
 		per_cpu(sbb, rq->cpu)->active = 0;
-
 }
 #endif
 

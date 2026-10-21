@@ -180,6 +180,7 @@ static void probe_android_rvh_finish_prio_fork(void *ignore, struct task_struct 
 	}
 }
 
+
 static void probe_android_rvh_rtmutex_prepare_setprio(void *ignore, struct task_struct *p,
 						struct task_struct *pi_task)
 {
@@ -198,6 +199,7 @@ static void probe_android_rvh_rtmutex_prepare_setprio(void *ignore, struct task_
 
 			if (backup >= MIN_NICE && backup <= MAX_NICE) {
 				rq = __task_rq_lock(p, &rf);
+
 				update_rq_clock(rq);
 
 				queued = task_on_rq_queued(p);
@@ -230,6 +232,7 @@ static void probe_android_rvh_set_user_nice(void *ignore, struct task_struct *p,
 {
 	struct task_turbo_t *turbo_data;
 	bool p_turbo;
+
 
 	if ((*nice < MIN_NICE || *nice > MAX_NICE) && !task_turbo_nice(*nice)) {
 		*allowed = false;
@@ -908,6 +911,7 @@ static int set_task_turbo_feats(const char *buf,
 {
 	int ret, i;
 	unsigned int val;
+
 
 	ret = kstrtouint(buf, 0, &val);
 	if (ret)

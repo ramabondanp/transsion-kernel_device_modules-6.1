@@ -94,6 +94,14 @@ struct mig_task_struct {
 	unsigned long pending_rec;
 };
 
+struct pgfault_task_struct {
+	bool calc_status;
+	u64 min_flt_old;
+	u64 maj_flt_old;
+	u64 min_flt_delta;
+	u64 maj_flt_delta;
+};
+
 struct mtk_task {
 	struct vip_task_struct	vip_task;
 	struct soft_affinity_task sa_task;
@@ -107,6 +115,7 @@ struct mtk_task {
 	struct flt_task_struct flt_task;
 	struct cpuqos_task_struct cpuqos_task;
 	struct mig_task_struct mig_task;
+	struct pgfault_task_struct pgfault_task;
 };
 
 struct soft_affinity_tg {
@@ -234,3 +243,4 @@ static inline unsigned long mtk_cpu_util_cfs(struct rq *rq)
 }
 
 #endif /* _SCHED_COMMON_H */
+

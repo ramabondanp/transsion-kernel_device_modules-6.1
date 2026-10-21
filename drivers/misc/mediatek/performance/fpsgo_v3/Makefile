@@ -44,7 +44,6 @@ subdir-ccflags-y += \
         -I$(DEVICE_MODULES_PATH)/drivers/misc/mediatek/performance/powerhal_cpu_ctrl/ \
         -I$(GBE_TOP)/ \
 
-
 #fpsgo_main
 MTK_FPSGO_MAIN += fpsgo_main.o
 

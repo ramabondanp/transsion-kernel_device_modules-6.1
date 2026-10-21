@@ -36,6 +36,7 @@
 #define CREATE_TRACE_POINTS
 #include "sched_trace.h"
 
+
 MODULE_LICENSE("GPL");
 
 /*
@@ -2245,6 +2246,7 @@ backup_unlock:
 	rcu_read_unlock();
 
 done:
+
 	irq_log_store();
 
 	if (trace_sched_find_energy_efficient_cpu_enabled())

@@ -249,28 +249,6 @@ static int dlpt_get_rgs_chrdet(void)
 	return ret;
 }
 
-static int dlpt_check_power_off(void)
-{
-	int ret = 0;
-	static int dlpt_power_off_cnt;
-	enum LOW_BATTERY_LEVEL_TAG dlpt_power_off_lv = LOW_BATTERY_LEVEL_3;
-
-	if (dlpt.lbat_level == dlpt_power_off_lv && dlpt.tag->bootmode != 8) {
-		if (dlpt_power_off_cnt == 0)
-			ret = 0; /* 1st time get VBAT < 3.1V, record it */
-		else
-			ret = 1; /* 2nd time get VBAT < 3.1V */
-		dlpt_power_off_cnt++;
-		pr_info("[%s] %d ret:%d\n", __func__, dlpt_power_off_cnt, ret);
-	} else
-		dlpt_power_off_cnt = 0;
-
-	/* TODO: do we need to get system_transition_mutex */
-	if (dlpt_power_off_cnt >= 4)
-		kernel_restart("DLPT reboot system");
-	return ret;
-}
-
 #if IS_ENABLED(CONFIG_MTK_LOW_BATTERY_POWER_THROTTLING)
 static void dlpt_low_battery_cb(enum LOW_BATTERY_LEVEL_TAG level, void *data)
 {
@@ -297,24 +275,6 @@ static struct power_supply *get_mtk_gauge_psy(void)
 	if (!ret && prop.intval == 0)
 		return psy; /* gauge enabled */
 	return NULL;
-}
-
-static void dlpt_set_shutdown_condition(void)
-{
-	struct power_supply *psy;
-	union power_supply_propval prop;
-	int ret;
-
-	psy = get_mtk_gauge_psy();
-	/* gauge disabled */
-	if (!psy)
-		return;
-
-	prop.intval = 1;
-	ret = power_supply_set_property(psy, POWER_SUPPLY_PROP_ENERGY_EMPTY,
-					&prop);
-	if (ret)
-		pr_info("%s fail\n", __func__);
 }
 
 static void dlpt_update_imix(int imix)
@@ -462,14 +422,6 @@ static int dlpt_notify_handler(void *unused)
 		}
 		pre_ui_soc = cur_ui_soc;
 
-		if (cur_ui_soc == 1) {
-			/* Check low battery volt < level 3 throttle volt */
-			if (dlpt_check_power_off()) {
-				/* notify battery driver to power off by SOC=0 */
-				dlpt_set_shutdown_condition();
-				pr_info("[DLPT] notify battery SOC=0 to power off.\n");
-			}
-		}
 bypass:
 		dlpt.notify_flag = false;
 		mutex_unlock(&dlpt.notify_lock);
@@ -628,6 +580,7 @@ static int dlpt_probe(struct platform_device *pdev)
 {
 	struct mt6397_chip *chip;
 	int ret;
+	u32 dlpt_thead_enable;
 
 	dlpt.regmap = dev_get_regmap(pdev->dev.parent, NULL);
 	if (!dlpt.regmap) {
@@ -644,7 +597,20 @@ static int dlpt_probe(struct platform_device *pdev)
 	ret = dlpt_adc_chan_init(pdev);
 	if (ret)
 		return ret;
-	dlpt_notify_init();
+
+	ret = of_property_read_u32(pdev->dev.of_node,
+				"dlpt-thread-enable", &dlpt_thead_enable);
+	if (ret) {
+		dlpt_thead_enable = 1;
+		dev_notice(&pdev->dev,
+			"[%s] get dlpt-thread-enable failed ret=%d, enable dlpt thread\n",
+			__func__, ret);
+	}
+
+	if (dlpt_thead_enable)
+		dlpt_notify_init();
+
+	dev_notice(&pdev->dev, "[%s] dlpt-thread-enable:%d\n", __func__, dlpt_thead_enable);
 
 	return 0;
 }

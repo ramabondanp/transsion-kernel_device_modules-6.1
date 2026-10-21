@@ -38,6 +38,8 @@ void mbraink_get_battery_info(struct mbraink_battery_data *battery_buffer,
 		ret = power_supply_get_property(psy,
 			POWER_SUPPLY_PROP_CAPACITY_LEVEL, &prop);
 		battery_buffer->precise_uisoc = prop.intval;
+
+		power_supply_put(psy);
 	}
 
 	/*pr_info("timestamp=%lld qmaxt=%d, qusec=%d, socc=%d, uisocc=%d\n",

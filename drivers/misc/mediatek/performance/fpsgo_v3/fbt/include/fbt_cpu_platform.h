@@ -38,8 +38,6 @@ extern void unset_task_vvip(int pid);
 extern void turn_on_vvip_balance_overutilized(void);
 extern void turn_off_vvip_balance_overutilized(void);
 
-
-
 void fbt_set_boost_value(unsigned int base_blc);
 void fbt_clear_boost_value(void);
 void fbt_set_per_task_cap(int pid, unsigned int min_blc,

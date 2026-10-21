@@ -16,9 +16,10 @@
 #define FRAME_TIME_BUFFER_SIZE 200
 #define MAX_NR_RENDER_FPS_LEVELS	10
 #define DEFAULT_RESET_TOLERENCE 3
-#define FSTB_IDLE_DBNC 10
+#define FSTB_IDLE_DBNC 3
 #define MAX_FSTB_POLICY_CMD_NUM 10
 #define MAX_INFO_CALLBACK 5
+#define MAX_SF_BUFFER_SIZE 10
 
 extern void (*ged_kpi_output_gfx_info2_fp)(long long t_gpu,
 	unsigned int cur_freq, unsigned int cur_max_freq, u64 ulID);
@@ -62,6 +63,7 @@ struct FSTB_FRAME_INFO {
 	int quantile_cpu_time;
 	int quantile_gpu_time;
 
+
 	int render_idle_cnt;
 	int hwui_flag;
 	int self_ctrl_fps_enable;
@@ -94,6 +96,7 @@ struct FSTB_NOTIFIER_PUSH_TAG {
 	int eara_is_active;
 	unsigned long long bufid;
 	unsigned long long cur_queue_end_ts;
+	unsigned long long sf_buf_id;
 
 	struct work_struct sWork;
 };

@@ -55,6 +55,8 @@ DECLARE_PER_CPU(unsigned long, min_freq);
 #define LB_RT_SAME_FIRST     (0x80002)
 #define LB_RT_FAIL_FIRST     (0x80004)
 
+#define LB_UX_PREFER         (0x800000)
+
 /*
  * energy_env - Utilization landscape for energy estimation.
  * @task_busy_time: Utilization contribution by the task for which we test the

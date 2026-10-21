@@ -21,10 +21,6 @@
 
 /*--------------------------------------------*/
 
-#define MAX(a, b) (((a) > (b)) ? (a) : (b))
-#define MIN(a, b) (((a) < (b)) ? (a) : (b))
-
-
 struct FBT_CPU_CTRL_NOTIFIER_PUSH_TAG {
 	int policy_id;
 	unsigned int freq;
@@ -101,7 +97,6 @@ static DECLARE_WORK(cpu_loading_timeout_work,
 /* cpu loading tracking */
 static struct cpu_info *cur_wall_time, *cur_idle_time,
 		       *prev_wall_time, *prev_idle_time;
-
 
 /*--------------------INIT------------------------*/
 /* local function */
