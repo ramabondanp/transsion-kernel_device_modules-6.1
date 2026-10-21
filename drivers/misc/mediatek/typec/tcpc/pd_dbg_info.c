@@ -3,8 +3,8 @@
  * Copyright (c) 2023 MediaTek Inc.
  */
 
-#include <linux/module.h>
 #if IS_ENABLED(CONFIG_PD_DBG_INFO)
+#include <linux/module.h>
 #include <linux/mutex.h>
 #include <linux/sched/clock.h>
 #include <linux/slab.h>
@@ -158,5 +158,5 @@ module_exit(pd_dbg_info_exit);
 
 MODULE_DESCRIPTION("PD Debug Info Module");
 MODULE_AUTHOR("Lucas Tsai <lucas_tsai@richtek.com>");
-#endif	/* CONFIG_PD_DBG_INFO */
 MODULE_LICENSE("GPL");
+#endif	/* CONFIG_PD_DBG_INFO */
