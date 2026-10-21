@@ -107,7 +107,6 @@ static int rt6160_set_mode(struct regulator_dev *rdev, unsigned int mode)
 
 	return regmap_update_bits(regmap, RT6160_REG_CNTL, RT6160_FPWM_MASK, mode_val);
 }
-
 static unsigned int rt6160_get_mode(struct regulator_dev *rdev)
 {
 	struct regmap *regmap = rdev_get_regmap(rdev);
@@ -118,12 +117,13 @@ static unsigned int rt6160_get_mode(struct regulator_dev *rdev)
 	if (ret)
 		return ret;
 
+	pr_info("rt6160_get_mode val = %d\n", val);
+
 	if (val & RT6160_FPWM_MASK)
 		return REGULATOR_MODE_FAST;
 
 	return REGULATOR_MODE_NORMAL;
 }
-
 static int rt6160_set_suspend_voltage(struct regulator_dev *rdev, int uV)
 {
 	struct regmap *regmap = rdev_get_regmap(rdev);
@@ -254,8 +254,9 @@ static int rt6160_probe(struct i2c_client *i2c)
 	struct regulator_config regulator_cfg = {};
 	struct regulator_dev *rdev;
 	bool vsel_active_low;
-	unsigned int devid;
+	unsigned int val,devid;
 	int ret;
+
 
 	priv = devm_kzalloc(&i2c->dev, sizeof(*priv), GFP_KERNEL);
 	if (!priv)
@@ -268,7 +269,7 @@ static int rt6160_probe(struct i2c_client *i2c)
 	priv->enable_gpio = devm_gpiod_get_optional(&i2c->dev, "enable", GPIOD_OUT_HIGH);
 	if (IS_ERR(priv->enable_gpio)) {
 		dev_err(&i2c->dev, "Failed to get 'enable' gpio\n");
-		return PTR_ERR(priv->enable_gpio);
+		//return PTR_ERR(priv->enable_gpio);
 	}
 	priv->enable_state = true;
 
@@ -289,7 +290,12 @@ static int rt6160_probe(struct i2c_client *i2c)
 		dev_err(&i2c->dev, "VID not correct [0x%02x]\n", devid);
 		return -ENODEV;
 	}
-
+	i2c_set_clientdata(i2c, priv);
+	/* set fast mode when initilization */
+	ret = regmap_update_bits(priv->regmap, RT6160_REG_CNTL,
+				 RT6160_FPWM_MASK, 0);
+	if (ret)
+		return ret;
 	priv->desc.name = "rt6160-buckboost";
 	priv->desc.type = REGULATOR_VOLTAGE;
 	priv->desc.owner = THIS_MODULE;
@@ -322,7 +328,11 @@ static int rt6160_probe(struct i2c_client *i2c)
 		dev_notice(&i2c->dev, "Failed to add platform device\n");
 		return ret;
 	}
-
+	ret = regmap_read(priv->regmap, RT6160_REG_CNTL, &val);
+	if (ret)
+		return ret;
+	
+	pr_info("rt6160 probe sueeccesfully val = %d\n", val);
 	return 0;
 }
 
@@ -332,12 +342,51 @@ static const struct of_device_id __maybe_unused rt6160_of_match_table[] = {
 };
 MODULE_DEVICE_TABLE(of, rt6160_of_match_table);
 
+static int __maybe_unused rt6160_suspend(struct device *dev)
+{
+	/*
+	struct rt6160_priv *priv = dev_get_drvdata(dev);
+
+	dev_info(dev, "%s\n", __func__);
+	return regmap_update_bits(priv->regmap, RT6160_REG_CNTL,
+				  RT6160_FPWM_MASK, 0);
+	*/
+	return 0;
+}
+
+static int __maybe_unused rt6160_resume(struct device *dev)
+{
+	/*
+	struct rt6160_priv *priv = dev_get_drvdata(dev);
+
+	dev_info(dev, "%s\n", __func__);
+	return regmap_update_bits(priv->regmap, RT6160_REG_CNTL,
+				  RT6160_FPWM_MASK, RT6160_FPWM_MASK);
+	*/
+	return 0;
+}
+
+static void rt6160_shutdown(struct i2c_client *i2c)
+{
+	struct rt6160_priv *priv = i2c_get_clientdata(i2c);
+	int ret = 0;
+
+	ret = regmap_update_bits(priv->regmap, RT6160_REG_CNTL, RT6160_FPWM_MASK, 0);
+	if (ret)
+		dev_err(&i2c->dev, "set normal mode when shutdown failed\n");
+}
+
+static const struct dev_pm_ops rt6160_pm_ops = {
+	SET_SYSTEM_SLEEP_PM_OPS(rt6160_suspend, rt6160_resume)
+};
 static struct i2c_driver rt6160_driver = {
 	.driver = {
 		.name = "rt6160",
 		.of_match_table = rt6160_of_match_table,
+		.pm = &rt6160_pm_ops,
 	},
 	.probe_new = rt6160_probe,
+	.shutdown = rt6160_shutdown,
 };
 module_i2c_driver(rt6160_driver);
 
