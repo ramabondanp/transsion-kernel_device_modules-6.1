@@ -27,6 +27,11 @@
 #define RG_XTP_CKM_EN_L1S0		BIT(13)
 #define PEXTP_DIG_PROBE_OUT		0xd0
 
+/* PHY DIG_LN_RX2 registers */
+#define PEXTP_DIG_LN_RX2_REG		0x6000
+#define PEXTP_DIG_LN_RX2_D8		(PEXTP_DIG_LN_RX2_REG + 0xd8)
+#define RG_XTP_LN_RX_AEQ_CYC_SHIFT	GENMASK(23, 20)
+
 /* PHY ANA GLB registers */
 #define PEXTP_ANA_GLB_00_REG		0x9000
 #define PEXTP_ANA_GLB_6			(PEXTP_ANA_GLB_00_REG + 0x18)
@@ -99,6 +104,7 @@ struct mtk_pcie_phy {
 	void __iomem *ckm_base;
 	struct clk_bulk_data *clks;
 	int num_clks;
+	int port_num;
 	const struct mtk_pcie_phy_data *data;
 
 	bool sw_efuse_en;
@@ -236,6 +242,8 @@ static int mtk_pcie_monitor_phy(struct phy *phy)
 	phy_table[7] = mtk_pcie_phy_dbg_read_bus(pcie_phy->sif_base, PEXTP_DIG_GLB_10,
 						 0xe2);
 	dev_info(pcie_phy->dev, "phy ln0 probe: 0xe2=%#x\n", phy_table[7]);
+	dev_info(pcie_phy->dev, "phy DIG_LN_RX2_D8=%#x\n",
+		 readl_relaxed(pcie_phy->sif_base + PEXTP_DIG_LN_RX2_D8));
 
 	return 0;
 }
@@ -382,6 +390,13 @@ static int mtk_pcie_phy_probe(struct platform_device *pdev)
 		goto err_probe;
 	}
 
+	ret = of_property_read_u32(dev->of_node, "port-number",
+				   &pcie_phy->port_num);
+	if (ret) {
+		dev_info(dev, "failed to get port number: %d\n", ret);
+		pcie_phy->port_num = ret;
+	}
+
 	return 0;
 
 err_probe:
@@ -431,9 +446,16 @@ static int mtk_pcie_phy_init_6989(struct phy *phy)
 	struct mtk_pcie_phy *pcie_phy = phy_get_drvdata(phy);
 	u32 val;
 
-	val = readl_relaxed(pcie_phy->sif_base + PEXTP_DIG_GLB_20);
-	val &= ~RG_XTP_BYPASS_PIPE_RST;
-	writel_relaxed(val, pcie_phy->sif_base + PEXTP_DIG_GLB_20);
+	if (pcie_phy->port_num == 0) {
+		val = readl_relaxed(pcie_phy->sif_base + PEXTP_DIG_GLB_20);
+		val &= ~RG_XTP_BYPASS_PIPE_RST;
+		writel_relaxed(val, pcie_phy->sif_base + PEXTP_DIG_GLB_20);
+
+		/* Fix AEQ_CYC_SHIFT GEN1 and GEN2 default value */
+		val = readl_relaxed(pcie_phy->sif_base + PEXTP_DIG_LN_RX2_D8);
+		val &= ~RG_XTP_LN_RX_AEQ_CYC_SHIFT;
+		writel_relaxed(val, pcie_phy->sif_base + PEXTP_DIG_LN_RX2_D8);
+	}
 
 	return 0;
 }

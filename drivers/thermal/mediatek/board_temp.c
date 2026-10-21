@@ -20,6 +20,19 @@
 #define get_adc_data(val, bit)            ((val) & GENMASK(bit, 0))
 #define adc_data_to_v_in(val)             (1900 - (((val) * 1000) >> 14))
 
+#if IS_ENABLED(CONFIG_TRAN_HBM_THERMAL_CTL)
+#include <linux/leds-mtk.h>
+extern int g_tran_brightness_level;
+static int tran_hbm_state_updata = 0;
+static int tran_too_hot = 0 ;
+static int tran_last_temp = 0;
+static int tran_last_state = 0;
+static int tran_hbm_shake_num = 0;
+static int hbm_temp_trig = CONFIG_TRAN_HBM_THERMAL_TEMP_TRIG;
+static int hbm_temp_clr = CONFIG_TRAN_HBM_THERMAL_TEMP_CLR;
+#endif
+//SPD Add End!
+
 /**
  * struct tia_data - parameters to parse the data from TIA
  * @valid_bit: valid bit in TIA DATA register
@@ -162,6 +175,26 @@ static unsigned int calculate_r_ntc(unsigned long long v_in,
 	return r_ntc;
 }
 
+#if IS_ENABLED(CONFIG_TRAN_HBM_THERMAL_CTL)
+static void tran_temp_hot(struct board_ntc_info *ntc_info_tmp)
+{
+     char *envp[2] = { "TOO_HOT=1", NULL };
+     kobject_uevent_env(&(ntc_info_tmp->dev->kobj),KOBJ_CHANGE, envp);
+
+}
+static void tran_temp_too_hot(struct board_ntc_info *ntc_info_tmp)
+{
+     char *envp[2] = { "TOO_HOT=2", NULL };
+     kobject_uevent_env(&(ntc_info_tmp->dev->kobj),KOBJ_CHANGE, envp);
+}
+static void tran_temp_cool(struct board_ntc_info *ntc_info_tmp)
+{
+    char *envp[2] = { "COOL_DOWN=1", NULL };
+    kobject_uevent_env(&(ntc_info_tmp->dev->kobj),KOBJ_CHANGE, envp);
+}
+#endif
+//SPD Add End!
+
 static int board_ntc_get_temp(struct thermal_zone_device *tz, int *temp)
 {
 	struct board_ntc_info *ntc_info = (struct board_ntc_info *)tz->devdata;
@@ -230,6 +263,44 @@ RETRY:
 
 	dev_dbg_ratelimited(ntc_info->dev, "val=0x%x, v_in/r_type/r_ntc/t=%llu/%d/%d/%d\n",
 		val, v_in, r_type, r_ntc, *temp);
+#if IS_ENABLED(CONFIG_TRAN_HBM_THERMAL_CTL)
+	if( !strncmp(ntc_info->dev->of_node->name,"thermal-ntc1",12) ) {
+		if(tran_hbm_shake_num < 32) {	//Boot process, data shake
+			if(*temp>hbm_temp_clr) {
+				tran_too_hot=0;
+			} else if(*temp<=hbm_temp_clr) {
+				tran_too_hot=1;
+			}
+			tran_hbm_shake_num++;
+		}
+		if ((g_tran_brightness_level == 255) && (*temp<=hbm_temp_clr) && (tran_hbm_state_updata == 0))
+		{
+			tran_too_hot=0;
+			tran_temp_cool(ntc_info);
+			tran_hbm_state_updata ++;
+		} else if ((g_tran_brightness_level != 255) && (g_tran_brightness_level > 0) && (tran_hbm_state_updata != 0))
+		{
+			tran_hbm_state_updata = 0;
+		}
+		if((*temp>=hbm_temp_trig) && (tran_too_hot!=2) && (tran_last_temp >=hbm_temp_trig)) {
+			tran_too_hot=2;
+			tran_temp_too_hot(ntc_info);
+		}else if((*temp>hbm_temp_clr) && (tran_too_hot==0) && (tran_last_temp > hbm_temp_clr)) {
+			tran_too_hot=1;
+			tran_temp_hot(ntc_info);
+		}else if((*temp<=hbm_temp_clr) && (tran_too_hot!=0) && (tran_last_temp <= hbm_temp_clr)) {
+			tran_too_hot=0;
+			tran_temp_cool(ntc_info);
+		}
+
+		tran_last_temp = *temp;
+		if(tran_last_state != tran_too_hot) {
+			dev_err(ntc_info->dev,"temp= %d,tran_too_hot= %d,trig= %d,clr= %d,",*temp,tran_too_hot,hbm_temp_trig,hbm_temp_clr);
+			tran_last_state = tran_too_hot;
+		}
+	}
+#endif
+//SPD ADD End!
 
 	return 0;
 }
