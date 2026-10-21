@@ -1,0 +1,11 @@
+config TRAN_TD4160_SPI
+    tristate "Transsion td4160 touch ic"
+    default m
+    help
+      Transsion td4160 driver is always built as a module.
+
+config TRAN_TD4376_SPI
+    tristate "Transsion td4376 touch ic"
+    default m
+    help
+      Transsion td4376 driver is always built as a module.

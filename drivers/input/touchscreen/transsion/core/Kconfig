@@ -1,0 +1,5 @@
+config TRAN_TOUCH_CORE
+    tristate "Transsion touch core"
+    default m
+    help
+      Transsion touch core is always built as a module.
