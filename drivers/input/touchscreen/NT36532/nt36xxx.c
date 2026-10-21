@@ -2335,7 +2335,7 @@ static int nvt_charger_notifier_callback(struct notifier_block *nb,unsigned long
 	psy = power_supply_get_by_name("usb");
 	if (!psy) {
 		NVT_ERR("Couldn't get usbpsy\n");
-		return -EINVAL;
+		return NOTIFY_DONE;
 	}
 	if (!strcmp(psy->desc->name, "usb")) {
 		if (psy && ts && val == POWER_SUPPLY_PROP_STATUS) {

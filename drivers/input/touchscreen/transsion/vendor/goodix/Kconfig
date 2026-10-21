@@ -1,0 +1,5 @@
+config TRAN_GT9916_SPI
+    tristate "Transsion gt9916 touch ic"
+    default m
+    help
+      Transsion gt9916 driver is always built as a module.

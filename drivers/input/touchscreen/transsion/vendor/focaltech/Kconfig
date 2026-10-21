@@ -1,0 +1,18 @@
+config TRAN_FT3683G_SPI
+    tristate "Transsion ft3683g touch ic"
+    default m
+    help
+      Transsion ft3683g driver is always built as a module.
+
+config FTS_THREE_IN_ONE
+    bool "Focaltech FTS_THREE_IN_ONE"
+    default n
+    help
+      Say Y here if you have Focaltech touch panel.
+      If unsure, say N.
+
+config TRAN_FOCALTECH_NO_FLASH_COMMON
+    tristate "CONFIG_TRAN_FOCALTECH_NO_FLASH_COMMON"
+    default m
+    help
+      Transsion focaltech no-flash driver is always built as a module.

@@ -1,0 +1,10 @@
+# SPDX-License-Identifier: GPL-2.0-only
+#
+# Touchscreen driver configuration
+#
+
+# core
+source "$(KCONFIG_EXT_PREFIX)drivers/input/touchscreen/transsion/core/Kconfig"
+
+# vendor
+source "$(KCONFIG_EXT_PREFIX)drivers/input/touchscreen/transsion/vendor/Kconfig"
