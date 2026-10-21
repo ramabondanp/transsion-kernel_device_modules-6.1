@@ -1192,7 +1192,7 @@ static inline void dpmaif_updata_max_bat_skb_cnt(struct dpmaif_rx_queue *rxq)
 static int dpmaif_rxq_data_collect(struct dpmaif_rx_queue *rxq)
 {
 	int ret = ALL_CLEAR, real_cnt = 0;
-	unsigned int L2RISAR0, rd_cnt;
+	unsigned int L2RISAR0, rd_cnt, new_cnt;
 
 	if (rxq->index == 0)
 		dpmaif_updata_max_bat_skb_cnt(rxq);
@@ -1210,11 +1210,13 @@ static int dpmaif_rxq_data_collect(struct dpmaif_rx_queue *rxq)
 					L2RISAR0 &= DP_DL_INT_LRO1_QDONE_SET;
 			} else
 				L2RISAR0 &= DPMAIF_DL_INT_QDONE_MSK;
-
-			if (L2RISAR0) {
+			if (L2RISAR0)
 				DPMA_WRITE_PD_MISC(DPMAIF_PD_AP_DL_L2TISAR0, L2RISAR0);
+
+			new_cnt = dpmaif_get_rxq_pit_read_cnt(rxq);
+			if (new_cnt)
 				ret = ONCE_MORE;
-			} else if (real_cnt == rd_cnt)
+			else if (real_cnt == rd_cnt)
 				ret = ALL_CLEAR;
 			else
 				ret = ONCE_MORE;
@@ -1902,7 +1904,7 @@ static inline void dpmaif_set_txq_thread_aff(int *affinity_set, struct dpmaif_tx
 static int dpmaif_txq_done_thread(void *arg)
 {
 	struct dpmaif_tx_queue *txq = (struct dpmaif_tx_queue *)arg;
-	unsigned int L2TISAR0;
+	unsigned int L2TISAR0, new_cnt;
 	int ret, affinity_set = -1;
 
 	while (1) {
@@ -1955,13 +1957,14 @@ static int dpmaif_txq_done_thread(void *arg)
 
 			L2TISAR0 &= (drv.ul_int_qdone_msk &
 					(1 << (txq->index + UL_INT_DONE_OFFSET)));
+			if (L2TISAR0)
+				DPMA_WRITE_PD_MISC(DPMAIF_PD_AP_UL_L2TISAR0, L2TISAR0);
 
-			if (L2TISAR0 && (dpmaif_get_txq_drb_release_cnt(txq) > 0)) {
+			new_cnt = dpmaif_get_txq_drb_release_cnt(txq);
+			if (new_cnt)
 				hrtimer_start(&txq->txq_done_timer,
 					ktime_set(0, 500000), HRTIMER_MODE_REL);
-
-				DPMA_WRITE_PD_MISC(DPMAIF_PD_AP_UL_L2TISAR0, L2TISAR0);
-			} else {
+			else {
 				/* clear IP busy register wake up cpu case */
 				ccci_drv_clear_ip_busy();
 				/* enable tx done interrupt */
@@ -2677,9 +2680,6 @@ static void dpmaif_total_spd_cb(u64 total_ul_speed, u64 total_dl_speed)
 		if (g_page_pool_is_on)
 			atomic_set(&g_create_another_pp, 1);
 #endif
-		if (dpmaif_ctl->support_lro == 1)
-			ccmni_set_tcp_is_need_gro(0);
-
 #ifdef DPMAIF_REDUCE_RX_FLUSH
 		g_rx_flush_pkt_cnt = 100;
 #endif
@@ -2692,9 +2692,6 @@ static void dpmaif_total_spd_cb(u64 total_ul_speed, u64 total_dl_speed)
 		if (g_page_pool_is_on)
 			atomic_set(&g_create_another_pp, 1);
 #endif
-		if (dpmaif_ctl->support_lro == 1)
-			ccmni_set_tcp_is_need_gro(0);
-
 #ifdef DPMAIF_REDUCE_RX_FLUSH
 		g_rx_flush_pkt_cnt = 60;
 #endif
@@ -2707,9 +2704,6 @@ static void dpmaif_total_spd_cb(u64 total_ul_speed, u64 total_dl_speed)
 		if (g_page_pool_is_on)
 			atomic_set(&g_create_another_pp, 1);
 #endif
-		if (dpmaif_ctl->support_lro == 1)
-			ccmni_set_tcp_is_need_gro(0);
-
 #ifdef DPMAIF_REDUCE_RX_FLUSH
 		g_rx_flush_pkt_cnt = 30;
 #endif
@@ -2722,9 +2716,6 @@ static void dpmaif_total_spd_cb(u64 total_ul_speed, u64 total_dl_speed)
 		if (g_page_pool_is_on)
 			atomic_set(&g_create_another_pp, 1);
 #endif
-		if (dpmaif_ctl->support_lro == 1)
-			ccmni_set_tcp_is_need_gro(1);
-
 #ifdef DPMAIF_REDUCE_RX_FLUSH
 		g_rx_flush_pkt_cnt = 20;
 #endif
@@ -2737,9 +2728,6 @@ static void dpmaif_total_spd_cb(u64 total_ul_speed, u64 total_dl_speed)
 		if (g_page_pool_is_on)
 			atomic_set(&g_create_another_pp, 1);
 #endif
-		if (dpmaif_ctl->support_lro == 1)
-			ccmni_set_tcp_is_need_gro(1);
-
 #ifdef DPMAIF_REDUCE_RX_FLUSH
 		g_rx_flush_pkt_cnt = 0;
 #endif
@@ -2762,9 +2750,6 @@ static void dpmaif_total_spd_cb(u64 total_ul_speed, u64 total_dl_speed)
 				g_alloc_skb_tbl_threshold = MIN_ALLOC_SKB_TBL_CNT;
 			g_alloc_frg_tbl_threshold = MIN_ALLOC_FRG_TBL_CNT;
 		}
-		if (dpmaif_ctl->support_lro == 1)
-			ccmni_set_tcp_is_need_gro(1);
-
 #ifdef DPMAIF_REDUCE_RX_FLUSH
 		g_rx_flush_pkt_cnt = 0;
 #endif
@@ -2790,7 +2775,6 @@ static int dpmaif_init_cap(struct device *dev)
 		dpmaif_ctl->support_lro = 1;
 		dpmaif_ctl->support_2rxq = 1;
 		dpmaif_ctl->max_pit_seq = 0xFF;
-		ccmni_set_tcp_is_need_gro(1);
 	} else {
 		dpmaif_ctl->real_rxq_num = 1;
 		dpmaif_ctl->max_pit_seq = 0xFE;
