@@ -23,4 +23,14 @@ config DEVICE_MODULES_KEYBOARD_MTK_PMIC
 	  To compile this driver as a module, choose M here: the
 	  module will be called mtk-pmic-keys.
 
+config TRAN_AI_KEY_SUPPORT
+	tristate "tran AI key support"
+	depends on KEYBOARD_MTK_KPD
+	help
+	  Say Y here if you want to use the KPCOL1 as AI key on mt6897.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called.
+
 endif
+source "$(KCONFIG_EXT_PREFIX)drivers/input/keyboard/aw9620x/Kconfig"

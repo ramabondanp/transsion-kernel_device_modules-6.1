@@ -110,6 +110,7 @@ static void enable_kpd(void __iomem *kp_base, int en)
 	writew((u16)(en), kp_base + KP_EN);
 }
 
+
 static void kpd_keymap_handler(unsigned long data)
 {
 	int i, j;
@@ -213,11 +214,15 @@ static int kpd_get_dts_info(struct mtk_keypad *keypad,
 		pr_notice("hw-init-map was not defined in dts.\n");
 		return ret;
 	}
-
+/*On the mt6897, KPCOL1 is designed as an AI key, which needs to report a 605 key value*/
+#if IS_ENABLED(CONFIG_TRAN_AI_KEY_SUPPORT)
+	keypad->hw_init_map[1] = 605;
+#endif
 	pr_notice("deb= %d\n", keypad->key_debounce);
 
 	return 0;
 }
+
 
 static int kpd_pdrv_probe(struct platform_device *pdev)
 {
@@ -336,6 +341,7 @@ static int kpd_pdrv_probe(struct platform_device *pdev)
 
 	platform_set_drvdata(pdev, keypad);
 	enable_kpd(keypad->base, 1);
+
 
 	return 0;
 
