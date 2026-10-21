@@ -1,0 +1,6 @@
+config TC_LEDS_PDLC
+        tristate "enable Polymer Dispersed Liquid Crystal func"
+    default n
+    help
+        enable Polymer Dispersed Liquid Crystal func.
+        If you need this func, set it to Y.
