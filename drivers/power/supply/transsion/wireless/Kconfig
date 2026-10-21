@@ -1,0 +1,14 @@
+config CHARGER_CPS4021
+	tristate "Charger Driver for cps4021 Charger IC"
+	default n
+    depends on TC_CHARGER
+
+config CHARGER_MT5728
+	tristate "Charger Driver for mt5728 Charger IC"
+	default n
+    depends on TC_CHARGER
+
+config WIRELESS_MANAGER
+	tristate "Charger Driver for wireless common algo"
+	default n
+    depends on TC_CHARGER
