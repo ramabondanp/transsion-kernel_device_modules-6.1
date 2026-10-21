@@ -1,3 +1,11 @@
 # SPDX-License-Identifier: GPL-2.0-only
 
+#SDD:add for tnek.ko by yanbin.zhang 2024/07/18 start
+source "drivers/misc/transsion/Kconfig"
+#SDD:add for tnek.ko by yanbin.zhang 2024/07/18 end
 source "drivers/misc/mediatek/Kconfig"
+
+
+source "drivers/misc/hiber/Kconfig"
+
+
