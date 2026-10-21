@@ -32,6 +32,10 @@
 #define MAX_DEBUG_WRITE_INPUT 256
 #define CODEC_SYS_DEBUG_SIZE (1024 * 32)
 
+#if IS_ENABLED(CONFIG_TRAN_AUDIO_CONTROL)
+extern void tran_audio_add_codec_controls(struct snd_soc_component *cmpnt);
+#endif
+
 static unsigned int bypass_vant18;
 
 static ssize_t mt6369_codec_sysfs_read(struct file *filep, struct kobject *kobj,
@@ -40,7 +44,6 @@ static ssize_t mt6369_codec_sysfs_read(struct file *filep, struct kobject *kobj,
 static ssize_t mt6369_codec_sysfs_write(struct file *filp, struct kobject *kobj,
 					struct bin_attribute *bin_attr,
 					char *buf, loff_t off, size_t count);
-
 
 /* static function declaration */
 static void mt6369_set_gpio_smt(struct mt6369_priv *priv)
@@ -4104,7 +4107,7 @@ static const struct snd_soc_dapm_route mt6369_dapm_routes[] = {
 	{"DACR", NULL, "DL Power Supply"},
 
 	/* Lineout Path */
-	{"LOL Mux", "Playback", "DACR"},
+	{"LOL Mux", "Playback_L_DAC", "DACL"},
 	{"LINEOUT L", NULL, "LOL Mux"},
 
 	/* Headphone Path */
@@ -4128,7 +4131,7 @@ static const struct snd_soc_dapm_route mt6369_dapm_routes[] = {
 	{"Headphone R Ext Spk Amp", NULL, "HPR Mux"},
 
 	/* Receiver Path */
-	{"RCV Mux", "Voice Playback", "DACL"},
+	{"RCV Mux", "Voice Playback", "DACR"},
 	{"Receiver", NULL, "RCV Mux"},
 
 	/* VOW */
@@ -5906,6 +5909,9 @@ static int mt6369_codec_probe(struct snd_soc_component *cmpnt)
 				       mt6369_snd_vow_controls,
 				       ARRAY_SIZE(mt6369_snd_vow_controls));
 
+#if IS_ENABLED(CONFIG_TRAN_AUDIO_CONTROL)
+	tran_audio_add_codec_controls(cmpnt);
+#endif
 	priv->hp_current_calibrate_val = get_hp_current_calibrate_val(priv);
 
 	return mt6369_codec_init_reg(cmpnt);
