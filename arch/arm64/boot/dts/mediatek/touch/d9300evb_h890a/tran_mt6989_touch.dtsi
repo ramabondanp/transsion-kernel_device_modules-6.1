@@ -1,0 +1,139 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Copyright (c) 2022 MediaTek Inc.
+ */
+/********************************************
+ * MT6989 TOUCH/VIBR/KEY DTSI File
+ ********************************************/
+#include <dt-bindings/gpio/gpio.h>
+
+&chosen {
+	lra,info = <1 3 81>;//type:(1:X-lra 2:Z-lra)  bus_num:i2c3  reset_gpio:gpio81
+};
+
+&mt6363keys {
+	home {
+		linux,keycodes = <114>;
+	};
+};
+
+/* TOUCH start */
+/* main tp */
+&touch {
+	supplier-num = <1>;
+	supplier-vendor-0 = "CSOT";
+	supplier-0 = "any, goodix, gt9966";
+	supplier-resolution-0 = <16>;
+};
+
+/* sub tp */
+&touch_panel0{
+	supplier-num = <1>;
+	supplier-vendor-0 = "CSOT";
+	supplier-0 = "any, focaltech, ft3683g";
+	supplier-resolution-0 = <16>;
+};
+
+/* sub tp */
+&spi5{
+	focaltech@0 {
+		compatible = "focaltech,fts";
+		status = "ok";
+		reg = <0>;
+		spi-max-frequency = <5000000>;
+		interrupt-parent = <&pio>;
+		interrupts = <208 IRQ_TYPE_EDGE_FALLING 208 0>;
+		focaltech,reset-gpio = <&pio 209 0x0>;
+		focaltech,irq-gpio = <&pio 208 0x0>;
+		focaltech,max-touch-number = <10>;
+		focaltech,display-coords =  <0 0 20223 44479>;
+		vtouch-supply = <&DIO8018LDO71>;
+		//vcc_i2c-supply = <&DIO8018LDO41>;
+	};
+};
+
+/* main tp */
+&spi6{
+	gt9966@0 {
+		compatible = "goodix,brl-b";
+		status = "ok";
+		reg = <0>;
+		spi-max-frequency = <5000000>;
+		interrupt-parent = <&pio>;
+		//vtouch-supply = <&ET5904LDO31>; /* tp主屏3.3v */
+		//goodix,avdd-name = "vtouch";
+		goodix,iovdd-gpio = <&pio 202 0x0>; /* tp主屏1.8v */
+		goodix,avdd-gpio = <&pio 201 0x0>;
+		goodix,reset-gpio = <&pio 3 0x0>;
+		goodix,irq-gpio = <&pio 4 0x0>;
+		goodix,irq-flags = <2>; /* 1:rising, 2:falling;*/
+		interrupts = <4 IRQ_TYPE_EDGE_FALLING 4 0>;
+		goodix,panel-max-id = <10>;
+		goodix,panel-max-x = <36736>;//32000
+		goodix,panel-max-y = <32000>;//36736
+		goodix,panel-max-w = <256>;
+		goodix,panel-max-p = <4095>;
+		//goodix,input-max-x = <32000>;
+		//goodix,input-max-y = <36736>;
+		//goodix,panel-key-map = <158 172 217>; /*BACK,HOMEPAGE,SEARCH*/
+		goodix,power-on-delay-us = <10000>; /*10ms*/
+		goodix,power-off-delay-us = <5000>;
+		goodix,firmware-name = "goodix_firmware.bin";
+		goodix,config-name = "goodix_cfg_group.bin";
+		/*goodix,swap-axis;*/
+		/*goodix,x2x;*/
+		/*goodix,y2y;*/
+		//goodix,pen-enable;
+		//goodix,key-of-pen = <331 332>;/*BTN_STYLUS, BTN_STYLUS2*/
+		//tpd-filter-enable = <0>;
+		//tpd-filter-pixel-density = <161>;
+		//tpd-filter-custom-prameters = <0 0 0 0 0 0 0 0 0 0 0 0>;
+		//tpd-filter-custom-speed = <0 0 0>;
+	};
+};
+/* TOUCH end */
+
+/*Expand IO start*/
+&i2c0 {
+	status = "ok";
+	aw95016_ex@20 {
+		compatible = "awinic,aw95016";
+		reg = <0x20>;
+		reset-gpio = <&pio 89 0>; //rst gpio
+		irq-gpio = <&pio 18 0>; //irq gpio
+		status = "okay";
+	};
+};
+/*Expand IO end*/
+
+/* RT6010 Haptic start */
+&i2c3 {
+	ics_haptic@5f {
+		compatible = "ics,haptic_rt";
+		reg = <0x5f>;
+		interrupt-parent = <&pio>;
+		interrupts = <82 IRQ_TYPE_EDGE_FALLING 82 0>;
+		device-name = "vibrator_single";
+		richtap-name = "aac_richtap_5f";
+		gpio-en = <&pio 81 0>;
+		gpio-irq = <&pio 82 0>;
+		status = "ok";
+		// rt6010 chip configuration
+		rt6010_chip_id = <0x6B>;
+		rt6010_reg_size = <0x6C>;
+		rt6010_ram_size = <0x600>;
+		rt6010_sys_f0 = <1700>;
+		rt6010_list_base_addr = <0x400>;
+		rt6010_wave_base_addr = <0x420>;
+		rt6010_fifo_ae = <0x200>;
+		rt6010_fifo_af = <0x300>;
+		rt6010_boost_mode = <0x00>;
+		rt6010_boost_vol = <0x0A>;
+		rt6010_gain = <0x80>;
+		rt6010_brake_en = <0>;
+		rt6010_brake_wave_no = <0>;
+		rt6010_brake_const = <0>;
+		rt6010_brake_acq_point = <0>;
+	};
+};
+/* RT6010 Haptic end */

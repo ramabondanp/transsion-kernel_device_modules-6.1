@@ -1,0 +1,39 @@
+// SPDX-FileCopyrightText: 2024 Infineon Technologies AG
+//
+// SPDX-License-Identifier: MIT
+
+&odm {
+       authon_device_1: authon_device_1 {
+		compatible = "optiga_authon,optiga_authon_dev";
+		status = "okay";
+		power-mode = "indirect";
+		baud-low-value = <40>;
+		baud-high-value = <120>;
+		baud-stop-value = <200>;
+		response-timeout-value = <4500>;
+		wake-up-delay-value = <7000>;
+		wake-up-low-value = <10>;
+		reset-delay-value = <1000>;
+		swi-gpios = <&pio 168 0>;
+		//boardver-gpios = <&pio 59 0>;
+		boardver-gpios-not-support;
+
+		pinctrl-names ="opt_authon_default","opt_authon_8mA";
+		pinctrl-0 = <&swi_gpio_default>;
+		pinctrl-1 = <&swi_gpio_8mA>;
+       };
+};
+
+&pio {
+	swi_gpio_default: swi_gpio_default {
+	};
+
+	swi_gpio_8mA: swi_gpio_8mA {
+	        pins_cmd_dat {
+	                pinmux = <PINMUX_GPIO168__FUNC_GPIO168>;
+	                slew-rate = <1>;
+			mediatek,drive-strength-adv = <0>; /* disable EH feature,use gpio driving mode */
+	                drive-strength = <3>; /*0-16: 0:2ma 1:4ma 2:6ma 3:8ma......7:16ma*/
+	        };
+	};
+};

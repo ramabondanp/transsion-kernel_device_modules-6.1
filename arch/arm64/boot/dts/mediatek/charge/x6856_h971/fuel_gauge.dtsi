@@ -1,0 +1,38 @@
+&i2c12 {
+	#address-cells = <1>;
+	#size-cells = <0>;
+
+	clock-frequency = <100000>;
+	nfg1000_master:nfg1000_master@55 {
+		compatible = "nfg,nfg1000_master";
+		status = "okay";
+		reg = <0x55>;
+		bootmode = <&chosen>;
+		tran_Q_max = <5200>;
+		pinctrl-names = "i2c_scl_gpio_init", "i2c_sda_gpio_init";
+		pinctrl-0 = <&gpio_master_i2c_sclk_mode>;
+		pinctrl-1 = <&gpio_master_i2c_sda_mode>;
+		nfg1000_ad_data_len_m = <61440>; //60KB *1024 
+		i2c_support_dma;
+		chemic_id_err_recovery;
+		fg_chemic_id = "476584D";
+	};
+};
+
+&pio {
+	gpio_master_i2c_sclk_mode: gpio_master_i2c_sclk_mode {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO161__FUNC_SCL12>;
+			drive-strength = <4>;
+			bias-pull-up = <MTK_PULL_SET_RSEL_001>;
+		};
+	};
+	gpio_master_i2c_sda_mode: gpio_master_i2c_sda_mode {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO162__FUNC_SDA12>;
+			drive-strength = <4>;
+			bias-pull-up = <MTK_PULL_SET_RSEL_001>;
+		};
+	};
+
+};

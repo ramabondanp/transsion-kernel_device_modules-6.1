@@ -4,6 +4,22 @@
  */
 &connfem {
 	epa-elna-mtk {
+		parts = <&rtc7620 &nofem>;	/* [0]Richwave eFEM - Closed-Loop */
+
+		wifi {
+			flags-0 {
+				/* open-loop; */
+			};
+		};
+
+		bt {
+			flags-0 {
+				/* choose one of: epa-elna / epa / elna / bypass */
+				epa-elna;
+			};
+		};
+
+#if 0
 		parts = <&nofem &nofem>,		/* [0]iPA/iLNA MT6631 */
 			<&nofem &nofem>,		/* [1]iPA/iLNA MT6631/MT6686 */
 			<&nofem &nofem>,		/* [2]iPA/iLNA MT6637 */
@@ -12,7 +28,10 @@
 			<&sky85320 &sky85720>,		/* [5]MT6631/MT6686, Skyworks eFEM - Closed-Loop */
 			<&qm42195 &qm45197>,		/* [6]MT6637, Qorvo eFEM - Closed-Loop */
 			<&wlan7207h &wlan7207c>,	/* [7]MT6637, NXP eFEM - Closed-Loop */
-			<&nofem &qm45197>;		/* [8]MT6637, Qorvo eFEM - Closed-Loop */
+			<&nofem &sky85732>,		/* [8]Skyworks eFEM - Closed-Loop */
+			<&nofem &sky85732>,		/* [9]Skyworks eFEM - Closed-Loop + BT Bypass */
+			<&nofem &qm45197>,		/* [10]MT6637, Qorvo eFEM - Closed-Loop */
+			<&rtc7620 &nofem>;		/* [11]Richwave eFEM - Closed-Loop */
 
 		hwid {
 			gpio = <&pio 131 0x0>,
@@ -37,6 +56,15 @@
 				/* open-loop; */
 			};
 			flags-8 {
+				/* open-loop; */
+			};
+			flags-9 {
+				/* open-loop; */
+			};
+			flags-10 {
+				/* open-loop; */
+			};
+			flags-11 {
 				/* open-loop; */
 			};
 		};
@@ -65,6 +93,19 @@
 				/* choose one of: epa-elna / epa / elna / bypass */
 				epa-elna;
 			};
+			flags-9 {
+				/* choose one of: epa-elna / epa / elna / bypass */
+				bypass;
+			};
+			flags-10 {
+				/* choose one of: epa-elna / epa / elna / bypass */
+				epa-elna;
+			};
+			flags-11 {
+				/* choose one of: epa-elna / epa / elna / bypass */
+				epa-elna;
+			};
 		};
+#endif
 	};
 };

@@ -1,0 +1,113 @@
+&i2c12 {
+	#address-cells = <1>;
+	#size-cells = <0>;
+	clock-frequency = <100000>;
+	hl7139a_master@5f {
+		compatible = "richtek,hl7139a";
+		status = "okay";
+		reg = <0x5f>;
+		rm_name = "hl7139a";
+		rm_slave_addr = /bits/ 8 <0x5f>;
+		hl7139a,intr-gpios = <&pio 27 0x0>;
+		standalone {
+			chg_name = "primary_dvchg";
+			vbatovp = <4550000>;
+			ibatocp = <8600000>;
+			vbusovp = <11000000>;
+			ibusocp = <4300000>;
+			vinovp = <11000000>;
+			wdt = <40000000>;
+			ibat_rsense = <1>; /* 1: 5mohm, 0: 2mohm */
+			i2c_vil_up = <1>; /* I2C VIL/VIH shift up:0b = 0.4V/0.85V 1b = 0.8V/1.3V */
+			lt_wd_tmr = <3>; /*level-shft watch dog: 0:5ms 1:20ms 2:100ms 3:disable*/
+			gpp_conf = <0>;
+			fsw_val = <6>; /* default 0=500khz,1=600,2=700,...,5=1mhz,6=1.1mhz */
+			/*state_chg_i_masked;*/
+			/*reg_i_masked;*/
+			/*ts_temp_i_masked;*/
+			/*v_ok_i_masked;*/
+			/*cur_i_masked;*/
+			/*short_i_masked;*/
+			/*wdog_i_masked;*/
+			protocol_i_masked;
+			vbat_reg_dis;
+			ibat_reg_dis;
+			iin_reg_dis;
+			tdie_reg_dis;
+			/*track_ov_dis;*/
+			/*track_uv_dis;*/
+			/*vbatovp_dis;*/
+			ibatocp_dis;
+			/*ibusocp_dis;*/
+			/* wdt_dis; */
+			/* tsbusotp_dis; */
+			/* tsbatotp_dis; */
+			/* tdieotp_dis; */
+			/* reg_en; */
+			/* voutovp_dis; */
+			/* ibusadc_dis; */
+			/* vbusadc_dis; */
+			/* vacadc_dis; */
+			/* voutadc_dis; */
+			/* vbatadc_dis; */
+			/* ibatadc_dis; */
+			/* tsbusadc_dis; */
+			/* tsbatadc_dis; */
+			/* tdieadc_dis; */
+		};
+	};
+
+	hl7139a_master@5e {
+		compatible = "richtek,hl7139a";
+		status = "okay";
+		reg = <0x5e>;
+		rm_name = "hl7139a";
+		rm_slave_addr = /bits/ 8 <0x5e>;
+		hl7139a,intr-gpios = <&pio 27 0x0>;
+		standalone {
+			chg_name = "primary_dvchg";
+			vbatovp = <4550000>;
+			ibatocp = <8600000>;
+			vbusovp = <11000000>;
+			ibusocp = <4300000>;
+			vinovp = <11000000>;
+			wdt = <40000000>;
+			ibat_rsense = <1>; /* 1: 5mohm, 0: 2mohm */
+			i2c_vil_up = <1>; /* I2C VIL/VIH shift up:0b = 0.4V/0.85V 1b = 0.8V/1.3V */
+			lt_wd_tmr = <3>; /*level-shft watch dog: 0:5ms 1:20ms 2:100ms 3:disable*/
+			gpp_conf = <0>;
+			/*state_chg_i_masked;*/
+			/*reg_i_masked;*/
+			/*ts_temp_i_masked;*/
+			/*v_ok_i_masked;*/
+			/*cur_i_masked;*/
+			/*short_i_masked;*/
+			/*wdog_i_masked;*/
+			protocol_i_masked;
+			vbat_reg_dis;
+			ibat_reg_dis;
+			iin_reg_dis;
+			tdie_reg_dis;
+			/*track_ov_dis;*/
+			/*track_uv_dis;*/
+			/*vbatovp_dis;*/
+			ibatocp_dis;
+			/*ibusocp_dis;*/
+			/* wdt_dis; */
+			/* tsbusotp_dis; */
+			/* tsbatotp_dis; */
+			/* tdieotp_dis; */
+			/* reg_en; */
+			/* voutovp_dis; */
+			/* ibusadc_dis; */
+			/* vbusadc_dis; */
+			/* vacadc_dis; */
+			/* voutadc_dis; */
+			/* vbatadc_dis; */
+			/* ibatadc_dis; */
+			/* tsbusadc_dis; */
+			/* tsbatadc_dis; */
+			/* tdieadc_dis; */
+		};
+	};
+};

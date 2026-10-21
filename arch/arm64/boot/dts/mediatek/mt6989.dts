@@ -1342,6 +1342,7 @@
 	mcupm: mcupm@c070000 {
 		compatible = "mediatek,mcupm";
 		mbox-extend = <16>;
+		mpmm-node-support = <1>;
 		reg = <0 0x0c070000 0 0x50000>,
 			  <0 0x0c0df600 0 0xa0>,
 			  <0 0x0c072004 0 0x4>,
@@ -1490,12 +1491,12 @@
 		interrupts = <GIC_PPI 7 IRQ_TYPE_LEVEL_HIGH &ppi_cluster2>;
 	};
 	pmu_hunter_elp: pmu-hunter-elp {
-		compatible = "arm,armv8-pmuv3";
+		compatible = "arm,cortex-x2-pmu";
 		interrupt-parent = <&gic>;
 		interrupts = <GIC_PPI 7 IRQ_TYPE_LEVEL_HIGH &ppi_cluster1>;
 	};
 	pmu_hunter: pmu-hunter {
-		compatible = "arm,armv8-pmuv3";
+		compatible = "arm,cortex-a710-pmu";
 		interrupt-parent = <&gic>;
 		interrupts = <GIC_PPI 7 IRQ_TYPE_LEVEL_HIGH &ppi_cluster0>;
 	};
@@ -1534,10 +1535,13 @@
 		interrupt-names = "rcs_irq","rcs_irq_p","pmif_irq","spmi_nack_irq","pmif_p_irq","spmi_p_nack_irq";
 		interrupt-controller;
 		#interrupt-cells = <1>;
-		irq-event-en = <0xc0000000 0x0 0x0 0x1f800000 0x0>;
+		irq-event-en = <0xc0000000 0x200 0x0 0x1f800000 0x0>;
+		irq-event-en-p = <0xc0000000 0x130c 0x0 0x0 0x0>;
 		spmi-dev-mask = <0x85e0>;
 		#address-cells = <2>;
 		#size-cells = <0>;
+		hwinf-err-irq-idx = <0x20 0x2e>;
+		swinf-err-irq-idx = <0x6b 0x70>;
 	};
 
 	spmi_pmif_mpu: spmi-pmif-mpu@1cc04900 {
@@ -1957,6 +1961,8 @@
 		compatible = "mediatek,teeperf";
 		cpu-type = <1>; /* 1: CPU_V9_TYPE, 2: CPU_V8_TYPE */
 		cpu-map = <1>; /* 1: CPU_4_3_1_MAP, 2: CPU_6_2_MAP */
+		cpu-little-index = <15>;
+		cpu-big-index = <24>;
 	};
 
 	mtee_svp: mtee-svp {
@@ -2011,6 +2017,10 @@
 		emi-alignment = <0x100000>; /* defined in consys */
 		emi-min-addr = <0x40000000>; /* defined in consys */
 		emi-max-addr = <0xa0000000>; /* defined in consys */
+	};
+
+	connsys_emi_config: connsys-emi-config {
+		emi-config-support = <0>;
 	};
 
 	connv3: connv3 {
@@ -2842,6 +2852,7 @@
 		reg = <0 0x1a005000 0 0x1000>;
 		mediatek,smi-supply = <&smi_disp_common 0>;
 		mediatek,common-id = <26>;
+		flow-ctrl-dbg;
 		power-domains = <&scpsys MT6989_POWER_DOMAIN_CAM_MAIN>;
 		clocks = <&camsys_main_clk CLK_CAM_MAIN_CAM2MM0_GALS>;
 		clock-names = "apb";
@@ -2853,6 +2864,7 @@
 		reg = <0 0x1a006000 0 0x1000>;
 		mediatek,smi-supply = <&smi_mdp_common 0>;
 		mediatek,common-id = <27>;
+		flow-ctrl-dbg;
 		power-domains = <&scpsys MT6989_POWER_DOMAIN_CAM_MAIN>;
 		clocks = <&camsys_main_clk CLK_CAM_MAIN_CAM2MM1_GALS>;
 		clock-names = "apb";
@@ -2864,6 +2876,7 @@
 		reg = <0 0x1b203000 0 0x1000>;
 		mediatek,smi-supply = <&smi_mdp_common 0>;
 		mediatek,common-id = <28>;
+		flow-ctrl-dbg;
 		power-domains = <&scpsys MT6989_POWER_DOMAIN_CAM_VCORE>;
 		clocks = <&cam_vcore_clk CLK_CAM_V_MM0_SUBCOMM>;
 		clock-names = "apb";
@@ -2907,6 +2920,7 @@
 			"mediatek,mt6989-smi-larb", "mediatek,smi-larb";
 		reg = <0 0x1a026000 0 0x1000>;
 		mediatek,smi-supply = <&smi_cam_sub_comm0 0>;
+		mediatek,comm-port-id = <0>;
 		mediatek,larb-id = <16>;
 		power-domains = <&scpsys MT6989_POWER_DOMAIN_CAM_SUBA>;
 		clocks = <&camsys_main_clk CLK_CAM_MAIN_CAM_SUBA>,
@@ -2919,6 +2933,7 @@
 			"mediatek,mt6989-smi-larb", "mediatek,smi-larb";
 		reg = <0 0x1a028000 0 0x1000>;
 		mediatek,smi-supply = <&smi_cam_sub_comm2 0>;
+		mediatek,comm-port-id = <1>;
 		mediatek,larb-id = <43>;
 		power-domains = <&scpsys MT6989_POWER_DOMAIN_CAM_SUBB>;
 		clocks = <&camsys_main_clk CLK_CAM_MAIN_CAM_SUBB>,
@@ -2931,6 +2946,7 @@
 			"mediatek,mt6989-smi-larb", "mediatek,smi-larb";
 		reg = <0 0x1a02a000 0 0x1000>;
 		mediatek,smi-supply = <&smi_cam_sub_comm0 0>;
+		mediatek,comm-port-id = <1>;
 		mediatek,larb-id = <44>;
 		power-domains = <&scpsys MT6989_POWER_DOMAIN_CAM_SUBC>;
 		clocks = <&camsys_main_clk CLK_CAM_MAIN_CAM_SUBC>,
@@ -2943,6 +2959,7 @@
 			"mediatek,mt6989-smi-larb", "mediatek,smi-larb";
 		reg = <0 0x1a027000 0 0x1000>;
 		mediatek,smi-supply = <&smi_cam_sub_comm2 0>;
+		mediatek,comm-port-id = <2>;
 		mediatek,larb-id = <17>;
 		power-domains = <&scpsys MT6989_POWER_DOMAIN_CAM_SUBA>;
 		clocks = <&camsys_main_clk CLK_CAM_MAIN_CAM_SUBA>,
@@ -2955,6 +2972,7 @@
 			"mediatek,mt6989-smi-larb", "mediatek,smi-larb";
 		reg = <0 0x1a029000 0 0x1000>;
 		mediatek,smi-supply = <&smi_cam_sub_comm0 0>;
+		mediatek,comm-port-id = <2>;
 		mediatek,larb-id = <45>;
 		power-domains = <&scpsys MT6989_POWER_DOMAIN_CAM_SUBB>;
 		clocks = <&camsys_main_clk CLK_CAM_MAIN_CAM_SUBB>,
@@ -2967,6 +2985,7 @@
 			"mediatek,mt6989-smi-larb", "mediatek,smi-larb";
 		reg = <0 0x1a02b000 0 0x1000>;
 		mediatek,smi-supply = <&smi_cam_sub_comm2 0>;
+		mediatek,comm-port-id = <3>;
 		mediatek,larb-id = <46>;
 		power-domains = <&scpsys MT6989_POWER_DOMAIN_CAM_SUBC>;
 		clocks = <&camsys_main_clk CLK_CAM_MAIN_CAM_SUBC>,
@@ -4906,7 +4925,7 @@
 			mpu-base-clear = <1>;
 		};
 
-		slc-parity@10342000 {
+		slcparity: slc-parity@10342000 {
 			compatible = "mediatek,common-slc-parity";
 			reg = <0 0x10342000 0 0x1000>,
 				<0 0x10343000 0 0x1000>;
@@ -4916,6 +4935,7 @@
 			cs-num = <2>;
 			chn-num = <2>;
 			clear = <0x014>;
+			assert = <0>;
 		};
 
 		ktf-emislc-test {
@@ -6075,6 +6095,8 @@
 			compatible = "mediatek,mmdvfs-debug";
 			debug-version = <2>; /* OR operation of (1 << MMDVFS_DBG_VERx) */
 			vcore-supply = <&mt6316_8_vbuck1>;
+			vmm-pmic-supply = <&mt6363_vbuck2>;
+			vdisp-pmic-supply = <&mt6363_vbuck1>;
 			fmeter-id =	/bits/ 8 <15 16 17 19 20 23 26 27 28 2>;
 			fmeter-type =	/bits/ 8 < 5  5  5  5  5  5  5  5  5 4>;
 			clk-base = <0x10000000>;
@@ -6178,6 +6200,9 @@
 			pre-define-bw = <0xffffffff>, <4200>, <0>, <2700>;
 			crtc-ovl-usage = <0xe0>, <0x2>, <0x2>, <0x4>;
 
+			nvmem-cells = <&efuse_segment>;
+			nvmem-cell-names = "efuse_seg_disp_cell";
+
 			default-emi-eff = <8500>;
 			emi-eff-lp5-table =
 				<2964 3648 5110 5795 6388 7066 7215 7849
@@ -6245,6 +6270,7 @@
 				"disp_token_cabc_eof0",
 				"disp_token_cabc_eof1",
 				"disp_token_cabc_eof3",
+				"disp_token_vdo_cabc_eof0",
 				"disp_wdma0_eof2",
 				"disp_wait_dp_intf0_te",
 				"disp_dp_intf0_eof",
@@ -6294,6 +6320,7 @@
 				<&gce CMDQ_SYNC_TOKEN_CABC_EOF>,
 				<&gce CMDQ_SYNC_TOKEN_CABC_EOF_1>,
 				<&gce CMDQ_SYNC_TOKEN_CABC_EOF_3>,
+				<&gce CMDQ_SYNC_TOKEN_VDO_MODE_CABC_EOF>,
 				<&gce CMDQ_EVENT_DISP1_DISP_WDMA2_FRAME_DONE>,
 				<&gce CMDQ_EVENT_DISP1_DISP_DP_INTF0_SOF>,
 				<&gce CMDQ_EVENT_DISP1_DISP_DP_INTF0_FRAME_DONE>,
@@ -6399,7 +6426,8 @@
 				"MTK_DRM_OPT_SLC_ALL_CACHE",
 				"MTK_DRM_OPT_OVL_WCG_BY_COLOR_MODE",
 				"MTK_DRM_OPT_OVLSYS_CASCADE",
-				"MTK_DRM_OPT_PER_LARB_PORT_PEAK";
+				"MTK_DRM_OPT_PER_LARB_PORT_PEAK",
+				"MTK_DRM_OPT_MML_DL_SUB_CFG_CLINET";
 
 			helper-value = <0>, /*MTK_DRM_OPT_STAGE*/
 				<1>, /*MTK_DRM_OPT_USE_CMDQ*/
@@ -6427,7 +6455,7 @@
 				<1>, /*MTK_DRM_OPT_HRT_MODE*/
 				<0>, /*MTK_DRM_OPT_DELAYED_TRIGGER*/
 				<1>, /*MTK_DRM_OPT_OVL_EXT_LAYER*/
-				<0>, /*MTK_DRM_OPT_AOD*/
+				<1>, /*MTK_DRM_OPT_AOD*/
 				<1>, /*MTK_DRM_OPT_RPO*/
 				<0>, /*MTK_DRM_OPT_DUAL_PIPE*/
 				<0>, /*MTK_DRM_OPT_DC_BY_HRT*/
@@ -6481,7 +6509,8 @@
 				<1>, /*MTK_DRM_OPT_SLC_ALL_CACHE*/
 				<0>, /*MTK_DRM_OPT_OVL_WCG_BY_COLOR_MODE*/
 				<0>, /*"MTK_DRM_OPT_OVLSYS_CASCADE"*/
-				<1>; /*"MTK_DRM_OPT_PER_LARB_PORT_PEAK"*/
+				<1>, /*"MTK_DRM_OPT_PER_LARB_PORT_PEAK"*/
+				<0>; /*"MTK_DRM_OPT_MML_DL_SUB_CFG_CLINET"*/
 
 		};
 
@@ -9163,11 +9192,22 @@
 			pinctrl-4 = <&wf_rst_pta_uart_off>;
 			conninfra-emi-addr = <0>;
 			conninfra-emi-size = <0xc00000>;
+			ppb-emi-offset = <0x015a07f0>;
 			#thermal-sensor-cells = <1>;
 			interconnects = <&dvfsrc MT6873_MASTER_MCUSYS &dvfsrc MT6873_SLAVE_DDR_EMI>;
 			interconnect-names = "wifi-perf-bw";
 			required-opps = <&dvfsrc_freq_opp0>,
 					<&dvfsrc_freq_opp1>;
+		};
+
+		wifi_tx_cma: wifi-tx-cma {
+			compatible = "mediatek,wifi_tx_cma";
+			emi-size = <0x5400000>;
+		};
+
+		wifi_misc: wifi-misc {
+			compatible = "mediatek,wifi_misc";
+			emi-size = <0xa0000>;
 		};
 
 		wifi_page_pool: wifi-page-pool {
@@ -11438,7 +11478,7 @@
 			ipic-ap2adsp-chn = <15>;
 
 			core-num = <2>;    /* core number */
-			adsp-rsv-ipidma-a = <0x100000>;
+			adsp-rsv-ipidma-a = <0x180000>;
 			adsp-rsv-ipidma-b = <0x100000>;
 			adsp-rsv-logger-a = <0x80000>;
 			adsp-rsv-logger-b = <0x80000>;
@@ -11465,7 +11505,7 @@
 				<GIC_SPI 815 IRQ_TYPE_LEVEL_HIGH 0>;
 			mboxes = <&adspsys 0>, /*channel 0*/
 				<&adspsys 1>; /*channel 1*/
-			feature-control-bits = /bits/ 64 <0x00000000a8e78fff>;
+			feature-control-bits = /bits/ 64 <0x00000001a8e78fff>;
 		};
 
 		adsp_core1: adsp-core1@1e0c0000 {
@@ -11813,6 +11853,7 @@
 			#phy-cells = <0>;
 			reg = <0 0x11100000 0 0x10000>;
 			reg-names = "sif";
+			port-number = <0>;
 			status = "disabled";
 
 			clocks = <&pextpcfg_ao_clk CLK_PEXTP_P0_PHY_REF>,
@@ -11825,6 +11866,7 @@
 			#phy-cells = <0>;
 			reg = <0 0x11120000 0 0x10000>;
 			reg-names = "sif";
+			port-number = <1>;
 			status = "disabled";
 
 			clocks = <&pextpcfg_ao_clk CLK_PEXTP_P1_PHY_REF>,
@@ -12003,7 +12045,7 @@
 			prebuilt-enable;
 			tf-high-addr = <0x3d533>;
 			event-debug;
-			event-dump-range = <0 383>;
+			event-dump-range = <0 473>;
 			event-clr-range = <0 268>;
 			dram-pwr-base = <0x1c001000>;
 			error-irq-sw-req;
@@ -12377,6 +12419,12 @@
 		compatible = "mediatek,mml-test";
 		mediatek,mml = <&mmlsys_config>;
 	};
+
+	mml-ait {
+		compatible = "mediatek,mml-ait";
+		mediatek,mml = <&mmlsys_config>;
+	};
+
 	mm_smmu_hrt_normal: mm-smmu-hrt-normal {
 		compatible = "mediatek,smmu-share-group";
 		label = "mm_smmu_hrt_normal";
@@ -13032,6 +13080,7 @@
 		mtk-dsp-offload = <0x1d 0xffffffff 0xffffffff \
 				   0xffffffff 0x400000>;
 		mtk-dsp-deep = <0x5 0xffffffff 0xffffffff 0xffffffff 0x30000>;
+		mtk-dsp-dynamic = <0x8000005 0xffffffff 0xffffffff 0xffffffff 0x30000>;
 		mtk-dsp-playback = <0x1 0xc 0xffffffff 0x10 0x30000>;
 		mtk-dsp-music = <0x1 0xffffffff 0xffffffff 0xffffffff 0x0>;
 		mtk-dsp-capture1 = <0x1 0xffffffff 0x16 0xe 0x20000>;
@@ -14830,447 +14879,468 @@ TOP_LDRO7,TOP_LDRO8,TOP_LDRO9,TOP_LDRO10,TOP_LDRO11,TOP_LDRO12,TOP_LDRO13,TOP_LD
 		bat0-ocv-table-t0-qmax = <3025>;
 		bat0-ocv-table-t0-size = <100>;
 		bat0-ocv-table-t0 = <
-			0       43220    0
-			305     43058    0
-			611     42936    0
-			916     42814    0
-			1221    42702    0
-			1526    42589    0
-			1832    42467    0
-			2137    42347    0
-			2442    42233    0
-			2747    42113    0
-			3053    42001    0
-			3358    41891    0
-			3663    41789    0
-			3968    41683    0
-			4274    41565    0
-			4579    41463    0
-			4884    41359    0
-			5189    41254    0
-			5495    41145    0
-			5800    41040    0
-			6105    40932    0
-			6410    40834    0
-			6716    40747    0
-			7021    40678    0
-			7326    40605    0
-			7631    40489    0
-			7937    40352    0
-			8242    40214    0
-			8547    40103    0
-			8852    40011    0
-			9158    39942    0
-			9463    39880    0
-			9768    39820    0
-			10073   39763    0
-			10379   39683    0
-			10684   39611    0
-			10989   39530    0
-			11294   39452    0
-			11600   39353    0
-			11905   39227    0
-			12210   39087    0
-			12515   38967    0
-			12821   38871    0
-			13126   38787    0
-			13431   38706    0
-			13736   38641    0
-			14042   38588    0
-			14347   38536    0
-			14652   38476    0
-			14957   38433    0
-			15263   38383    0
-			15568   38332    0
-			15873   38291    0
-			16178   38250    0
-			16484   38210    0
-			16789   38169    0
-			17094   38139    0
-			17399   38108    0
-			17705   38076    0
-			18010   38027    0
-			18315   37998    0
-			18620   37977    0
-			18926   37957    0
-			19231   37935    0
-			19536   37906    0
-			19841   37884    0
-			20147   37856    0
-			20452   37833    0
-			20757   37800    0
-			21062   37759    0
-			21368   37718    0
-			21673   37684    0
-			21978   37657    0
-			22283   37613    0
-			22589   37566    0
-			22894   37529    0
-			23199   37494    0
-			23504   37457    0
-			23810   37431    0
-			24115   37396    0
-			24420   37345    0
-			24725   37284    0
-			25031   37223    0
-			25336   37172    0
-			25641   37116    0
-			25946   37037    0
-			26252   36964    0
-			26557   36934    0
-			26862   36924    0
-			27167   36913    0
-			27473   36903    0
-			27778   36879    0
-			28083   36827    0
-			28388   36628    0
-			28694   36224    0
-			28999   35690    0
-			29304   34959    0
-			29609   33864    0
-			29915   31672    0
-			30220   28030    0>;
+			0       43220    0   1275
+			305     43058    0   1275
+			611     42936    0   1300
+			916     42814    0   1303
+			1221    42702    0   1352
+			1526    42589    0   1373
+			1832    42467    0   1353
+			2137    42347    0   1375
+			2442    42233    0   1375
+			2747    42113    0   1379
+			3053    42001    0   1400
+			3358    41891    0   1400
+			3663    41789    0   1395
+			3968    41683    0   1375
+			4274    41565    0   1387
+			4579    41463    0   1425
+			4884    41359    0   1433
+			5189    41254    0   1442
+			5495    41145    0   1425
+			5800    41040    0   1434
+			6105    40932    0   1440
+			6410    40834    0   1435
+			6716    40747    0   1471
+			7021    40678    0   1544
+			7326    40605    0   1577
+			7631    40489    0   1526
+			7937    40352    0   1500
+			8242    40214    0   1500
+			8547    40103    0   1539
+			8852    40011    0   1548
+			9158    39942    0   1567
+			9463    39880    0   1614
+			9768    39820    0   1640
+			10073   39763    0   1635
+			10379   39683    0   1609
+			10684   39611    0   1648
+			10989   39530    0   1675
+			11294   39452    0   1692
+			11600   39353    0   1683
+			11905   39227    0   1621
+			12210   39087    0   1563
+			12515   38967    0   1475
+			12821   38871    0   1469
+			13126   38787    0   1455
+			13431   38706    0   1390
+			13736   38641    0   1375
+			14042   38588    0   1375
+			14347   38536    0   1353
+			14652   38476    0   1327
+			14957   38433    0   1325
+			15263   38383    0   1349
+			15568   38332    0   1326
+			15873   38291    0   1349
+			16178   38250    0   1325
+			16484   38210    0   1325
+			16789   38169    0   1301
+			17094   38139    0   1352
+			17399   38108    0   1398
+			17705   38076    0   1375
+			18010   38027    0   1375
+			18315   37998    0   1378
+			18620   37977    0   1403
+			18926   37957    0   1429
+			19231   37935    0   1454
+			19536   37906    0   1475
+			19841   37884    0   1470
+			20147   37856    0   1461
+			20452   37833    0   1500
+			20757   37800    0   1481
+			21062   37759    0   1425
+			21368   37718    0   1418
+			21673   37684    0   1408
+			21978   37657    0   1417
+			22283   37613    0   1400
+			22589   37566    0   1382
+			22894   37529    0   1350
+			23199   37494    0   1340
+			23504   37457    0   1336
+			23810   37431    0   1362
+			24115   37396    0   1375
+			24420   37345    0   1388
+			24725   37284    0   1361
+			25031   37223    0   1338
+			25336   37172    0   1364
+			25641   37116    0   1389
+			25946   37037    0   1371
+			26252   36964    0   1365
+			26557   36934    0   1375
+			26862   36924    0   1391
+			27167   36913    0   1433
+			27473   36903    0   1450
+			27778   36879    0   1502
+			28083   36827    0   1561
+			28388   36628    0   1557
+			28694   36224    0   1550
+			28999   35690    0   1626
+			29304   34959    0   1748
+			29609   33864    0   2054
+			29915   31672    0   11079
+			30220   28030    0   6625 >;
 
 		bat0-ocv-table-t1-temperature = <10>;
 		bat0-ocv-table-t1-qmax = <3010>;
 		bat0-ocv-table-t1-size = <100>;
 		bat0-ocv-table-t1 = <
-			0       43030    0
-			305     42868    0
-			611     42746    0
-			916     42623    0
-			1221    42492    0
-			1526    42371    0
-			1832    42268    0
-			2137    42155    0
-			2442    42036    0
-			2747    41933    0
-			3053    41822    0
-			3358    41719    0
-			3663    41607    0
-			3968    41497    0
-			4274    41393    0
-			4579    41283    0
-			4884    41172    0
-			5189    41060    0
-			5495    40969    0
-			5800    40884    0
-			6105    40817    0
-			6410    40752    0
-			6716    40660    0
-			7021    40520    0
-			7326    40348    0
-			7631    40184    0
-			7937    40051    0
-			8242    39939    0
-			8547    39848    0
-			8852    39778    0
-			9158    39700    0
-			9463    39625    0
-			9768    39535    0
-			10073   39423    0
-			10379   39305    0
-			10684   39195    0
-			10989   39100    0
-			11294   39016    0
-			11600   38941    0
-			11905   38863    0
-			12210   38789    0
-			12515   38732    0
-			12821   38682    0
-			13126   38615    0
-			13431   38560    0
-			13736   38517    0
-			14042   38460    0
-			14347   38406    0
-			14652   38364    0
-			14957   38323    0
-			15263   38273    0
-			15568   38232    0
-			15873   38201    0
-			16178   38170    0
-			16484   38120    0
-			16789   38079    0
-			17094   38058    0
-			17399   38019    0
-			17705   37998    0
-			18010   37966    0
-			18315   37928    0
-			18620   37907    0
-			18926   37885    0
-			19231   37853    0
-			19536   37813    0
-			19841   37774    0
-			20147   37741    0
-			20452   37703    0
-			20757   37670    0
-			21062   37629    0
-			21368   37588    0
-			21673   37548    0
-			21978   37507    0
-			22283   37456    0
-			22589   37392    0
-			22894   37345    0
-			23199   37296    0
-			23504   37226    0
-			23810   37147    0
-			24115   37086    0
-			24420   37050    0
-			24725   37024    0
-			25031   36994    0
-			25336   36980    0
-			25641   36963    0
-			25946   36921    0
-			26252   36767    0
-			26557   36424    0
-			26862   35898    0
-			27167   35196    0
-			27473   34163    0
-			27778   31846    0
-			28083   28210    0
-			28388   28210    0
-			28694   28210    0
-			28999   28210    0
-			29304   28210    0
-			29609   28210    0
-			29915   28210    0
-			30220   28210    0>;
+			0       43030    0   1570
+			305     42868    0   1730
+			611     42746    0   1655
+			916     42623    0   1582
+			1221    42492    0   1512
+			1526    42371    0   1435
+			1832    42268    0   1398
+			2137    42155    0   1343
+			2442    42036    0   1302
+			2747    41933    0   1272
+			3053    41822    0   1244
+			3358    41719    0   1211
+			3663    41607    0   1175
+			3968    41497    0   1144
+			4274    41393    0   1126
+			4579    41283    0   1108
+			4884    41172    0   1090
+			5189    41060    0   1081
+			5495    40969    0   1073
+			5800    40884    0   1070
+			6105    40817    0   1065
+			6410    40752    0   1056
+			6716    40660    0   1042
+			7021    40520    0   1016
+			7326    40348    0   990
+			7631    40184    0   999
+			7937    40051    0   1008
+			8242    39939    0   1017
+			8547    39848    0   1020
+			8852    39778    0   1020
+			9158    39700    0   1011
+			9463    39625    0   997
+			9768    39535    0   985
+			10073   39423    0   970
+			10379   39305    0   970
+			10684   39195    0   961
+			10989   39100    0   960
+			11294   39016    0   967
+			11600   38941    0   976
+			11905   38863    0   1001
+			12210   38789    0   1033
+			12515   38732    0   1060
+			12821   38682    0   1080
+			13126   38615    0   1083
+			13431   38560    0   1100
+			13736   38517    0   1100
+			14042   38460    0   1100
+			14347   38406    0   1100
+			14652   38364    0   1100
+			14957   38323    0   1094
+			15263   38273    0   1090
+			15568   38232    0   1090
+			15873   38201    0   1090
+			16178   38170    0   1090
+			16484   38120    0   1090
+			16789   38079    0   1089
+			17094   38058    0   1080
+			17399   38019    0   1080
+			17705   37998    0   1080
+			18010   37966    0   1080
+			18315   37928    0   1080
+			18620   37907    0   1074
+			18926   37885    0   1064
+			19231   37853    0   1060
+			19536   37813    0   1060
+			19841   37774    0   1060
+			20147   37741    0   1060
+			20452   37703    0   1060
+			20757   37670    0   1063
+			21062   37629    0   1073
+			21368   37588    0   1080
+			21673   37548    0   1080
+			21978   37507    0   1081
+			22283   37456    0   1090
+			22589   37392    0   1091
+			22894   37345    0   1100
+			23199   37296    0   1100
+			23504   37226    0   1090
+			23810   37147    0   1080
+			24115   37086    0   1071
+			24420   37050    0   1070
+			24725   37024    0   1070
+			25031   36994    0   1061
+			25336   36980    0   1060
+			25641   36963    0   1052
+			25946   36921    0   1059
+			26252   36767    0   1060
+			26557   36424    0   1052
+			26862   35898    0   1034
+			27167   35196    0   1014
+			27473   34163    0   1002
+			27778   31846    0   1000
+			28083   28210    0   955
+			28388   28210    0   806
+			28694   28210    0   800
+			28999   28210    0   800
+			29304   28210    0   800
+			29609   28210    0   800
+			29915   28210    0   800
+			30220   28210    0   800 >;
 
 		bat0-ocv-table-t2-temperature = <0>;
 		bat0-ocv-table-t2-qmax = <3000>;
 		bat0-ocv-table-t2-size = <100>;
 		bat0-ocv-table-t2 = <
-			0       42710    0
-			305     42507    0
-			611     42356    0
-			916     42234    0
-			1221    42112    0
-			1526    41991    0
-			1832    41887    0
-			2137    41769    0
-			2442    41675    0
-			2747    41563    0
-			3053    41451    0
-			3358    41341    0
-			3663    41239    0
-			3968    41135    0
-			4274    41028    0
-			4579    40941    0
-			4884    40874    0
-			5189    40814    0
-			5495    40718    0
-			5800    40585    0
-			6105    40425    0
-			6410    40244    0
-			6716    40080    0
-			7021    39958    0
-			7326    39840    0
-			7631    39747    0
-			7937    39671    0
-			8242    39590    0
-			8547    39503    0
-			8852    39400    0
-			9158    39300    0
-			9463    39208    0
-			9768    39111    0
-			10073   39021    0
-			10379   38940    0
-			10684   38871    0
-			10989   38810    0
-			11294   38749    0
-			11600   38681    0
-			11905   38617    0
-			12210   38563    0
-			12515   38520    0
-			12821   38472    0
-			13126   38413    0
-			13431   38376    0
-			13736   38337    0
-			14042   38296    0
-			14347   38255    0
-			14652   38196    0
-			14957   38172    0
-			15263   38123    0
-			15568   38101    0
-			15873   38071    0
-			16178   38030    0
-			16484   38000    0
-			16789   37959    0
-			17094   37938    0
-			17399   37899    0
-			17705   37888    0
-			18010   37867    0
-			18315   37835    0
-			18620   37797    0
-			18926   37775    0
-			19231   37747    0
-			19536   37724    0
-			19841   37692    0
-			20147   37649    0
-			20452   37605    0
-			20757   37577    0
-			21062   37526    0
-			21368   37470    0
-			21673   37408    0
-			21978   37364    0
-			22283   37299    0
-			22589   37215    0
-			22894   37143    0
-			23199   37092    0
-			23504   37071    0
-			23810   37046    0
-			24115   37025    0
-			24420   37010    0
-			24725   36969    0
-			25031   36870    0
-			25336   36583    0
-			25641   36098    0
-			25946   35452    0
-			26252   34524    0
-			26557   32795    0
-			26862   31040    0
-			27167   31040    0
-			27473   31040    0
-			27778   31040    0
-			28083   31040    0
-			28388   31040    0
-			28694   31040    0
-			28999   31040    0
-			29304   31040    0
-			29609   31040    0
-			29915   31040    0
-			30220   31040    0>;
+			0       42710    0   3800
+			305     42507    0   3802
+			611     42356    0   3904
+			916     42234    0   4001
+			1221    42112    0   4029
+			1526    41991    0   4077
+			1832    41887    0   4103
+			2137    41769    0   4150
+			2442    41675    0   4346
+			2747    41563    0   4491
+			3053    41451    0   4597
+			3358    41341    0   4686
+			3663    41239    0   4604
+			3968    41135    0   4485
+			4274    41028    0   4362
+			4579    40941    0   4461
+			4884    40874    0   4688
+			5189    40814    0   4866
+			5495    40718    0   4959
+			5800    40585    0   4865
+			6105    40425    0   4627
+			6410    40244    0   4590
+			6716    40080    0   4744
+			7021    39958    0   4908
+			7326    39840    0   4882
+			7631    39747    0   4670
+			7937    39671    0   4610
+			8242    39590    0   4751
+			8547    39503    0   4852
+			8852    39400    0   4859
+			9158    39300    0   4643
+			9463    39208    0   4471
+			9768    39111    0   4495
+			10073   39021    0   4571
+			10379   38940    0   4631
+			10684   38871    0   4715
+			10989   38810    0   4717
+			11294   38749    0   4751
+			11600   38681    0   4723
+			11905   38617    0   4449
+			12210   38563    0   4442
+			12515   38520    0   4644
+			12821   38472    0   4854
+			13126   38413    0   4743
+			13431   38376    0   4479
+			13736   38337    0   4528
+			14042   38296    0   4676
+			14347   38255    0   4833
+			14652   38196    0   4895
+			14957   38172    0   4946
+			15263   38123    0   4738
+			15568   38101    0   4581
+			15873   38071    0   4770
+			16178   38030    0   4949
+			16484   38000    0   5099
+			16789   37959    0   4990
+			17094   37938    0   4680
+			17399   37899    0   4793
+			17705   37888    0   5060
+			18010   37867    0   5175
+			18315   37835    0   5125
+			18620   37797    0   4767
+			18926   37775    0   4917
+			19231   37747    0   5158
+			19536   37724    0   5209
+			19841   37692    0   5245
+			20147   37649    0   5214
+			20452   37605    0   5193
+			20757   37577    0   5211
+			21062   37526    0   5079
+			21368   37470    0   5003
+			21673   37408    0   5035
+			21978   37364    0   5307
+			22283   37299    0   5475
+			22589   37215    0   5393
+			22894   37143    0   5212
+			23199   37092    0   5170
+			23504   37071    0   5211
+			23810   37046    0   5283
+			24115   37025    0   5459
+			24420   37010    0   5688
+			24725   36969    0   5930
+			25031   36870    0   6171
+			25336   36583    0   6275
+			25641   36098    0   6432
+			25946   35452    0   6815
+			26252   34524    0   7379
+			26557   32795    0   10134
+			26862   31040    0   13275
+			27167   31040    0   13275
+			27473   31040    0   13275
+			27778   31040    0   13275
+			28083   31040    0   13275
+			28388   31040    0   13275
+			28694   31040    0   13275
+			28999   31040    0   13275
+			29304   31040    0   13275
+			29609   31040    0   13275
+			29915   31040    0   13275
+			30220   31040    0   13275>;
 
 		bat0-ocv-table-t3-temperature = <(-10)>;
 		bat0-ocv-table-t3-qmax = <2990>;
 		bat0-ocv-table-t3-size = <100>;
 		bat0-ocv-table-t3 = <
-			0       42150    0
-			305     41905    0
-			611     41641    0
-			916     41368    0
-			1221    41150    0
-			1526    41010    0
-			1832    40901    0
-			2137    40805    0
-			2442    40679    0
-			2747    40522    0
-			3053    40338    0
-			3358    40157    0
-			3663    39995    0
-			3968    39875    0
-			4274    39765    0
-			4579    39668    0
-			4884    39588    0
-			5189    39514    0
-			5495    39429    0
-			5800    39337    0
-			6105    39242    0
-			6410    39144    0
-			6716    39048    0
-			7021    38955    0
-			7326    38874    0
-			7631    38792    0
-			7937    38721    0
-			8242    38665    0
-			8547    38609    0
-			8852    38548    0
-			9158    38492    0
-			9463    38441    0
-			9768    38390    0
-			10073   38339    0
-			10379   38295    0
-			10684   38254    0
-			10989   38213    0
-			11294   38166    0
-			11600   38129    0
-			11905   38091    0
-			12210   38058    0
-			12515   38035    0
-			12821   37999    0
-			13126   37974    0
-			13431   37962    0
-			13736   37935    0
-			14042   37922    0
-			14347   37902    0
-			14652   37873    0
-			14957   37852    0
-			15263   37831    0
-			15568   37820    0
-			15873   37800    0
-			16178   37760    0
-			16484   37730    0
-			16789   37699    0
-			17094   37659    0
-			17399   37627    0
-			17705   37576    0
-			18010   37526    0
-			18315   37484    0
-			18620   37433    0
-			18926   37379    0
-			19231   37306    0
-			19536   37231    0
-			19841   37178    0
-			20147   37119    0
-			20452   37070    0
-			20757   37032    0
-			21062   36994    0
-			21368   36930    0
-			21673   36846    0
-			21978   36708    0
-			22283   36456    0
-			22589   36042    0
-			22894   35445    0
-			23199   34552    0
-			23504   33138    0
-			23810   30850    0
-			24115   30850    0
-			24420   30850    0
-			24725   30850    0
-			25031   30850    0
-			25336   30850    0
-			25641   30850    0
-			25946   30850    0
-			26252   30850    0
-			26557   30850    0
-			26862   30850    0
-			27167   30850    0
-			27473   30850    0
-			27778   30850    0
-			28083   30850    0
-			28388   30850    0
-			28694   30850    0
-			28999   30850    0
-			29304   30850    0
-			29609   30850    0
-			29915   30850    0
-			30220   30850    0>;
+			0       42150    0   10450
+			305     41905    0   10457
+			611     41641    0   10830
+			916     41368    0   10978
+			1221    41150    0   11043
+			1526    41010    0   11310
+			1832    40901    0   11696
+			2137    40805    0   11869
+			2442    40679    0   11818
+			2747    40522    0   11767
+			3053    40338    0   11703
+			3358    40157    0   11610
+			3663    39995    0   11618
+			3968    39875    0   11472
+			4274    39765    0   11363
+			4579    39668    0   11305
+			4884    39588    0   11274
+			5189    39514    0   11366
+			5495    39429    0   11467
+			5800    39337    0   11500
+			6105    39242    0   11490
+			6410    39144    0   11495
+			6716    39048    0   11473
+			7021    38955    0   11389
+			7326    38874    0   11352
+			7631    38792    0   11254
+			7937    38721    0   11138
+			8242    38665    0   11075
+			8547    38609    0   11063
+			8852    38548    0   11061
+			9158    38492    0   11022
+			9463    38441    0   10986
+			9768    38390    0   11079
+			10073   38339    0   11135
+			10379   38295    0   11172
+			10684   38254    0   11248
+			10989   38213    0   11242
+			11294   38166    0   11259
+			11600   38129    0   11327
+			11905   38091    0   11440
+			12210   38058    0   11622
+			12515   38035    0   11863
+			12821   37999    0   11752
+			13126   37974    0   11386
+			13431   37962    0   11541
+			13736   37935    0   11682
+			14042   37922    0   11826
+			14347   37902    0   11961
+			14652   37873    0   11930
+			14957   37852    0   11856
+			15263   37831    0   11709
+			15568   37820    0   11628
+			15873   37800    0   11894
+			16178   37760    0   12074
+			16484   37730    0   12227
+			16789   37699    0   12426
+			17094   37659    0   12482
+			17399   37627    0   12627
+			17705   37576    0   12648
+			18010   37526    0   12615
+			18315   37484    0   12548
+			18620   37433    0   12786
+			18926   37379    0   13236
+			19231   37306    0   13668
+			19536   37231    0   14167
+			19841   37178    0   14350
+			20147   37119    0   14361
+			20452   37070    0   14568
+			20757   37032    0   15293
+			21062   36994    0   16022
+			21368   36930    0   16541
+			21673   36846    0   16746
+			21978   36708    0   17128
+			22283   36456    0   17915
+			22589   36042    0   18243
+			22894   35445    0   18461
+			23199   34552    0   19491
+			23504   33138    0   17903
+			23810   30850    0   12800
+			24115   30850    0   12800
+			24420   30850    0   12800
+			24725   30850    0   12800
+			25031   30850    0   12800
+			25336   30850    0   12800
+			25641   30850    0   12800
+			25946   30850    0   12800
+			26252   30850    0   12800
+			26557   30850    0   12800
+			26862   30850    0   12800
+			27167   30850    0   12800
+			27473   30850    0   12800
+			27778   30850    0   12800
+			28083   30850    0   12800
+			28388   30850    0   12800
+			28694   30850    0   12800
+			28999   30850    0   12800
+			29304   30850    0   12800
+			29609   30850    0   12800
+			29915   30850    0   12800
+			30220   30850    0   12800>;
 	};
 
-	low-battery-throttling {
+	low_battery_throttling: low-battery-throttling {
 		compatible = "mediatek,low_battery_throttling";
 		lvsys-thd-enable = <1>;
 		vbat-thd-enable = <1>;
-		thd-volts-l = <
+		bat0-thd-volts-l = <
+			3900 3100 2900
 			3900 3100 2900
 			4400 3900 3100
 			4900 4800 4400>;
-		thd-volts-h = <
+		bat0-thd-volts-h = <
+			3950 3900 3100
 			3950 3900 3100
 			4500 4400 3900
 			5000 4900 4800>;
-		thd-volts-l-2s = <
+		bat1-thd-volts-l = <
+			3400 3100 2900
 			3400 3100 2900
 			4400 3400 3100
 			4900 4800 4400>;
-		thd-volts-h-2s = <
+		bat1-thd-volts-h = <
+			3500 3400 3100
 			3500 3400 3100
 			4500 4400 3400
 			5000 4900 4800>;
 		lvsys-thd-volt-l = <2900>;
 		lvsys-thd-volt-h = <3100>;
-		temperature-max-stage = <2>;
-		temperature-stage-threshold = <11 0>;
+		temperature-stage-threshold = <25 10 0>;
+
+		bat0-aging-threshold = <1000 2000>;
+		bat0-aging-volts-t0 =  <0 0>;
+		bat0-aging-volts-t1 =  <0 0>;
+		bat0-aging-volts-t2 =  <0 0>;
+		bat0-aging-volts-t3 =  <0 0>;
+		bat1-aging-threshold = <1000 2000>;
+		bat1-aging-volts-t0 =  <0 0>;
+		bat1-aging-volts-t1 =  <0 0>;
+		bat1-aging-volts-t2 =  <0 0>;
+		bat1-aging-volts-t3 =  <0 0>;
+
+		throttle-level = <0 1 2 3>,
+						<0 1 2 3>,
+						<0 1 2 3>,
+						<0 1 2 3>;
+		bootmode = <&chosen>;
+		gauge = <&mtk_gauge>;
 	};
 
 	pbm: pbm {
@@ -15322,8 +15392,7 @@ TOP_LDRO7,TOP_LDRO8,TOP_LDRO9,TOP_LDRO10,TOP_LDRO11,TOP_LDRO12,TOP_LDRO13,TOP_LD
 		oc-reduce-tx-lv1 = <0>;
 		oc-reduce-tx-lv2 = <6>;
 
-		soc-max-level = <1>;
-		soc-reduce-tx-lv1 = <0>;
+		soc-max-level = <0>;
 	};
 
 	bp_thl: bp-thl {
@@ -16963,7 +17032,7 @@ tboard_thermistor1: thermal-ntc1@1cc00554 {
 
 	thermal_zones: thermal-zones {
 
-		soc_max {
+		soc_max: soc_max {
 			polling-delay = <0>; /* milliseconds */
 			polling-delay-passive = <0>; /* milliseconds */
 			thermal-sensors = <&lvts 0>;
@@ -17728,6 +17797,18 @@ tboard_thermistor1: thermal-ntc1@1cc00554 {
 		compatible = "mediatek,touch-panel";
 	};
 
+	touch: touch {
+		compatible = "mediatek,touch";
+	};
+
+        hall_1: hall_1 {
+		compatible = "mediatek,hall";
+	};
+
+        hall_2: hall_2 {
+		compatible = "mediatek,hall_holster";
+	};
+
 	touch_tui0: touch-tui0 {
 		compatible = "mediatek,tui_common";
 	};
@@ -17956,6 +18037,15 @@ tboard_thermistor1: thermal-ntc1@1cc00554 {
 	};
 };
 /* WF GPIO end */
+
+&mtk_leds {
+	compatible = "mediatek,i2c-leds";
+	backlight {
+		led-mode = <6>;
+		gate-enable = <1>;
+		pwm-config = <0 1 0 0 0>;
+	};
+};
 
 &spmi {
 	pmic: pmic@4 {
@@ -18200,8 +18290,8 @@ tboard_thermistor1: thermal-ntc1@1cc00554 {
 			tcpc,en-wd;
 			// tcpc,en-wd-dual-port;
 			tcpc,en-ctd;
-			tcpc,en-fod;
-			tcpc,en-typec-otp;
+			/*tcpc,en-fod;*/
+			/*tcpc,en-typec-otp;*/
 			// tcpc,en-floatgnd;
 			wd,sbu-calib-init = <1200>;	/* mV */
 			wd,sbu-pl-bound = <200>;	/* mV */
@@ -18328,6 +18418,7 @@ tboard_thermistor1: thermal-ntc1@1cc00554 {
 				      <&mt6375_auxadc MT6375_AUXADC_BATSNS_DBG>;
 			io-channel-names = "chg_vbat", "auxadc_vbat";
 			charger = <&mt6375_chg>;
+			gauge = <&mtk_gauge>;
 			isink-load-supply = <&mt6363_isink_load>;
 			imix-r {
 				val = <90>;
@@ -18575,6 +18666,14 @@ tboard_thermistor1: thermal-ntc1@1cc00554 {
 	};
 };
 
+&mt6363_vbuck1 {
+	regulator-always-on;
+};
+
+&mt6363_vbuck2 {
+	regulator-always-on;
+};
+
 &mt6363_vbuck4 {
 	regulator-always-on;
 };
@@ -18631,13 +18730,11 @@ tboard_thermistor1: thermal-ntc1@1cc00554 {
 	regulator-min-microvolt = <0>;
 };
 
-/delete-node/ &mt6363_vbuck1;
-/delete-node/ &mt6363_vbuck2;
 /delete-node/ &mt6363_vbuck1_sshub;
 /delete-node/ &mt6363_vbuck2_sshub;
 /delete-node/ &mt6363_vbuck4_sshub;
 /delete-node/ &mt6373_vbuck6;
-/delete-node/ &mt6373_vmch_eint_low;
+// /delete-node/ &mt6373_vmch_eint_low;
 /delete-node/ &mt6373_vmch;
 
 &mddriver {
@@ -18649,11 +18746,9 @@ tboard_thermistor1: thermal-ntc1@1cc00554 {
 	md-vdigrf-supply = <&mt6363_vbuck5>;
 	md-vdigrf = <725000 725000>;
 };
-
-&md_auxadc {
+/*&md_auxadc {
 	io-channels = <&pmic_adc (ADC_PURES_OPEN_MASK | AUXADC_VIN1)>;
-};
-
+};*/
 #include "mediatek/mt6685.dtsi"
 
 &mt6685_rtc {
@@ -19031,3 +19126,6 @@ tboard_thermistor1: thermal-ntc1@1cc00554 {
 		status = "okay";
 	};
 };
+
+#include "mediatek/tran_mt6989_tee.dtsi"
+

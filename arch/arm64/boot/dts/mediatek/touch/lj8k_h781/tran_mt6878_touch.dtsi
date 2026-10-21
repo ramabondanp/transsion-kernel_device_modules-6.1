@@ -1,0 +1,47 @@
+// SPDX-License-Identifier: (GPL-2.0 OR MIT)
+/*
+ * Copyright (C) 2020 MediaTek Inc.
+ */
+ /* key start */
+&mt6363keys {
+        home {
+                linux,keycodes = <114>;
+        };
+};
+
+/* key end */
+
+/* TOUCH start */
+&odm {
+        touch: touch {
+                compatible = "mediatek,touch";
+        };
+};
+
+&touch {
+        supplier-num = <1>;
+        supplier-vendor-0 = "TM";
+        supplier-vendor-fwname-0 = "focaltech_ts_fw.bin";
+        supplier-0 = "any, focaltech, ft3683g";
+        supplier-resolution-0 = <16>;
+};
+
+&spi3 {
+    tran_touch:touch@0 {
+        compatible = "focaltech,fts";
+        reg = <0>;
+        spi-max-frequency = <8000000>;
+        vtouch-supply = <&mt6369_vtp>;
+        focaltech,irq-gpio = <&pio 7 0x0>;
+        focaltech,reset-gpio = <&pio 6 0x0>;
+        //focaltech,iovdd-gpio = <&pio 6 0x0>;
+        focaltech,max-touch-number = <10>;
+        focaltech,display-coords =  <0 0 17279 38975>;
+        focaltech,pocket-function-support;
+        focaltech,fod-function-support;
+        focaltech,custom-mistouch-support;
+	focaltech,switch-report-support;
+        status = "okay";
+    };
+};
+/* TOUCH end */

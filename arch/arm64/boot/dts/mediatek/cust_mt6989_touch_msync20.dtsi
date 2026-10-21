@@ -21,7 +21,7 @@
 	pinctrl-6 = <&ctp_synaptics_spi_mode>;
 
 	goodix@0 {
-		compatible = "goodix,brl-d", "synaptics,tcm-spi";
+		compatible = "goodix,brl-d-gt9916", "synaptics,tcm-spi";
 		reg = <0>; //Same as CS ID
 		spi-max-frequency = <1000000>;
 

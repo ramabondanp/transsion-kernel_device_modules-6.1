@@ -1,0 +1,157 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Copyright (c) 2022 MediaTek Inc.
+ */
+/********************************************
+ * MT6897 TOUCH/VIBR/KEY DTSI File
+ ********************************************/
+/* lk haptic start */
+&chosen {
+lra,info = <1 7 22>;//type:(1:X-lra 2:Z-lra)  bus_num:i2c7  reset_gpio:gpio22
+};
+/* lk haptic end */
+
+/* key start */
+&mt6363keys {
+	home {
+		linux,keycodes = <114>;
+	};
+};
+/* key start */
+
+/* AWINIC Haptic start */
+&i2c7 {
+	clock-frequency = <400000>;
+	haptic_hv@5A {
+		compatible = "awinic,haptic_hv";
+		reg = <0x5A>;
+		irq-gpio = <&pio 4 0>;
+		reset-gpio = <&pio 22 0>;
+		f0_pre = < 1700 >;
+		mode = /bits/ 8 < 5 >;
+		aw8692x_f0_cali_percent = /bits/ 8 < 7 >;
+		aw8692x_gain_bypass = /bits/ 8 < 1 >;
+		aw8692x_cont_drv1_lvl = /bits/ 8 < 0x7F >;
+		aw8692x_cont_lra_vrms = < 1000 >; /* Motor rated voltage, mV. If use 0812, 0512, 0412 or 0825, please select ram get f0 */
+		aw8692x_cont_drv1_time = /bits/ 8 < 0x04 >;
+		aw8692x_cont_drv2_time = /bits/ 8 < 0x14 >;
+		aw8692x_cont_track_margin = /bits/ 8 < 0x0F >;
+		aw8692x_cont_brk_gain = /bits/ 8 < 0x08 >;
+		aw8692x_cont_brk_time = /bits/ 8 < 0x08 >;
+		//aw8692x_duration_time = /bits/ 8 < 20 30 60 >;
+		aw8692x_duration_time = /bits/ 8 < 30 60 90 >;
+		aw8692x_d2s_gain = /bits/ 8 < 0x04 >;
+		aw8692x_trig_config = /bits/ 8 < 0 0 0 1 0 2 0 0
+						 0 0 0 1 0 2 0 0
+						 0 0 0 1 0 2 0 0 >;
+		aw8692x_bst_vol_default = < 8500 >;
+		aw8692x_is_enabled_track_en;
+		aw8692x_is_enabled_auto_bst;
+		/* aw8692x_is_enabled_one_wire; */
+		status = "okay";
+	};
+};
+/* AWINIC Haptic end */
+
+/* hall start */
+&hall_1 {
+		hall_rlk,irq-gpio = <&pio 39 0x0>;
+		interrupt-parent = <&pio>;
+		interrupts = <5 IRQ_TYPE_LEVEL_LOW 39 0>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&hall_intpin_default>;
+		status = "okay";
+};
+&pio {
+	hall_intpin_default: halldefaultcfg {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO39__FUNC_GPIO39>;
+			slew-rate = <0>;
+			bias-pull-up = <00>;
+			status = "okay";
+		};
+	};
+};
+/* hall end */
+
+/* TP start */
+&odm {
+	touch: touch {
+		compatible = "mediatek,touch";
+	};
+};
+&touch {
+	supplier-num = <1>;
+	supplier-vendor-0 = "TM";
+	supplier-0 = "any, focaltech, ft3683g";
+	supplier-resolution-0 = <16>;
+};
+
+&spi2 {
+	tran_touch:touch@0 {
+		 compatible = "focaltech,fts";
+		 reg = <0>;
+		 status = "ok";
+		 spi-max-frequency = <8000000>;
+		 interrupt-parent = <&pio>;
+		 vtouch-supply = <&mt6368_vtp>;
+		 //For ft3683g  driver config
+		// focaltech,iovdd-gpio = <&pio 167 0x0>;
+		 focaltech,irq-gpio = <&pio 9 0x0>;
+		 focaltech,reset-gpio = <&pio 60 0x0>;
+		 focaltech,max-touch-number = <10>;
+		 focaltech,display-coords =  <0 0 17279 38975>;
+		 focaltech,fod-function-support;
+		 focaltech,custom-mistouch-support;
+		 focaltech,pocket-function-support;
+		 focaltech,switch-report-support;
+		 pinctrl-names = "default","state_spi_mode";
+		 pinctrl-0 = <&ctp_pins_default>;
+		 pinctrl-1 = <&ctp_pins_spi_mode>;
+	};
+};
+&pio {
+	ctp_pins_default: ctp_default {
+	};
+	ctp_pins_spi_mode: ctp_spimode_default {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO13__FUNC_SPI2_MI>,
+					 <PINMUX_GPIO12__FUNC_SPI2_CSB>,
+					 <PINMUX_GPIO14__FUNC_SPI2_MO>,
+					 <PINMUX_GPIO11__FUNC_SPI2_CLK>;
+			drive-strength = <2>;
+		};
+	};
+};
+/* tp end */
+
+/* heart_rate && oximetry start*/
+&i2c13 {
+       clock-frequency = <400000>;
+       status = "okay";
+       hx3918@44 {
+		compatible = "tyhx,hx3918";
+		reg = <0x44>;
+		irq-gpios = <&pio 45 0x0>;
+		power-gpios = <&pio 129 0x0>;
+		/* ldrsel=2: ldr2 ，ldrsel=1:  ldr1, ldrsel=4: ldr3, GREEN_LED_SLE = IR_LED_SLE,  <green rad ir> */
+		hx3918_ldr_channel = /bits/ 8 < 1 2 1 >;
+		hx3918_spo2_ir_wear_thres = /bits/ 32 < 20000 15000 >;
+		hx3918_slope_para = /bits/ 8 < 3 30 >;
+		/*living_mode qu_thre st_thre*/
+		hx3918_living_cfg = /bits/ 8 < 1 12 25 >;
+		hx3918_count_block_num = /bits/ 8 < 50 >;
+		//hx3918_spo2_low_xcorr_thre = /bits/ 8 < 30 >;
+		hx3918_quick_result = /bits/ 8 < 1 >;
+		hx3918_mean_num = /bits/ 16 < 32 >;
+		hx3918_spo2_gsen_pow_thre = /bits/ 8 < 150 >;
+		hx3918_spo2_base_line_init = /bits/ 32 < 123000 >;
+		hx3918_spo2_slope = /bits/ 32 < 50000 >;
+		hx3918_spo2_deglitch_thre = /bits/ 32 < 100000 >;
+		hx3918_spo2_remove_jump_thre = /bits/ 32 < 80000 >;
+		hx3918_spo2_clip = /bits/ 16 < 1500 150 500 >;
+		hx3918_spo2_low_snr_thre = /bits/ 8 < 40 >;
+		hx3918_spo2_amb_thre = /bits/ 32 < 300000 >;
+       };
+};
+/* heart_rate && oximetry end*/

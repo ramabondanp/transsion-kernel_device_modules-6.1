@@ -1,0 +1,11 @@
+&i2c10 {
+
+    hl7603_master@75 {
+        compatible = "mediatek,hl7603x";
+		rm_name = "DCDC_HL7603";
+        halo,hl7603,hl7603_vout_voltage = <3450>;
+		halo,hl7603a,hl7603a_vout_voltage = <3450>;
+        reg = <0x75>;
+    };
+
+};

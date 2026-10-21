@@ -1,0 +1,138 @@
+// SPDX-License-Identifier: (GPL-2.0 OR MIT)
+/*
+ * Copyright (C) 2020 MediaTek Inc.
+ */
+/* TOUCH start */
+&odm {
+        touch: touch {
+                compatible = "mediatek,touch";
+        };
+};
+/* RT6010 Haptic start */
+&i2c7 {
+	clock-frequency = <400000>;
+	ics_haptic@5f {
+		compatible = "ics,haptic_rt";
+		reg = <0x5f>;
+		interrupt-parent = <&pio>;
+		interrupts = <18 IRQ_TYPE_EDGE_FALLING 18 0>;
+		device-name = "vibrator_single";
+		richtap-name = "aw8697_haptic";
+		gpio-en = <&pio 31 0>;
+		gpio-irq = <&pio 18 0>;
+		status = "ok";
+		// rt6010 chip configuration
+		rt6010_chip_id = <0x6B>;
+		rt6010_reg_size = <0x6C>;
+		rt6010_ram_size = <0x600>;
+		rt6010_sys_f0 = <1700>;
+		rt6010_list_base_addr = <0x400>;
+		rt6010_wave_base_addr = <0x420>;
+		rt6010_fifo_ae = <0x200>;
+		rt6010_fifo_af = <0x300>;
+		rt6010_boost_mode = <0x00>;
+		rt6010_boost_vol = <0x0d>;
+		rt6010_gain = <0x80>;
+		rt6010_brake_en = <0>;
+		rt6010_brake_wave_no = <0>;
+		rt6010_brake_const = <0>;
+		rt6010_brake_acq_point = <0>;
+	};
+};
+/* RT6010 Haptic end */
+/* TP start */
+&touch {
+	supplier-num = <1>;
+	supplier-vendor-0 = "TM";
+	supplier-vendor-fwname-0 = "focaltech_ts_fw.bin";
+	supplier-0 = "any, focaltech, ft3682g";
+	supplier-resolution-0 = <16>;
+};
+
+&spi3 {
+	tran_touch:touch@0 {
+        compatible = "focaltech,fts";
+        reg = <0>;
+        spi-max-frequency = <8000000>;
+        vtouch-supply = <&mt6369_vtp>;
+        focaltech,irq-gpio = <&pio 7 0x0>;
+        focaltech,reset-gpio = <&pio 6 0x0>;
+        focaltech,iovdd-gpio = <&pio 189 0x0>;
+        focaltech,max-touch-number = <10>;
+        focaltech,display-coords =  <0 0 19583 43519>;
+        focaltech,pocket-function-support;
+        focaltech,fod-function-support;
+        focaltech,switch-report-support;
+		 pinctrl-names = "default","state_spi_mode";
+		 pinctrl-0 = <&ctp_pins_default>;
+		 pinctrl-1 = <&ctp_pins_spi_mode>;
+	};
+};
+&pio {
+	ctp_pins_default: ctp_default {
+	};
+	ctp_pins_spi_mode: ctp_spimode_default {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO71__FUNC_SPI3_MI>,
+					 <PINMUX_GPIO69__FUNC_SPI3_CSB>,
+					 <PINMUX_GPIO70__FUNC_SPI3_MO>,
+					 <PINMUX_GPIO68__FUNC_SPI3_CLK>;
+			drive-strength = <2>;
+		};
+	};
+};
+/* tp end */
+/* AWINIC Haptic start */
+&chosen {
+        lra,info = <1 7 31>;//type:(1:X-lra 2:Z-lra)  bus_num:i2c5  reset_gpio:gpio31
+};
+/* key start */
+&mt6363keys {
+	home {
+		linux,keycodes = <114>;
+	};
+};
+/* key start */
+/* shoulder key start */
+&i2c11 {
+	clock-frequency = <400000>;
+	status = "okay";
+	aw9620x_sar@12 {
+		compatible = "awinic,aw9620x_sar_0";
+		reg = <0x12>;
+		sar-num = < 0 >;
+		interrupt-parent = <&pio>;
+		interrupts = <36 0x0>;
+		irq-gpio = <&pio 36 0x0>;
+		//vcc0-supply = <&pm660l_l4>;
+		channel_use_flag = <0xff>;
+		//aw9620x,using-arr-laod-reg;
+		air_diff_limit_max = <1500>;
+		air_diff_limit_min = <(-1500)>;
+		air_parasitic_limit_max = <400000>;
+		air_parasitic_limit_min = <90000>;
+		contact_diff_limit = <30000>;
+		status = "okay";
+	};
+	aw9620x_sar@13 {
+		compatible = "awinic,aw9620x_sar_1";
+		reg = <0x13>;
+		sar-num = < 1 >;
+		interrupt-parent = <&pio>;
+		interrupts = <38 0x0>;
+		irq-gpio = <&pio 38 0x0>;
+		//vcc0-supply = <&pm660l_l4>;
+		channel_use_flag = <0xff>;
+		//aw9620x,using-arr-laod-reg;
+		air_diff_limit_max = <1500>;
+		air_diff_limit_min = <(-1500)>;
+		air_parasitic_limit_max = <650000>;
+		air_parasitic_limit_min = <140000>;
+		contact_diff_limit = <30000>;
+		status = "okay";
+	};
+};
+/* shoulder key end */
+#include "mediatek/omnivision_test_spi.dtsi"
+
+/* TOUCH end */

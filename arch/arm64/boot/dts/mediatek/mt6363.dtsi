@@ -96,6 +96,10 @@
 				channel = <AUXADC_VIN5>;
 				pures = <ADC_PURES_OPEN>;
 			};
+			vin6-30k {
+				channel = <AUXADC_VIN6>;
+				pures = <ADC_PURES_30K>;
+			};
 			vin6-100k {
 				channel = <AUXADC_VIN6>;
 				pures = <ADC_PURES_100K>;

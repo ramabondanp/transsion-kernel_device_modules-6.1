@@ -1,0 +1,40 @@
+/*
+ * Copyright (C) 2019 MediaTek Inc.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+ */
+&odm {
+	tc_pd_adapter: tc_pd_adapter{
+		compatible = "tc,pd_adapter";
+		boot_mode = <&chosen>;
+		adapter_name = "pd_adapter";
+		force_cv;
+		phys = <&u2port0 PHY_TYPE_USB2>;
+		phy-names = "usb2-phy";
+		status = "okay";
+	};
+};
+/*
+&pio {
+	gpio_i2c_sclk_mode: i2c_sclk_mode {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO161__FUNC_SCL12>;
+			mediatek,drive-strength-adv = <0>;
+			drive-strength = <3>;
+		};
+	};
+	gpio_i2c_sda_mode: i2c_sda_mode {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO162__FUNC_SDA12>;
+			mediatek,drive-strength-adv = <0>;
+			drive-strength = <3>;
+		};
+	};
+};
+*/

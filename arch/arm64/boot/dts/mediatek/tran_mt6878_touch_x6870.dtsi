@@ -1,0 +1,65 @@
+// SPDX-License-Identifier: (GPL-2.0 OR MIT)
+/*
+ * Copyright (C) 2020 MediaTek Inc.
+ */
+/* TOUCH start */
+&odm {
+	touch: touch {
+		compatible = "mediatek,touch";
+	};
+};
+
+&touch {
+	supplier-num = <1>;
+	supplier-vendor-0 = "TM";
+	supplier-0 = "any, focaltech, ft3683g";
+	supplier-resolution-0 = <16>;
+};
+
+&spi3 {
+	tran_touch:touch@0 {
+		 compatible = "focaltech,fts";
+		 reg = <0>;
+		 status = "ok";
+		 spi-max-frequency = <8000000>;
+		 interrupt-parent = <&pio>;
+		 vtouch-supply = <&mt6369_vtp>;
+		 //For ft3683g  driver config
+		 focaltech,iovdd-gpio = <&pio 189 0x0>;
+		 focaltech,irq-gpio = <&pio 7 0x0>;
+		 focaltech,reset-gpio = <&pio 6 0x0>;
+		 focaltech,max-touch-number = <10>;
+		 focaltech,display-coords =  <0 0 17279 38975>;
+		 focaltech,fod-function-support;
+		 focaltech,custom-mistouch-support;
+		 focaltech,pocket-function-support;
+		 focaltech,switch-report-support;
+		 pinctrl-names = "default","state_spi_mode";
+		 pinctrl-0 = <&ctp_pins_default>;
+		 pinctrl-1 = <&ctp_pins_spi_mode>;
+	};
+};
+&pio {
+	ctp_pins_default: ctp_default {
+	};
+	ctp_pins_spi_mode: ctp_spimode_default {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO71__FUNC_SPI3_MI>,
+					 <PINMUX_GPIO69__FUNC_SPI3_CSB>,
+					 <PINMUX_GPIO70__FUNC_SPI3_MO>,
+					 <PINMUX_GPIO68__FUNC_SPI3_CLK>;
+			drive-strength = <2>;
+		};
+	};
+};
+
+
+/* key start */
+&mt6363keys {
+	home {
+		linux,keycodes = <114>;
+	};
+};
+/* key end */
+
+/* TOUCH end */

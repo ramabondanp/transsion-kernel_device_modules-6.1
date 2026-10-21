@@ -1,0 +1,32 @@
+&odm {
+	tc_pdlc:tc_pdlc {
+		compatible = "transsion,tran_pdlc";
+		status = "okay";
+        support_pdlc_hw_detect;
+        hw-detect-gpio = <&pio 128 0>;
+
+        pinctrl-names = "tran_pdlc_boost_on",
+						"tran_pdlc_boost_off";
+
+		pinctrl-0 = <&tran_pdlc_boost_on>;
+		pinctrl-1 = <&tran_pdlc_boost_off>;
+	};
+};
+
+&pio {
+    tran_pdlc_boost_on: tran_pdlc_boost_on {
+        pins_cmd_dat {
+            pinmux = <PINMUX_GPIO39__FUNC_GPIO39>;
+            slew-rate = <1>;
+            output-high;
+        };
+    };
+    tran_pdlc_boost_off: tran_pdlc_boost_off {
+        pins_cmd_dat {
+            pinmux = <PINMUX_GPIO39__FUNC_GPIO39>;
+            slew-rate = <1>;
+            output-low;
+        };
+    };
+
+};

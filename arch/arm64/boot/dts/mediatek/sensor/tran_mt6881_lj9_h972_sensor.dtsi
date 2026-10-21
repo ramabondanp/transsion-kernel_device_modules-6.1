@@ -1,0 +1,26 @@
+// SPDX-License-Identifier: (GPL-2.0 OR MIT)
+/*
+ * Sensor configuration for lj9_h972
+ * Migrated from tran_projects lj9_h972.dts
+ */
+
+&tran_sensor_cust {
+    /*lcm info for sensor start*/
+    /*als sensor support state*/
+    un_als_support = <1 0 0 0>;/*ML MSL SL SSL*/
+    /*main sensor:ML*/
+    ml_lcm_info = <749 126 47 47>;/*offset_x, offset_y, clip_w, clip_h*/
+    /*main sub als lcm info:MSL*/
+    /*lcm info for sensor end*/
+    ml_nv_info = <1 1 1>; /*vendortype:SensorTek,  algotype:Cutout, version:V1_0_0*/
+    nv_restore_time = <3>;
+    /*lcm name info */
+    supplier-num = <2>;
+    supplier-0 = "rm692j0_fhdp_dsi_cmd_dsc_boe_boe_144hz_lj9";
+    supplier-1 = "rm692j0_fhdp_dsi_cmd_dsc_boe2_boe_144hz_lj9";
+};
+
+&irtx_pwm {
+	pwm_ch = <2>;
+	status = "okay";
+};

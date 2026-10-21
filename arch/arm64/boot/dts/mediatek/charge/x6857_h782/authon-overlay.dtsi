@@ -1,0 +1,77 @@
+// SPDX-FileCopyrightText: 2024 Infineon Technologies AG
+//
+// SPDX-License-Identifier: MIT
+
+&odm {
+       authon_device_1: authon_device_1 {
+		compatible = "optiga_authon,optiga_authon_dev";
+		status = "okay";
+		power-mode = "indirect";
+		//power-mode = "direct";
+		baud-low-value = <40>;
+		baud-high-value = <120>;
+		baud-stop-value = <200>;
+		response-timeout-value = <4500>;
+		wake-up-delay-value = <7000>;
+		wake-up-low-value = <10>;
+		reset-delay-value = <1000>;
+		swi-gpios = <&pio 58 0>;
+		boardver-gpios = <&pio 59 0>;
+
+		pinctrl-names ="opt_authon_default","opt_authon_8mA","boardver_pull";
+		pinctrl-0 = <&swi_gpio_default>;
+		pinctrl-1 = <&swi_gpio_8mA>;
+		pinctrl-2 = <&boardver_pull>;
+
+		//pinctrl-names = "swi_output_low", "swi_output_high", "swi_input_low", "swi_input_high";
+		//pinctrl-0 = <&swigpio_output_low>;
+		//pinctrl-1 = <&swigpio_output_high>;
+		//pinctrl-2 = <&swigpio_input_low>;
+		//pinctrl-3 = <&swigpio_input_high>;
+       };
+};
+
+&pio {
+	swi_gpio_default: swi_gpio_default {
+	};
+	
+	swi_gpio_8mA: swi_gpio_8mA {
+	        pins_cmd_dat {
+	                pinmux = <PINMUX_GPIO58__FUNC_GPIO58>;
+	                slew-rate = <1>;
+	                output-low;
+	                drive-strength = <3>; /*0-16: 0:2ma 1:4ma 2:6ma 3:8ma......7:16ma*/
+	        };
+	};
+
+	boardver_pull: boardver_pull {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO59__FUNC_GPIO59>;
+			bias-pull-up;
+			input-enable;
+		};
+	};
+//	swigpio_output_high: output_high {
+//		pins_cmd_dat {
+//			pinmux = <PINMUX_GPIO52__FUNC_GPIO52>;
+//			slew-rate = <1>;
+//			output-high;
+//			drive-strength = <8>;
+//		};
+//	};
+//	swigpio_input_low: input_low {
+//		pins_cmd_dat {
+//			pinmux = <PINMUX_GPIO52__FUNC_GPIO52>;
+//			slew-rate = <0>;
+//			bias-pull-down = <00>;
+//			output-low;
+//		};
+//	};
+//	swigpio_input_high: input_high {
+//		pins_cmd_dat {
+//			pinmux = <PINMUX_GPIO52__FUNC_GPIO52>;
+//			slew-rate = <0>;
+//			bias-pull-up = <00>;
+//		};
+//	};
+};

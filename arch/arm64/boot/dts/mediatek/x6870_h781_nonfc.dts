@@ -1,0 +1,686 @@
+// SPDX-License-Identifier: (GPL-2.0 OR MIT)
+/*
+ * Copyright (C) 2022 MediaTek Inc.
+ */
+/dts-v1/;
+/plugin/;
+#include <dt-bindings/interrupt-controller/arm-gic.h>
+#include <dt-bindings/interrupt-controller/irq.h>
+#include <dt-bindings/phy/phy.h>
+#include <dt-bindings/pinctrl/mt6878-pinfunc.h>
+#include <dt-bindings/iio/mt635x-auxadc.h>
+
+#if 0
+#include <dt-bindings/pinctrl/mt6897-pinfunc.h>
+#endif
+
+&chosen {
+bootargs_ext = "";
+};
+
+&pdc {
+	pd-vbus-upper-bound = <9000000>;
+};
+
+&irtx_pwm {
+    pwm_ch = <0>;
+    status = "okay";
+};
+
+&tran_sensor_cust {
+    /*lcm info for sensor start*/
+    /*als sensor support state*/
+    un_als_support = <1 0 0 0>;/*ML MSL SL SSL*/
+    /*main sensor:ML*/
+    ml_lcm_info = <836 47 58 58>;/*offset_x, offset_y, clip_w, clip_h*/
+    extra_ml_lcm_info = <844 49 46 46 80 20>; /*IC感光区起始坐标X IC感光区起始坐标Y IC宽 IC高  IC内占比 IC外占比*/
+    /*main sub als lcm info:MSL*/
+    /*lcm info for sensor end*/
+    ml_nv_info = <1 1 1>; /*vendortype:SensorTek,  algotype:Cutout, version:V1_0_0*/
+    nv_restore_time = <3>;
+};
+
+#if 1
+
+&connfem {
+/* Enable epa_elna node to support Wifi & BT ePA/eLNA FEM on customer load */
+#if 0
+	epa-elna {
+		parts = <&wlan7207h &wlan7207c>;
+		wifi {
+			flags-0 {
+				open-loop;
+			};
+		};
+		bt {
+			flags-0 {
+				/* choose one of: epa-elna/epa/elna/bypass */
+				epa-elna;
+			};
+		};
+	};
+#endif
+};
+
+/* GPS GPIO standardization start */
+&pio {
+	gps_pins_default: gps-default {
+	};
+	gps_l1_lna_pins_ol: gps-l1-lna0 {
+		pins-cmd-dat {
+			pinmux = <PINMUX_GPIO154__FUNC_GPIO154>;
+			output-low;
+		};
+	};
+	gps_l1_lna_pins_dsp_ctrl: gps-l1-lna1 {
+		pins-cmd-dat {
+			pinmux = <PINMUX_GPIO154__FUNC_GPS_L1_ELNA_EN>;
+		};
+	};
+	gps_l1_lna_pins_oh: gps-l1-lna2 {
+		pins-cmd-dat {
+			pinmux = <PINMUX_GPIO154__FUNC_GPIO154>;
+			output-high;
+		};
+	};
+
+};
+&gps {
+	pinctrl-names = "default",
+		"gps_l1_lna_disable",
+		"gps_l1_lna_dsp_ctrl",
+		"gps_l1_lna_enable";
+	pinctrl-0 = <&gps_pins_default>;
+	pinctrl-1 = <&gps_l1_lna_pins_ol>;
+	pinctrl-2 = <&gps_l1_lna_pins_dsp_ctrl>;
+	pinctrl-3 = <&gps_l1_lna_pins_oh>;
+	status = "okay";
+};
+/* GPS GPIO standardization end */
+
+&md_auxadc{
+    io-channels = <&pmic_adc (ADC_PURES_OPEN_MASK | AUXADC_VIN1)>;
+};
+
+
+#endif
+
+
+&sound {
+    mediatek,spk-i2s = <25 24>;
+};
+
+&i2c3  {
+    #address-cells = <1>;
+    #size-cells = <0>;
+    status = "okay";
+
+    hl1280-audioswitch@42 {
+        compatible = "mediatek,hl1280-audioswitch";
+        reg = <0x42>;
+        status = "okay";
+    };
+};
+
+&i2c10 {
+	oca72xxx_pa@58 {
+		compatible = "ocs,oca72xxx_pa";
+		reg = <0x58>;
+		dev_index = < 1 >;
+		status = "okay";
+	};
+
+	oca72xxx_pa@59 {
+		compatible = "ocs,oca72xxx_pa";
+		reg = <0x59>;
+		dev_index = < 0 >;
+		status = "okay";
+	};
+};
+
+&odm {
+       tran_audio_controller:tran_audio_controller {
+               compatible = "tran-audio-controller";
+               tran_pa_type = <4>;
+       };
+
+      tran_audio:tran_audio{
+                      compatible = "tran_audio,audio";
+                      typec_usb_change_gpio = <&pio 34 0>;
+      };
+};
+
+&scp {
+       compatible = "mediatek,scp";
+       status = "okay";
+       reg = <0 0x1c400000 0 0x100000>, /* tcm */
+                 <0 0x1cb24000 0 0x1000>, /* cfg */
+                 <0 0x1cb21000 0 0x1000>, /* clk*/
+                 <0 0x1cb30000 0 0x1000>, /* cfg core0 */
+                 <0 0x1cb40000 0 0x1000>, /* cfg core1 */
+                 <0 0x1cb80000 0 0x1000>, /* bus tracker */
+                 <0 0x1cb60000 0 0x20000>, /* llc */
+                 <0 0x1cb2a000 0 0x4>, /* cfg_sec */
+
+                 <0 0x1cba0000 0 0x100>, /* mbox0 base */
+                 <0 0x1cba0100 0 0x4>, /* mbox0 set */
+                 <0 0x1cba010c 0 0x4>, /* mbox0 clr */
+                 <0 0x1cb2a020 0 0x4>, /* mbox0 init */
+
+                 <0 0x1cbb0000 0 0x100>, /* mbox1 base */
+                 <0 0x1cbb0100 0 0x4>, /* mbox1 set */
+                 <0 0x1cbb010c 0 0x4>, /* mbox1 clr */
+                 <0 0x1cb2a024 0 0x4>, /* mbox1 init */
+
+                 <0 0x1cbc0000 0 0x100>, /* mbox2 base */
+                 <0 0x1cbc0100 0 0x4>, /* mbox2 set */
+                 <0 0x1cbc010c 0 0x4>, /* mbox2 clr */
+                 <0 0x1cb2a028 0 0x4>, /* mbox2 init */
+
+                 <0 0x1cbd0000 0 0x100>, /* mbox3 base */
+                 <0 0x1cbd0100 0 0x4>, /* mbox3 set */
+                 <0 0x1cbd010c 0 0x4>, /* mbox3 clr */
+                 <0 0x1cb2a02c 0 0x4>, /* mbox3 init */
+
+                 <0 0x1cbe0000 0 0x100>, /* mbox4 base */
+                 <0 0x1cbe0100 0 0x4>, /* mbox4 set */
+                 <0 0x1cbe010c 0 0x4>, /* mbox4 clr */
+                 <0 0x1cb2a030 0 0x4>, /* mbox4 init */
+
+                 <0 0x1cb50000 0 0x1000>; /* cfg ap*/
+
+       reg-names = "scp_sram_base",
+                       "scp_cfgreg",
+                       "scp_clkreg",
+                       "scp_cfgreg_core0",
+                       "scp_cfgreg_core1",
+                       "scp_bus_tracker",
+                       "scp_l1creg",
+                       "scp_cfgreg_sec",
+                       "mbox0_base",
+                       "mbox0_set",
+                       "mbox0_clr",
+                       "mbox0_init",
+                       "mbox1_base",
+                       "mbox1_set",
+                       "mbox1_clr",
+                       "mbox1_init",
+                       "mbox2_base",
+                       "mbox2_set",
+                       "mbox2_clr",
+                       "mbox2_init",
+                       "mbox3_base",
+                       "mbox3_set",
+                       "mbox3_clr",
+                       "mbox3_init",
+                       "mbox4_base",
+                       "mbox4_set",
+                       "mbox4_clr",
+                       "mbox4_init",
+                       "scp_cfgreg_ap";
+
+       interrupts = <GIC_SPI 516 IRQ_TYPE_LEVEL_HIGH 0>,
+                        <GIC_SPI 517 IRQ_TYPE_LEVEL_HIGH 0>,
+                        <GIC_SPI 518 IRQ_TYPE_LEVEL_HIGH 0>,
+                        <GIC_SPI 519 IRQ_TYPE_LEVEL_HIGH 0>,
+                        <GIC_SPI 520 IRQ_TYPE_LEVEL_HIGH 0>,
+                        <GIC_SPI 521 IRQ_TYPE_LEVEL_HIGH 0>,
+                        <GIC_SPI 522 IRQ_TYPE_LEVEL_HIGH 0>;
+
+       interrupt-names = "ipc0",
+                         "ipc1",
+                         "mbox0",
+                         "mbox1",
+                         "mbox2",
+                         "mbox3",
+                         "mbox4";
+
+       core-0 = "enable";
+       scp-hwvoter = "enable";
+       scp-sram-size = <0x00100000>;
+       core-nums = <2>;        /* core number */
+       twohart = <1>;          /* two hart arch */
+       mbox-count = <4>;
+       /* id, mbox, send_size*/
+       send-table =
+       < 0 0  11>,/* IPI_OUT_AUDIO_VOW_1 */
+       <14 0  1>,/* IPI_OUT_DVFS_SET_FREQ_1 */
+       <15 0  2>,/* IPI_OUT_C_SLEEP_1 */
+       <16 0  1>,/* IPI_OUT_TEST_1 */
+       //<24 0  6>,/* IPI_OUT_SCP_MPOOL_1 */
+       <17 1  6>,/* IPI_OUT_LOGGER_CTRL */
+       <18 1  2>,/* IPI_OUT_SCPCTL_1 */
+       <46 1  1>,/* IPI_OUT_SCP_PM_NOTIFY_1 */
+       <29 1 16>,/* IPI_OUT_SENSOR_CTRL */
+       <31 1  7>,/* IPI_OUT_SENSOR_NOTIFY */
+       < 4 2  1>,/* IPI_OUT_DVFS_SET_FREQ_0 */
+       < 5 2  2>,/* IPI_OUT_C_SLEEP_0 */
+       < 6 2  1>,/* IPI_OUT_TEST_0 */
+       //<11 2  6>,/* IPI_OUT_SCP_MPOOL_0 */
+       <33 2  16>,/* IPI_OUT_SCP_CONNSYS */
+    <50 2 10>,/* IPI_OUT_ELLIPTIC_ULTRA_0 */
+       < 3 3  4>,/* IPI_OUT_APCCCI_0 */
+       <37 3  1>,/* IPI_OUT_SCP_AOD */
+       <26 3  9>,/* IPI_OUT_AUDIO_ULTRA_SND_0 */
+       <35 3  2>,/* IPI_OUT_C_SCP_HWVOTER_DEBUG */
+       <39 3  4>,/* IPI_OUT_AOV_SCP */
+       <43 3  4>,/* IPI_OUT_NPU_SCP */
+       <45 3  1>;/* IPI_OUT_SCP_PM_NOTIFY_0 */
+
+       #recv-cells-mode = <1>;
+       /* mode 0 or no defined #recv-cells-mode => 4 elements : id, mbox,
+        * recv_size, recv_opt
+        */
+       /* mode 1 => 7 elements : id, mbox, recv_size, recv_opt, lock, buf_full_opt,
+        * cb_ctx_opt
+        */
+       recv-table =
+       < 1 0  2 0 0 0 0>,/* IPI_IN_AUDIO_VOW_ACK_1 */
+       < 2 0 26 0 0 0 0>,/* IPI_IN_AUDIO_VOW_1 */
+       <36 0  1 0 0 0 0>,/* IPI_IN_AUDIO_ACDDET_1 */
+       <15 0  1 1 0 0 0>,/* IPI_OUT_C_SLEEP_1 */
+    <51 0  10 0 0 0 0>,/* IPI_IN_ELLIPTIC_ULTRA_0 */
+       //<25 0 6 0 0 0 0>,/* IPI_IN_SCP_MPOOL_1 */
+       <20 1 10 0 0 0 0>,/* IPI_IN_SCP_ERROR_INFO_1 */
+       <21 1  6 0 0 0 0>,/* IPI_IN_LOGGER_CTRL */
+       <22 1  1 0 0 0 0>,/* IPI_IN_SCP_READY_1 */
+       <30 1  2 0 0 0 0>,/* IPI_IN_SENSOR_CTRL */
+       <32 1  7 0 0 0 0>,/* IPI_IN_SENSOR_NOTIFY */
+       < 5 2  1 1 0 0 0>,/* IPI_OUT_C_SLEEP_0 */
+       < 8 2 10 0 0 0 0>,/* IPI_IN_SCP_ERROR_INFO_0 */
+       //<12 2  6 0 0 0 0>,/* IPI_IN_SCP_MPOOL_0 */
+       <34 2 16 0 0 0 0>,/* IPI_IN_SCP_CONNSYS */
+       < 7 3  2 0 0 0 0>,/* IPI_IN_APCCCI_0 */
+       <38 3  1 0 0 0 0>,/* IPI_IN_SCP_AOD */
+       <28 3  5 0 0 0 0>,/* IPI_IN_AUDIO_ULTRA_SND_0 */
+       <27 3  2 0 0 0 0>,/* IPI_IN_AUDIO_ULTRA_SND_ACK_0 */
+       <35 3  4 1 0 0 0>,/* IPI_OUT_C_SCP_HWVOTER_DEBUG */
+       <40 3  4 0 0 0 0>,/* IPI_IN_SCP_AOV */
+       <44 3  4 0 0 0 0>;/* IPI_IN_SCP_NPU */
+
+       //legacy_table =        <11>, /* out_id_0 IPI_OUT_SCP_MPOOL_0 */
+       //              <24>, /* out_id_1 IPI_OUT_SCP_MPOOL_1 */
+       //              <12>, /* in_id_0 IPI_IN_SCP_MPOOL_0 */
+       //              <12>, /* in_id_1 IPI_IN_SCP_MPOOL_0 */
+       //              <6>, /* out_size */
+       //              <6>; /* in_size */
+
+       /* feature, frequecy, coreid */
+       scp-feature-tbl =
+                         < 0  40 0>,   /* vow */
+                         < 1   0 0>,   /* sensor */
+                         < 2  26 0>,   /* flp */
+                         < 3   0 0>,   /* rtos */
+                         < 4 200 0>,   /* speaker */
+                         < 5   0 0>,   /* vcore */
+                         < 6 135 0>,   /* barge in */
+                         < 7  10 0>,   /* vow dump */
+                         < 8  80 0>,   /* vow vendor M */
+                         < 9  43 0>,   /* vow vendor A */
+                         <10  22 0>,   /* vow vendor G */
+                         <11  20 0>,   /* vow dual mic */
+                         <12 100 0>,   /* vow dual mic barge in */
+                         <13 400 0>;   /* ultrasound */
+
+       scp-dram-region = "enable";   /* enable scp dram region manage */
+       scp-protect = "enable";   /* enable scp protections */
+       secure-dump = "enable";   /* enable dump via secure world*/
+       secure-dump-size = <0xe28000>;
+       scp-pm-notify = "enable";
+       scp-thermal-wq = "disable";
+       scp-low-pwr-dbg = "enable";
+       scp-cfgreg-ap-en = "enable";
+       scp-ipc-wa = "disable";
+       scp-mbrain = "enable";
+       scp-bus-tracker-ver = <0x2>;
+       scp-mem-key = "mediatek,reserve-memory-scp_share";
+
+       /* feature ID, size, alignment */
+       scp-mem-tbl =
+                         <0 0x0 0x0>, /* secure dump, its size is in secure-dump-size */
+                         <1 0xca700 0x0>, /* vow */
+                         <2 0x100000 0x0>, /* sensor main*/
+                         <3 0x180000 0x0>, /* logger */
+                         <5 0xa000 0x0>, /* vow bargein */
+                         <7 0x1a000 0x0>, /* ultrasound*/
+                         <8 0x10000 0x0>, /* sensor supper*/
+                         <9 0x1000 0x0>, /* sensor list */
+                         <10 0x2000 0x0>, /* sensor debug */
+                         <11 0x100 0x0>, /* sensor custom writer */
+                         <12 0x100 0x0>, /* sensor custom reader */
+                         <19 0x200 0x0>,  /* low power debug */
+                         <20 0x8000 0x0>; /* usnd debug mode */
+
+       memorydump = <0x100000>, /* l2tcm */
+                        <0x0c4000>, /* l1c */
+                        <0x003c00>, /* regdump */
+                        <0x000400>, /* trace buffer */
+                        <0xc60000>; /* dram */
+
+       scp-resource-dump = "disable";   /* enable dump scp related resource */
+       /* regulator */
+       scp-supply-num = <3>;   /* total number of scp related regulator */
+       //vscp0-supply = <&mt6363_vbuck4>;
+       //vscp1-supply = <&mt6363_vsram_apu>;
+       //vscp2-supply = <&mt6363_vs3>;
+
+       /* dump register */
+       /* cell means register info (address,size), not total reg num */
+       scp-resource-reg-dump-cell = <2>;
+       scp-resource-reg-dump = <0x1c001818 0x4>,
+               <0x1c00192c 0x4>;
+               //<0x1c0018e4 0x4>,
+               //<0x1c0012b8 0x4>,
+               //<0x1c013010 0x4>,
+
+       /* awake timeout count plt setting */
+       awake-timeout = <30000>; /* 300 ms */
+};
+
+&mtk_leds {
+	compatible = "mediatek,disp-leds";
+
+	backlight {
+		led-mode = <4>;
+		gate_enable = <0>;
+		pwm_config = <0 1 0 0 0>;
+		max-brightness = <511>;
+		min-brightness = <0>;
+		max-hw-brightness = <511>;
+	};
+};
+
+&pio {
+	mtkfb_pins_lcm_reset0: lcm_rst_out0_gpio {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO90__FUNC_GPIO90>;
+			slew-rate = <1>;
+			output-low;
+		};
+	};
+
+	mtkfb_pins_lcm_reset1: lcm_rst_out1_gpio {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO90__FUNC_GPIO90>;
+			slew-rate = <1>;
+			output-high;
+		};
+	};
+
+	mtkfb_pins_lcm_dsi_te: lcm_dsi_te {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO89__FUNC_DSI_TE>;
+		};
+	};
+};
+
+&mtkfb {
+	pinctrl-names = "lcm_rst_out0_gpio", "lcm_rst_out1_gpio",
+		"mode_te_te";
+	pinctrl-1 = <&mtkfb_pins_lcm_reset0>;
+	pinctrl-2 = <&mtkfb_pins_lcm_reset1>;
+	pinctrl-3 = <&mtkfb_pins_lcm_dsi_te>;
+	status = "okay";
+};
+
+&dispsys_config {
+	pinctrl-names = "lcm_rst_out0_gpio", "lcm_rst_out1_gpio",
+		"mode_te_te";
+	pinctrl-1 = <&mtkfb_pins_lcm_reset0>;
+	pinctrl-2 = <&mtkfb_pins_lcm_reset1>;
+	pinctrl-3 = <&mtkfb_pins_lcm_dsi_te>;
+	status = "okay";
+
+	helper-value = <0>, /*MTK_DRM_OPT_STAGE*/
+		<1>, /*MTK_DRM_OPT_USE_CMDQ*/
+		<1>, /*MTK_DRM_OPT_USE_M4U*/
+		<1>, /*MTK_DRM_OPT_MMQOS_SUPPORT*/
+		<1>, /*MTK_DRM_OPT_MMDVFS_SUPPORT*/
+		<0>, /*MTK_DRM_OPT_SODI_SUPPORT*/
+		<1>, /*MTK_DRM_OPT_IDLE_MGR*/
+		<0>, /*MTK_DRM_OPT_IDLEMGR_SWTCH_DECOUPLE*/
+		<0>, /*MTK_DRM_OPT_IDLEMGR_BY_REPAINT*/
+		<0>, /*MTK_DRM_OPT_IDLEMGR_ENTER_ULPS*/
+		<0>, /*MTK_DRM_OPT_IDLEMGR_KEEP_LP11*/
+		<0>, /*MTK_DRM_OPT_DYNAMIC_RDMA_GOLDEN_SETTING*/
+		<1>, /*MTK_DRM_OPT_IDLEMGR_DISABLE_ROUTINE_IRQ*/
+		<1>, /*MTK_DRM_OPT_IDLEMGR_ASYNC*/
+		<0>, /*MTK_DRM_OPT_MET_LOG*/
+		<1>, /*MTK_DRM_OPT_USE_PQ*/
+		<1>, /*MTK_DRM_OPT_ESD_CHECK_RECOVERY*/
+		<1>, /*MTK_DRM_OPT_ESD_CHECK_SWITCH*/
+		<1>, /*MTK_DRM_OPT_PRESENT_FENCE*/
+		<0>, /*MTK_DRM_OPT_RDMA_UNDERFLOW_AEE*/
+		<1>, /*MTK_DRM_OPT_DSI_UNDERRUN_AEE*/
+		<0>, /*MTK_DRM_OPT_ODDMR_OD_AEE*/
+		<0>, /*MTK_DRM_OPT_ODDMR_DMR_AEE*/
+		<1>, /*MTK_DRM_OPT_HRT*/
+		<0>, /*MTK_DRM_OPT_HRT_MODE*/
+		<0>, /*MTK_DRM_OPT_DELAYED_TRIGGER*/
+		<1>, /*MTK_DRM_OPT_OVL_EXT_LAYER*/
+		<1>, /*MTK_DRM_OPT_AOD*/
+		<1>, /*MTK_DRM_OPT_RPO*/
+		<0>, /*MTK_DRM_OPT_DUAL_PIPE*/
+		<0>, /*MTK_DRM_OPT_DC_BY_HRT*/
+		<0>, /*MTK_DRM_OPT_OVL_WCG*/
+		<0>, /*MTK_DRM_OPT_OVL_SBCH*/
+		<1>, /*MTK_DRM_OPT_COMMIT_NO_WAIT_VBLANK*/
+		<0>, /*MTK_DRM_OPT_MET*/
+		<0>, /*MTK_DRM_OPT_REG_PARSER_RAW_DUMP*/
+		<0>, /*MTK_DRM_OPT_VP_PQ*/
+		<0>, /*MTK_DRM_OPT_GAME_PQ*/
+		<0>, /*MTK_DRM_OPT_MMPATH*/
+		<1>, /*MTK_DRM_OPT_HBM*/
+		<0>, /*MTK_DRM_OPT_VDS_PATH_SWITCH*/
+		<0>, /*MTK_DRM_OPT_LAYER_REC*/
+		<1>, /*MTK_DRM_OPT_CLEAR_LAYER*/
+		<1>, /*MTK_DRM_OPT_LFR*/
+		<0>, /*MTK_DRM_OPT_SF_PF*/
+		<1>, /*MTK_DRM_OPT_DYN_MIPI_CHANGE*/
+		<0>, /*MTK_DRM_OPT_PRIM_DUAL_PIPE*/
+		<0>, /*MTK_DRM_OPT_MSYNC2_0*/
+		<1>, /*MTK_DRM_OPT_MML_PRIMARY*/
+		<0>, /*MTK_DRM_OPT_MML_SUPPORT_CMD_MODE*/
+		<0>, /*MTK_DRM_OPT_MML_PQ*/
+		<0>, /*MTK_DRM_OPT_MML_IR*/
+		<0>, /*MTK_DRM_OPT_DUAL_TE*/
+		<0>, /*MTK_DRM_OPT_RES_SWITCH*/
+		<0>, /*MTK_DRM_OPT_PREFETCH_TE*/
+		<0>, /*MTK_DRM_OPT_VIDLE_APSRC_OFF*/
+		<0>, /*MTK_DRM_OPT_VIDLE_DSI_PLL_OFF*/
+		<0>, /*MTK_DRM_OPT_CHECK_TRIGGER_MERGE*/
+		<0>, /*MTK_DRM_OPT_VIRTUAL_DISP*/
+		<0>, /*MTK_DRM_OPT_OVL_BW_MONITOR*/
+		<0>, /*MTK_DRM_OPT_GPU_CACHE*/
+		<1>, /*MTK_DRM_OPT_SPHRT*/
+		<1>, /*MTK_DRM_OPT_SDPA_OVL_SWITCH*/
+		<0>, /*MTK_DRM_OPT_HRT_BY_LARB*/
+		<1>, /*MTK_DRM_OPT_LAYERING_RULE_BY_LARB*/
+		<1>, /*MTK_DRM_OPT_RES_SWITCH_ON_AP*/
+		<0>, /*MTK_DRM_OPT_TILE_OVERHEAD*/
+		<1>, /*MTK_DRM_OPT_VIDLE_TOP_EN*/
+		<0>, /*MTK_DRM_OPT_VIDLE_MTCMOS_DT_EN*/
+		<1>, /*MTK_DRM_OPT_VIDLE_MMINFRA_DT_EN*/
+		<0>, /*MTK_DRM_OPT_VIDLE_DVFS_DT_EN*/
+		<0>, /*MTK_DRM_OPT_VIDLE_QOS_DT_EN*/
+		<0>, /*MTK_DRM_OPT_VIDLE_GCE_TS_EN*/
+		<0>, /*MTK_DRM_OPT_VIDLE_DECOUPLE_MODE*/
+		<0>, /*MTK_DRM_OPT_VIDLE_VDO_PANEL*/
+		<0>, /*MTK_DRM_OPT_VIDLE_HOME_SCREEN_IDLE*/
+		<0>, /*MTK_DRM_OPT_DPC_PRE_TE_EN*/
+		<0>; /*"MTK_DRM_OPT_PER_LARB_PORT_PEAK"*/
+};
+
+&dsi0 {
+	status = "okay";
+	#address-cells = <1>;
+	#size-cells = <0>;
+	panel1@0 {
+		compatible = "nt37703a,fhdp,dsi,vdo,tm,tm,144hz,x6870";
+		reg = <0>;
+		doze_backlight = <3 5 7 29>;
+		vddi-gpios = <&pio 12 0>;
+		dvdd-supply = <&ET5904LDO27>;
+		vci-gpios = <&pio 56 0>;
+		reset-gpios = <&pio 90 0>;
+		pinctrl-names = "default";
+		port {
+			panel_in1: endpoint {
+				remote-endpoint = <&dsi_out>;
+			};
+		};
+	};
+
+	ports {
+		port {
+			dsi_out: endpoint {
+				remote-endpoint = <&panel_in1>;
+			};
+		};
+	};
+};
+
+&audio_sram {
+	reg = <0 0x11059000 0 0xc000>;
+	mode-size = <0xc000 0x11300>;
+};
+
+&audio_xhci_sram {
+	reg = <0 0x11065000 0 0x3900>;
+	mode-size = <0x3900>;
+	afe-reserved;
+};
+
+&pdc {
+	pd-vbus-upper-bound = <9000000>;
+};
+&spi1 {
+    fingerprint@0 {
+        compatible = "tran_fp";
+        reg = <0>;
+        spi-max-frequency = <35000000>;
+        interrupt-parent = <&pio>;
+        interrupts = <13 1 13 0>;
+        debounce = <27 0>;
+        irq-gpio = <13>;
+        irq-gpio-std = <&pio 13 0x0>;
+        reset-gpio = <149>;
+        reset-gpio-std = <&pio 149 0x0>;
+        vmch-supply = <&mt6369_vfp>;
+        fod_location_xy = "630,2537";
+        pinctrl-names ="tran_fp_default",
+            "tran_fp_pin_irq",
+            "tran_fp_irq_pull_down",
+            "tran_fp_reset_high",
+            "tran_fp_reset_low",
+            "tran_fp_spi_default";
+        pinctrl-0 = <&fingerprint_default>;
+        pinctrl-1 = <&fingerprint_eint>;
+        pinctrl-2 = <&fingerprint_eint_pull_down>;
+        pinctrl-3 = <&fingerprint_rst_one>;
+        pinctrl-4 = <&fingerprint_rst_zero>;
+        pinctrl-5 = <&fingerprint_spi_default>;
+        status = "okay";
+    };
+};
+&pio {
+fingerprint_default: fingerprint_default {
+                     };
+fingerprint_eint: gpio13_eint {
+                      pins_cmd_dat {
+                          pinmux = <PINMUX_GPIO13__FUNC_GPIO13>;
+                          slew-rate = <0>;
+                          bias-disable;
+                      };
+                  };
+fingerprint_eint_pull_down: gpio13_eint_pull_down {
+                                pins_cmd_dat {
+                                    pinmux = <PINMUX_GPIO13__FUNC_GPIO13>;
+                                    slew-rate = <0>;
+                                    bias-pull-down = <00>;
+                                    output-low;
+                                };
+                            };
+fingerprint_rst_one: rst_out_one {
+                         pins_cmd_dat {
+                             pinmux = <PINMUX_GPIO149__FUNC_GPIO149>;
+                             slew-rate = <1>;
+                             bias-disable;
+                             output-high;
+                         };
+                     };
+fingerprint_rst_zero: rst_out_zero {
+                          pins_cmd_dat {
+                              pinmux = <PINMUX_GPIO149__FUNC_GPIO149>;
+                              slew-rate = <1>;
+                              bias-disable;
+                              output-low;
+                          };
+                      };
+fingerprint_spi_default: spimode_default {
+                             pins_cmd_dat {
+                                 pinmux = <PINMUX_GPIO61__FUNC_SPI1_CSB>,
+                                        <PINMUX_GPIO60__FUNC_SPI1_CLK>,
+                                        <PINMUX_GPIO63__FUNC_SPI1_MI>,
+                                        <PINMUX_GPIO62__FUNC_SPI1_MO>;
+                                 drive-strength = <7>;
+                             };
+                         };
+};
+
+#include <x6870_h781/cust.dtsi>
+#include "mediatek/touch/x6870_h781_nonfc/tran_mt6878_touch_x6870.dtsi"
+#include "mediatek/camera/x6870_h781_nonfc/cust_mt6878_camera_v4l2.dtsi"
+#include "mediatek/cust_k6878_connfem.dtsi"
+&u2port0 {
+        mediatek,eye-vrt = <0x4>;
+        mediatek,eye-term = <0x7>;
+        mediatek,rev6 = <0x2>;
+        mediatek,eye-vrt-host = <0x4>;
+        mediatek,eye-term-host = <0x7>;
+        mediatek,rev6-host = <0x2>;
+};
+
+&md_power_throttling {
+        compatible = "mediatek,md-power-throttling";
+        lbat-max-level = <3>;
+        lbat-reduce-tx-lv1 = <0>;
+        lbat-reduce-tx-lv2 = <0>;
+        lbat-reduce-tx-lv3 = <0>;
+        oc-max-level = <2>;
+        oc-reduce-tx-lv1 = <0>;
+        oc-reduce-tx-lv2 = <0>;
+        soc-max-level = <1>;
+        soc-reduce-tx-lv1 = <0>;
+};
+
+&{/low-battery-throttling} {
+	vbat-thd-enable = <1>;
+	thd-volts-l = <
+			3250 3100 2900
+			3250 3100 2900
+			3250 3100 2900
+			3250 3100 2900>;
+	thd-volts-h = <
+			3400 3250 3100
+			3400 3250 3100
+			3400 3250 3100
+			3400 3250 3100>;
+	lvsys-thd-volt-l = <2900>;
+	lvsys-thd-volt-h = <3100>;
+	temperature-max-stage = <3>;
+	temperature-stage-threshold = <11 0 (-10)>;
+};
+
+#include "mediatek/charge/x6870_h781_nonfc/mt6375_typec.dtsi"
+#include "mediatek/charge/x6870_h781_nonfc/tc_hl7139a.dtsi"
+#include "mediatek/charge/x6870_h781_nonfc/tran_usb_ctrl.dtsi"
+#include "mediatek/charge/x6870_h781_nonfc/tc_pe50.dtsi"
+#include "mediatek/charge/x6870_h781_nonfc/protocol_ta.dtsi"
+#include "mediatek/charge/x6870_h781_nonfc/tc_charger.dtsi"
+#include "mediatek/charge/x6870_h781_nonfc/tc_charger_lk.dtsi"
+#include "mediatek/charge/x6870_h781_nonfc/bat_setting/mt6878_battery_prop.dtsi"
+#include "mediatek/tc_led.dtsi"
+#include "mediatek/led/x6870_h781_nonfc/aw210xx_x6870.dtsi"
+/*End of this file, DO NOT ADD ANYTHING HERE*/
+

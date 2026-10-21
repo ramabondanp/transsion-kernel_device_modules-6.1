@@ -269,18 +269,6 @@
 			<&scp_fast_iic_clk CLK_SCP_FAST_IIC_AP_CLOCK_I2C0>;
 	};
 
-	disable-unused-clk-scp-iic@0 {
-		compatible = "mediatek,clk-disable-unused";
-		reg = <0>;
-		clocks =
-			<&scp_iic_clk CLK_SCP_IIC_AP_CLOCK_I2C1>,
-			<&scp_iic_clk CLK_SCP_IIC_AP_CLOCK_I2C2>,
-			<&scp_iic_clk CLK_SCP_IIC_AP_CLOCK_I2C3>,
-			<&scp_iic_clk CLK_SCP_IIC_AP_CLOCK_I2C4>,
-			<&scp_iic_clk CLK_SCP_IIC_AP_CLOCK_I2C5>,
-			<&scp_iic_clk CLK_SCP_IIC_AP_CLOCK_I2C6>;
-	};
-
 	disable-unused-clk-scp@0 {
 		compatible = "mediatek,clk-disable-unused";
 		reg = <0>;

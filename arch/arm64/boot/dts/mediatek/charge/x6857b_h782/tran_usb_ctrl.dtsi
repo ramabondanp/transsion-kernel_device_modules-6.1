@@ -1,0 +1,119 @@
+&odm {
+	usb_control: usb_control {
+		compatible = "transsion, usb_control";
+		status = "okay";
+	//	dp_gpio = <&pio 54 0>;
+	//	dm_gpio = <&pio 54 0>;
+		tc30_control_type = <2>;// 1:control by switch IC, 2:GPIO; 3:GPIO and switch IC; 4:control by switch IC oneshot
+		hvdcp20_control_type = <1>;// 1:control by switch IC, 2:GPIO; 3:GPIO and switch IC; 4:control by switch IC COUPLER
+		rfc_control_type = <1>; //1:control by CP IC, 2:GPIO; 3:GPIO and CP IC
+		ta_control_type = <2>; // 0:not suspport; 1:GPIO
+		pinctrl-names =
+			"default",
+			"hvdcp_handshake",
+		        "hvdcp_boost_5v",
+		        "hvdcp_boost_9v",
+		        "hvdcp_reset",
+		        "tc30_handshake",
+		        "tc30_reset",
+		        "rfc_i2c_mode",
+		        "rfc_dual_high",
+		        "rfc_high_low",
+		        "rfc_reset",
+		        "rfc_usb_switch_on",
+		        "rfc_usb_switch_off",
+		        "ta_off",
+		        "ta_reset";
+		pinctrl-0 = <&usb_control_default>;
+		pinctrl-1 = <&hvdcp_handshake>; //gpio control D+0.6,D- HZ 1.5S
+		pinctrl-2 = <&hvdcp_boost_5v>; //gpio control D+0.6,D- HZ 100ms
+		pinctrl-3 = <&hvdcp_boost_9v>; //gpio control D+3.3,D- 0.6V   100ms
+		pinctrl-4 = <&hvdcp_reset>;  //gpio control D+ HZ,D- HZ  100ms
+		pinctrl-5 = <&tc30_handshake>;  //gpio control D+0.6,D- 0V 100mS
+		pinctrl-6 = <&tc30_reset>;  //gpio control D+ HZ,D- HZ  100ms
+		pinctrl-7 = <&rfc_i2c_mode>; //gpio control checkout I2C mdoe RFC_SDAX RFC_SCLX 4:2(CP)
+		pinctrl-8 = <&rfc_dual_high>;  //gpio control D+/D- 3.3v
+		pinctrl-9 = <&rfc_high_low>; //gpio control D+ 3.3v, D- 0V
+		pinctrl-10 = <&rfc_reset>;  //gpio control D+ HZ,D- HZ  100ms
+		pinctrl-11 = <&rfc_usb_switch_on>; //I2C connect to DP DM GPIOXX_USB_SEL
+		pinctrl-12 = <&rfc_usb_switch_off>; //I2C disconnect to DP DM GPIOXX_USB_SEL
+		pinctrl-13 = <&ta_off>;
+		pinctrl-14 = <&ta_reset>;
+
+	};
+	/*
+	tran_otg: tran_otg {
+		compatible = "tran,otg_fun";
+		status = "okay";
+	};
+	*/
+};
+
+&pio {
+	usb_control_default: usb_control_default {
+	};
+//18W
+	hvdcp_handshake: hvdcp_handshake {
+	};
+
+	hvdcp_boost_5v: hvdcp_boost_5v {
+	};
+
+	hvdcp_boost_9v: hvdcp_boost_9v {
+	};
+
+	hvdcp_reset: hvdcp_reset {
+	};
+
+	tc30_handshake: tc30_handshake {
+		pins_cmd0_dat {
+			pinmux = <PINMUX_GPIO31__FUNC_GPIO31>;
+			slew-rate = <1>;
+			output-high;
+		};
+		pins_cmd1_dat {
+			pinmux = <PINMUX_GPIO188__FUNC_GPIO188>;
+			slew-rate = <1>;
+			output-high;
+		};
+	};
+
+	tc30_reset: tc30_reset {
+		pins_cmd0_dat {
+			pinmux = <PINMUX_GPIO31__FUNC_GPIO31>;
+			slew-rate = <1>;
+			output-low;
+		};
+		pins_cmd1_dat {
+			pinmux = <PINMUX_GPIO188__FUNC_GPIO188>;
+			slew-rate = <1>;
+			output-low;
+		};
+	};
+
+//rfc
+	rfc_i2c_mode: rfc_i2c_mode {
+	};
+
+	rfc_dual_high: rfc_dual_high {
+	};
+
+	rfc_high_low: rfc_high_low {
+	};
+
+	rfc_reset: rfc_reset {
+	};
+
+	rfc_usb_switch_on: usb_switch_on {
+	};
+
+	rfc_usb_switch_off: usb_switch_off {
+	};
+
+//adapter control
+	ta_off: ta_off {
+	};
+
+	ta_reset: ta_reset {
+	};
+};

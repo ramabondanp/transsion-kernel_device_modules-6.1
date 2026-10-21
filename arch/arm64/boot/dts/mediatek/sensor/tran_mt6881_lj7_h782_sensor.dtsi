@@ -1,0 +1,10 @@
+// SPDX-License-Identifier: (GPL-2.0 OR MIT)
+/*
+ * Sensor configuration for lj7_h782
+ * Migrated from tran_projects lj7_h782.dts
+ */
+
+&irtx_pwm {
+	pwm_ch = <0>;
+	status = "okay";
+};

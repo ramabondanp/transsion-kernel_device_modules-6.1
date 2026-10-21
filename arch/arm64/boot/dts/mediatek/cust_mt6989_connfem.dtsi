@@ -4,6 +4,9 @@
  */
 /* Connsys FEM Start */
 &connfem {
+	io-channels = <&pmic_adc (ADC_PURES_OPEN_MASK | AUXADC_VIN6)>;
+	io-channel-names = "pmic_vin6";
+
 	/* FEM ID */
 	nofem: nofem {
 		vid = <0>;

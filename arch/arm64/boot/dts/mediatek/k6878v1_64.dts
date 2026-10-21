@@ -301,6 +301,22 @@ bootargs_ext = "";
 	afe-reserved;
 };
 
+&mt6363_vbuck1 {
+	regulator-always-on;
+};
+
+&mt6363_vbuck2 {
+	regulator-always-on;
+};
+
+&mt6363_vsram_digrf {
+	regulator-always-on;
+};
+
+&mt6363_vcn15 {
+	regulator-always-on;
+};
+
 #include <k6878v1_64/cust.dtsi>
 #include "mediatek/cust_mt6878_touch_1080x2400.dtsi"
 #include "mediatek/cust_mt6878_camera_v4l2.dtsi"

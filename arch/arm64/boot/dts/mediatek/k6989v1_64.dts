@@ -141,6 +141,8 @@ bootargs_ext = "";
 	pinctrl-names = "mode_te_te", "mode_te_te1";
 	pinctrl-0 = <&mtkfb_pins_lcm_dsi_te>;
 	pinctrl-1 = <&mtkfb_pins_lcm_dsi1_te>;
+//	bypass-pc-path = <1>;
+//	relay-aal-hw = <1>;
 	status = "okay";
 };
 

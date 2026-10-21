@@ -1,0 +1,13 @@
+&i2c7 {
+	aw2023@45 {/* add for breath led. */
+		compatible = "awinic,aw2023_led";
+		reg = <0x45>;
+		status = "okay";
+		aw2023,led {
+		    aw2023,name = "aw2023_led";
+		    aw2023,imax = <3>;
+		    aw2023,brightness = <128>;
+		    aw2023,max_brightness = <255>;
+		};
+	};
+};

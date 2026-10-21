@@ -1,0 +1,35 @@
+// SPDX-License-Identifier: GPL-2.0
+//
+// Copyright (c) 2021 MediaTek Inc.
+
+&i2c5 {
+	rt6160@75 {
+		compatible = "richtek,rt6160";
+		reg = <0x75>;
+		//enable-gpios = <&pio 2 0>;
+		regulator-name = "rt6160-buckboost";
+		regulator-min-microvolt = <3450000>;
+		regulator-max-microvolt = <3450000>;
+		regulator-always-on;
+
+		dbg {
+			compatible = "richtek,rt6160-dbg";
+		};
+	};
+};
+
+&i2c6 {
+	rt6160@75 {
+		compatible = "richtek,rt6160";
+		reg = <0x75>;
+		//enable-gpios = <&pio 2 0>;
+		regulator-name = "rt6160-buckboost";
+		regulator-min-microvolt = <3450000>;
+		regulator-max-microvolt = <3450000>;
+		regulator-always-on;
+
+		dbg {
+			compatible = "richtek,rt6160-dbg";
+		};
+	};
+};
