@@ -131,49 +131,93 @@ void xhci_mtk_sound_usb_connect(void *unused, struct usb_interface *intf, struct
 	snd_usb_init_quirk_flags(chip);
 }
 
-static void xhci_trace_ep0_urb(void *data, struct urb *urb)
+static void xhci_mtk_usb_asap_quirk(struct urb *urb)
 {
-	struct device *hcd_dev = (struct device *)data;
+	urb->transfer_flags |= URB_ISO_ASAP;
+}
+
+static void xhci_mtk_usb_set_interface_quirk(struct urb *urb)
+{
+	struct device *dev = &urb->dev->dev;
 	struct usb_ctrlrequest *ctrl = NULL;
+	struct usb_interface *iface = NULL;
+	struct usb_host_interface *alt = NULL;
+
+	ctrl = (struct usb_ctrlrequest *)urb->setup_packet;
+	if (ctrl->bRequest != USB_REQ_SET_INTERFACE || ctrl->wValue == 0)
+		return;
+
+	iface = usb_ifnum_to_if(urb->dev, ctrl->wIndex);
+	if (!iface)
+		return;
+
+	alt = usb_altnum_to_altsetting(iface, ctrl->wValue);
+	if (!alt)
+		return;
+
+	if (alt->desc.bInterfaceClass != USB_CLASS_AUDIO)
+		return;
+
+	dev_dbg(dev, "delay 5ms for UAC device\n");
+	mdelay(5);
+}
+
+static bool xhci_mtk_is_usb_audio(struct urb *urb)
+{
 	struct usb_host_config *config = NULL;
 	struct usb_interface_descriptor *intf_desc = NULL;
 	int config_num, i;
 
-	if (!urb || !urb->setup_packet || !urb->dev)
-		return;
-
-	ctrl = (struct usb_ctrlrequest *)urb->setup_packet;
-	if (ctrl->bRequest != USB_REQ_SET_INTERFACE || ctrl->wValue == 0) {
-		dev_dbg(hcd_dev, "%s it's not ep0 transfer request\n", __func__);
-		return;
-	}
-
 	config = urb->dev->config;
 	if (!config)
-		return;
+		return false;
 	config_num = urb->dev->descriptor.bNumConfigurations;
 
 	for (i = 0; i < config_num; i++, config++) {
 		if (config && config->desc.bNumInterfaces > 0)
 			intf_desc = &config->intf_cache[0]->altsetting->desc;
-		if (intf_desc && intf_desc->bInterfaceClass == USB_CLASS_AUDIO) {
-			dev_dbg(hcd_dev, "delay 5ms for UAC device\n");
-			mdelay(5);
+		if (intf_desc && intf_desc->bInterfaceClass == USB_CLASS_AUDIO)
+			return true;
+	}
+
+	return false;
+}
+
+static void xhci_trace_ep_urb_enqueue(void *data, struct urb *urb)
+{
+	u32 ep_type;
+
+	if (!urb || !urb->dev)
+		return;
+
+	ep_type = usb_endpoint_type(&urb->ep->desc);
+
+	if (ep_type == USB_ENDPOINT_XFER_CONTROL) {
+		if (!urb->setup_packet)
 			return;
+
+		if (xhci_mtk_is_usb_audio(urb)) {
+			/* apply set interface face delay */
+			xhci_mtk_usb_set_interface_quirk(urb);
+		}
+	} else if (ep_type == USB_ENDPOINT_XFER_ISOC) {
+		if (xhci_mtk_is_usb_audio(urb)) {
+			/* add URB_ISO_ASAP flag */
+			xhci_mtk_usb_asap_quirk(urb);
 		}
 	}
 }
 
 void xhci_mtk_trace_init(struct device *dev)
 {
-	WARN_ON(register_trace_xhci_urb_enqueue_(xhci_trace_ep0_urb, dev));
+	WARN_ON(register_trace_xhci_urb_enqueue_(xhci_trace_ep_urb_enqueue, dev));
 	WARN_ON(register_trace_android_vh_audio_usb_offload_connect(
 		xhci_mtk_sound_usb_connect, NULL));
 }
 
 void xhci_mtk_trace_deinit(struct device *dev)
 {
-	WARN_ON(unregister_trace_xhci_urb_enqueue_(xhci_trace_ep0_urb, dev));
+	WARN_ON(unregister_trace_xhci_urb_enqueue_(xhci_trace_ep_urb_enqueue, dev));
 	WARN_ON(unregister_trace_android_vh_audio_usb_offload_connect(
 		xhci_mtk_sound_usb_connect, NULL));
 }

@@ -25,7 +25,7 @@
 
 #define RT1711H_REG_BMC_CTRL				(0x90)
 #define RT1711H_REG_BMCIO_RXDZSEL			(0x93)
-
+#define RT1711H_REG_VCONN_CLIMITEN			(0x95)
 #define RT1711H_REG_RT_STATUS				(0x97)
 #define RT1711H_REG_RT_INT					(0x98)
 #define RT1711H_REG_RT_MASK					(0x99)

@@ -118,29 +118,6 @@ static u8 rsv_region;
 	USB_OFFLOAD_MEM_DBG("rsv_region:0x%x\n", rsv_region); \
 } while(0)
 
-/* driver stage synchronization */
-#define STAGE_IDLE         (0x1U << 0)
-#define STAGE_FILE_OPS     (0x1U << 1)
-
-#define WAIT_IDLE_TIMEOUT_NS 1000000000 /* 1 sec */
-static int ready_for_stage(unsigned long stage, bool force_enter)
-{
-	unsigned long target = STAGE_IDLE;
-	int retval;
-
-	spin_lock(&uodev->lock);
-
-	retval = wait_condition(!test_bit(~target, &uodev->stage), WAIT_IDLE_TIMEOUT_NS);
-	if (retval == 0 || force_enter)
-		set_bit(stage, &uodev->stage);
-
-	if (retval < 0)
-		USB_OFFLOAD_ERR("timeout while waiting for idle (0x%lx)\n", uodev->stage);
-
-	spin_unlock(&uodev->lock);
-	return retval;
-}
-
 static enum usb_offload_mem_id lowpwr_mem_type(void)
 {
 	return uodev->adv_lowpwr ?
@@ -447,11 +424,6 @@ static void sound_usb_connect(void *data, struct usb_interface *intf, struct snd
 
 	USB_OFFLOAD_INFO("index=%d\n", chip->index);
 
-	if (ready_for_stage(STAGE_FILE_OPS, false) < 0) {
-		USB_OFFLOAD_ERR("driver's busy (stage:0x%lx)\n", uodev->stage);
-		goto busy;
-	}
-
 	if (chip->index >= 0)
 		usb_chip[chip->index] = chip;
 
@@ -468,28 +440,22 @@ static void sound_usb_connect(void *data, struct usb_interface *intf, struct snd
 		pdev_xhci_host = of_find_device_by_node(node_xhci_host);
 		if (!pdev_xhci_host) {
 			USB_OFFLOAD_ERR("no device found by node!\n");
-			goto err;
+			return;
 		}
 		of_node_put(node_xhci_host);
 
 		mtk = platform_get_drvdata(pdev_xhci_host);
 		if (!mtk) {
 			USB_OFFLOAD_ERR("no drvdata set!\n");
-			goto err;
+			return;
 		}
 		xhci = hcd_to_xhci(mtk->hcd);
 		uodev->xhci = xhci;
 	} else {
 		USB_OFFLOAD_ERR("No 'xhci_host' node, NOT SUPPORT USB Offload!\n");
 		uodev->xhci = NULL;
-		goto err;
+		return;
 	}
-
-err:
-	clear_bit(STAGE_FILE_OPS, &uodev->stage);
-
-busy:
-	USB_OFFLOAD_INFO("--\n");
 }
 
 static void sound_usb_disconnect(void *data, struct usb_interface *intf)
@@ -499,11 +465,6 @@ static void sound_usb_disconnect(void *data, struct usb_interface *intf)
 
 	USB_OFFLOAD_INFO("\n");
 
-	if (ready_for_stage(STAGE_FILE_OPS, false) < 0) {
-		USB_OFFLOAD_ERR("driver is busy (stage:0x%lx)\n", uodev->stage);
-		goto busy;
-	}
-
 	uodev->is_streaming = false;
 	uodev->tx_streaming = false;
 	uodev->rx_streaming = false;
@@ -512,10 +473,8 @@ static void sound_usb_disconnect(void *data, struct usb_interface *intf)
 	uodev->opened = false;
 	uodev->adsp_exception = false;
 
-	if (chip == USB_AUDIO_IFACE_UNUSED){
-		clear_bit(STAGE_FILE_OPS, &uodev->stage);
+	if (chip == USB_AUDIO_IFACE_UNUSED)
 		return;
-	}
 
 	card_num = chip->card->number;
 
@@ -527,11 +486,6 @@ static void sound_usb_disconnect(void *data, struct usb_interface *intf)
 	if (chip->num_interfaces < 1)
 		if (chip->index >= 0)
 			usb_chip[chip->index] = NULL;
-
-	clear_bit(STAGE_FILE_OPS, &uodev->stage);
-busy:
-	USB_OFFLOAD_INFO("--\n");
-
 }
 
 static int sound_usb_trace_init(void)
@@ -2600,15 +2554,14 @@ static bool xhci_mtk_is_streaming(struct xhci_hcd *xhci)
 
 static int check_usb_offload_quirk(int vid, int pid)
 {
-	if (vid == 0x046D && pid == 0x0A38) {
-		USB_OFFLOAD_INFO("Logitech USB Headset H340 NOT SUPPORT!!\n");
+	if ((vid == 0x046D && pid == 0x0A38) ||
+		(vid == 0x0BDA && pid == 0x4BD1) ||
+		(vid == 0x8087 && pid == 0x1024) ||
+		(vid == 0x0ECB && pid == 0x20F6)) {
+		USB_OFFLOAD_INFO("vid:0x%x pid:0x%x NOT SUPPORT!!\n", vid, pid);
 		return -1;
 	}
 
-	if (vid == 0x0BDA && pid == 0x4BD1) {
-		USB_OFFLOAD_INFO("JOWOYE MH339 NOT SUPPORT!!\n");
-		return -1;
-	}
 	return 0;
 }
 
@@ -2701,23 +2654,16 @@ static int usb_offload_open(struct inode *ip, struct file *fp)
 	int err = 0;
 	int i, class, vid, pid;
 
-	if (ready_for_stage(STAGE_FILE_OPS, false) < 0) {
-		USB_OFFLOAD_ERR("driver's busy (stage:0x%lx)\n", uodev->stage);
-		goto busy;
-	}
-
 	mutex_lock(&uodev->dev_lock);
 	if (!buf_dcbaa || !buf_ctx || !buf_seg) {
 		USB_OFFLOAD_ERR("USB_OFFLOAD_NOT_READY yet!!!\n");
 		mutex_unlock(&uodev->dev_lock);
-		clear_bit(STAGE_FILE_OPS, &uodev->stage);
 		return -1;
 	}
 
 	if (!uodev->connected) {
 		USB_OFFLOAD_ERR("No UAC Device Connected!!!\n");
 		mutex_unlock(&uodev->dev_lock);
-		clear_bit(STAGE_FILE_OPS, &uodev->stage);
 		return -1;
 	}
 
@@ -2750,7 +2696,6 @@ static int usb_offload_open(struct inode *ip, struct file *fp)
 	if (xhci->devs[2] != NULL) {
 		USB_OFFLOAD_INFO("Multiple Devices - NOT SUPPORT USB OFFLOAD!!\n");
 		mutex_unlock(&uodev->dev_lock);
-		clear_bit(STAGE_FILE_OPS, &uodev->stage);
 		return -1;
 	}
 
@@ -2775,20 +2720,17 @@ static int usb_offload_open(struct inode *ip, struct file *fp)
 			if (class == 0x01) {
 				if (check_usb_offload_quirk(vid, pid)) {
 					mutex_unlock(&uodev->dev_lock);
-					clear_bit(STAGE_FILE_OPS, &uodev->stage);
 					return -1;
 				}
 
 				if (check_is_multiple_ep(config)) {
 					mutex_unlock(&uodev->dev_lock);
-					clear_bit(STAGE_FILE_OPS, &uodev->stage);
 					return -1;
 				}
 
 				USB_OFFLOAD_INFO("Single UAC - SUPPORT USB OFFLOAD!!\n");
 				uodev->opened = true;
 				mutex_unlock(&uodev->dev_lock);
-				clear_bit(STAGE_FILE_OPS, &uodev->stage);
 				return 0;
 			}
 		}
@@ -2796,24 +2738,13 @@ static int usb_offload_open(struct inode *ip, struct file *fp)
 	}
 GET_OF_NODE_FAIL:
 	mutex_unlock(&uodev->dev_lock);
-	clear_bit(STAGE_FILE_OPS, &uodev->stage);
-busy:
 	return -1;
 }
 
 static int usb_offload_release(struct inode *ip, struct file *fp)
 {
-	int ret = 0;
-
 	USB_OFFLOAD_INFO("%d\n", __LINE__);
-	if (ready_for_stage(STAGE_FILE_OPS, false) < 0) {
-		USB_OFFLOAD_ERR("driver's busy (stage:0x%lx)\n", uodev->stage);
-		goto busy;
-	}
-	ret = usb_offload_cleanup();
-	clear_bit(STAGE_FILE_OPS, &uodev->stage);
-busy:
-	return ret;
+	return usb_offload_cleanup();
 }
 
 static long usb_offload_ioctl(struct file *fp,
@@ -2822,12 +2753,6 @@ static long usb_offload_ioctl(struct file *fp,
 	long ret = 0;
 	struct usb_audio_stream_info uainfo;
 	struct mem_info_xhci *xhci_mem;
-
-	if (ready_for_stage(STAGE_FILE_OPS, false) < 0) {
-		USB_OFFLOAD_ERR("driver's busy (stage:0x%lx)\n", uodev->stage);
-		ret = -EBUSY;
-		goto busy;
-	}
 
 	switch (cmd) {
 	case USB_OFFLOAD_INIT_ADSP:
@@ -3046,8 +2971,6 @@ static long usb_offload_ioctl(struct file *fp,
 			uodev->rx_streaming, uodev->adsp_inited, uodev->opened);
 fail:
 	USB_OFFLOAD_INFO("ioctl returning, ret: %ld\n", ret);
-	clear_bit(STAGE_FILE_OPS, &uodev->stage);
-busy:
 	return ret;
 }
 
@@ -3182,8 +3105,6 @@ static int usb_offload_probe(struct platform_device *pdev)
 			goto REG_SSUSB_OFFLOAD_FAIL;
 		}
 		mutex_init(&uodev->dev_lock);
-		spin_lock_init(&uodev->lock);
-		uodev->stage = 0;
 
 		USB_OFFLOAD_INFO("Set XHCI vendor hook ops\n");
 		platform_set_drvdata(pdev, &xhci_mtk_vendor_ops);
