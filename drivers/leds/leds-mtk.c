@@ -16,13 +16,18 @@
 #include <linux/slab.h>
 #include <linux/string.h>
 #include <leds-mtk.h>
-
+#include "mtk_low_battery_throttling.h"
+#include "mtk_bp_thl.h"
 
 /****************************************************************************
  * variables
  ***************************************************************************/
 #undef pr_fmt
 #define pr_fmt(fmt) KBUILD_MODNAME " %s(%d) :" fmt, __func__, __LINE__
+
+int g_tran_brightness_level = 0;
+EXPORT_SYMBOL_GPL(g_tran_brightness_level);
+
 
 static int mtk_set_brightness(struct led_classdev *led_cdev,
 					 enum led_brightness brightness);
@@ -36,6 +41,10 @@ static DEFINE_MUTEX(leds_mutex);
 static BLOCKING_NOTIFIER_HEAD(mtk_leds_chain_head);
 
 struct mt_leds_desp_info *leds_info;
+
+#if IS_ENABLED(CONFIG_MTK_BATTERY_PERCENT_THROTTLING)
+static int led_bat_per_pt[MAX_BL_PT_NUM];
+#endif
 
 int mtk_leds_register_notifier(struct notifier_block *nb)
 {
@@ -414,7 +423,7 @@ static int mtk_set_brightness(struct led_classdev *led_cdev,
 					  enum led_brightness brightness)
 {
 	int trans_level = 0;
-
+	int tmp_brightness_level = 0;
 	struct led_conf_info *led_conf =
 		container_of(led_cdev, struct led_conf_info, cdev);
 	struct mt_led_data *led_dat =
@@ -434,10 +443,29 @@ static int mtk_set_brightness(struct led_classdev *led_cdev,
 	trans_level = brightness_maptolevel(led_conf, brightness);
 
 	led_debug_log(led_dat, brightness, trans_level);
+	if (led_dat->conf.max_hw_brightness == 5119) {
+		if (brightness > 4095){
+			g_tran_brightness_level = 256 + (brightness-4096)*255/1024;
+		} else {
+			g_tran_brightness_level = brightness *255/4095;
+			tmp_brightness_level = (brightness * 255 * 10)/4095; // x10
+			pr_info("debug- tmp_brightness: %d", tmp_brightness_level);
+			if ((0 < tmp_brightness_level) && (tmp_brightness_level < 10)) {
+				g_tran_brightness_level = 1;
+			}
+		}
+	}else {
+		g_tran_brightness_level = brightness;
+	}
+	pr_info("set tran brightness: %d, max_hw_brightness: %d g_tran_brightness_level: %d",
+		brightness, led_dat->conf.max_hw_brightness, g_tran_brightness_level);
+	
+	
+	if(trans_level <= 4095)
+		call_notifier(LED_BRIGHTNESS_CHANGED, led_conf);
 
-	call_notifier(LED_BRIGHTNESS_CHANGED, led_conf);
 	mutex_lock(&led_dat->led_access);
-	if (!led_conf->aal_enable) {
+	if ((!led_conf->aal_enable) || (trans_level > 4095)) {
 		mtk_set_hw_brightness(led_dat, trans_level, 0, 1 << SET_BACKLIGHT_LEVEL);
 		led_dat->last_hw_brightness = trans_level;
 	}
@@ -446,7 +474,6 @@ static int mtk_set_brightness(struct led_classdev *led_cdev,
 	return 0;
 
 }
-
 
 /****************************************************************************
  * add API for temperature control
@@ -517,6 +544,54 @@ int setMaxBrightness(int connector_id, int percent, bool enable)
 }
 EXPORT_SYMBOL(setMaxBrightness);
 
+int setPTBrightness(int percent)
+{
+	int i = 0;
+	int brightness = 0;
+
+	struct mt_led_data *led_dat = NULL;
+
+	while (i < leds_info->lens) {
+		pr_info("led %d name %s\n", i, leds_info->leds[i]->name);
+		if (strstr(leds_info->leds[i]->name, "lcd-backlight")) {
+			led_dat = container_of(leds_info->leds[i],
+				struct mt_led_data, desp);
+
+			pr_info("led_dat->last_percent %d\n", led_dat->last_percent);
+
+			if (led_dat->last_percent != 0) {
+				brightness = led_dat->last_brightness * percent / led_dat->last_percent;
+				led_dat->last_percent = percent;
+			}
+
+			pr_info("last_brightness %d, brightness = %d\n", led_dat->last_brightness, brightness);
+
+			mtk_set_brightness(&led_dat->conf.cdev, brightness);
+		}
+		i++;
+	}
+
+	return 0;
+}
+
+#if IS_ENABLED(CONFIG_MTK_BATTERY_PERCENT_THROTTLING)
+static void mt_leds_bat_low_cb(BATTERY_PERCENT_LEVEL level)
+{
+	int percent = 100;
+
+	if (level >= BATTERY_PERCENT_LEVEL_NUM) {
+		pr_info("%s:%d invalid level %d\n", __func__, __LINE__, level);
+		return;
+	}
+
+	percent = led_bat_per_pt[(int)level];
+
+	pr_info("%s:%d lv = %d, percent = %d\n", __func__, __LINE__, level, percent);
+
+	setPTBrightness(percent);
+}
+#endif
+
 int mt_leds_parse_dt(struct mt_led_data *mdev, struct fwnode_handle *fwnode)
 {
 	int ret = 0;
@@ -579,6 +654,45 @@ int mt_leds_parse_dt(struct mt_led_data *mdev, struct fwnode_handle *fwnode)
 	} else {
 		mdev->conf.cdev.brightness = mdev->conf.cdev.max_brightness * 40 / 100;
 	}
+
+	if (mdev->conf.cdev.max_brightness == 511) {
+		mdev->conf.cdev.brightness = mdev->conf.cdev.max_brightness / 2 * 20 / 100;
+	} else if (mdev->conf.cdev.max_brightness == 5119) {
+		mdev->conf.cdev.brightness =  4095 * 20 / 100;
+	} else {
+		mdev->conf.cdev.brightness =  mdev->conf.cdev.max_brightness * 20 / 100;
+	}
+#if IS_ENABLED(CONFIG_MTK_BATTERY_PERCENT_THROTTLING)
+	ret = fwnode_property_read_u32(fwnode, "reg-bat-percent-pt", &(mdev->conf.reg_battery_percent_pt));
+
+	if (ret) {
+		pr_info("No need to register battery percent pt notify");
+		mdev->conf.reg_battery_percent_pt = 0;
+	}
+
+	pr_info("%s:%d ret = %d, reg_battery_percent_pt = %d\n", __func__, __LINE__, ret,
+		mdev->conf.reg_battery_percent_pt);
+
+	ret = fwnode_property_read_u32_array(fwnode, "bl-bat-pt-percent", mdev->conf.bl_bat_pt_per,
+		MAX_BL_PT_NUM);
+
+	if (ret) {
+		pr_info("failed to read battery percent properity, use default value");
+		mdev->conf.bl_bat_pt_per[0] = mdev->conf.bl_bat_pt_per[1] = mdev->conf.bl_bat_pt_per[2] = 100;
+		mdev->conf.bl_bat_pt_per[3] = mdev->conf.bl_bat_pt_per[4] = mdev->conf.bl_bat_pt_per[5] = 67;
+	}
+
+	pr_info("%s:%d ret = %d, bl_bat_pt_per value: %d, %d, %d, %d, %d, %d\n",
+		__func__, __LINE__, ret,
+		mdev->conf.bl_bat_pt_per[0], mdev->conf.bl_bat_pt_per[1],
+		mdev->conf.bl_bat_pt_per[2], mdev->conf.bl_bat_pt_per[3],
+		mdev->conf.bl_bat_pt_per[4], mdev->conf.bl_bat_pt_per[5]);
+
+	memcpy(led_bat_per_pt, mdev->conf.bl_bat_pt_per, sizeof(mdev->conf.bl_bat_pt_per));
+
+	if (mdev->conf.reg_battery_percent_pt == 1)
+		register_bp_thl_notify(mt_leds_bat_low_cb, BATTERY_PERCENT_PRIO_BACKLIGHT);
+#endif
 
 	strscpy(mdev->desp.name, mdev->conf.cdev.name,
 		sizeof(mdev->desp.name));
@@ -671,6 +785,7 @@ int mt_leds_classdev_register(struct device *parent,
 		pr_info("print log init error!");
 
 	led_dat->last_brightness = led_dat->conf.cdev.brightness;
+	led_dat->last_percent = 100;
 
 	mtk_set_hw_brightness(led_dat,
 		brightness_maptolevel(&led_dat->conf, led_dat->last_brightness),
