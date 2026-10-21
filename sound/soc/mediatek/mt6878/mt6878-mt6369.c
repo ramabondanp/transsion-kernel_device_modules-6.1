@@ -17,6 +17,9 @@
 #include "mt6878-afe-gpio.h"
 #include "../../codecs/mt6369.h"
 #include "../common/mtk-sp-spk-amp.h"
+#if IS_ENABLED(CONFIG_MTK_BATTERY_PERCENT_THROTTLING)
+#include "mtk_bp_thl.h"
+#endif
 /*
  * if need additional control for the ext spk amp that is connected
  * after Lineout Buffer / HP Buffer on the codec, put the control in
@@ -30,6 +33,10 @@
 #include "../../codecs/mt6369-accdet.h"
 #endif
 
+#if IS_ENABLED(CONFIG_TRAN_AUDIO_CONTROL)
+extern void tran_audio_add_card_controls(struct snd_soc_card *card);
+extern void tran_audio_pa_switch(bool pa_open_value);
+#endif
 
 static struct snd_soc_card mt6878_mt6369_soc_card;
 
@@ -54,6 +61,83 @@ static const struct soc_enum mt6878_spk_type_enum[] = {
 	SOC_ENUM_SINGLE_EXT(ARRAY_SIZE(mt6878_spk_i2s_type_str),
 			    mt6878_spk_i2s_type_str),
 };
+
+#if IS_ENABLED(CONFIG_MTK_BATTERY_PERCENT_THROTTLING)
+static unsigned int volume_throttle[BATTERY_PERCENT_LEVEL_NUM];
+static unsigned int last_level;
+
+static void update_volume_throttle(const char *volume_name_l,
+				   const char *volume_name_r,
+				   int old_level, int new_level)
+{
+	struct snd_soc_card *card = &mt6878_mt6369_soc_card;
+	struct snd_kcontrol *kcontrol;
+	struct snd_soc_component *component;
+	struct snd_ctl_elem_value ucontrol;
+	int ret;
+	int diff = volume_throttle[new_level] - volume_throttle[old_level];
+
+	// Left amp
+	kcontrol = snd_soc_card_get_kcontrol(card, volume_name_l);
+	if (!kcontrol) {
+		dev_info(card->dev, "Cannot find kcontrol %s\n", volume_name_l);
+		return;
+	}
+	component = snd_soc_kcontrol_component(kcontrol);
+	if (!component) {
+		dev_info(card->dev, "Cannot find component for kcontrol %s\n", volume_name_l);
+		return;
+	}
+	memset(&ucontrol, 0, sizeof(ucontrol));
+
+	ret = kcontrol->get(kcontrol, &ucontrol);
+	dev_info(component->dev, "Current volume: %ld, throttle level: %d->%d, diff=%d\n",
+					ucontrol.value.integer.value[0], old_level, new_level, diff);
+	if (diff) {
+		ucontrol.value.integer.value[0] += volume_throttle[old_level];
+		ret = kcontrol->put(kcontrol, &ucontrol);
+		dev_info(component->dev, "New volume: %ld, ret=%d\n", ucontrol.value.integer.value[0], ret);
+	}
+
+	// Right amp
+	kcontrol = snd_soc_card_get_kcontrol(card, volume_name_r);
+	if (!kcontrol) {
+		dev_info(card->dev, "Cannot find kcontrol %s\n", volume_name_r);
+		return;
+	}
+	component = snd_soc_kcontrol_component(kcontrol);
+	if (!component) {
+		dev_info(card->dev, "Cannot find component for kcontrol %s\n", volume_name_r);
+		return;
+	}
+	memset(&ucontrol, 0, sizeof(ucontrol));
+
+	ret = kcontrol->get(kcontrol, &ucontrol);
+	dev_info(component->dev, "Current volume: %ld, throttle level: %d->%d, diff=%d\n",
+					ucontrol.value.integer.value[0], old_level, new_level, diff);
+	if (diff) {
+		ucontrol.value.integer.value[0] += volume_throttle[old_level];
+		ret = kcontrol->put(kcontrol, &ucontrol);
+		dev_info(component->dev, "New volume: %ld, ret=%d\n", ucontrol.value.integer.value[0], ret);
+	}
+}
+
+static void audio_pt_battery_percent_cb(enum BATTERY_PERCENT_LEVEL_TAG level)
+{
+	if (level >= BATTERY_PERCENT_LEVEL_NUM) {
+		// invalid
+		return;
+	}
+
+	// throttle by level
+	mtk_spk_set_reduceDb(volume_throttle[level]);
+
+#if IS_ENABLED(CONFIG_SND_SOC_RT5512)
+	update_volume_throttle("Left Volume_Ctrl", "Right Volume_Ctrl", last_level , level);
+#endif
+	last_level = level;
+}
+#endif
 
 static int mt6878_spk_type_get(struct snd_kcontrol *kcontrol,
 			       struct snd_ctl_elem_value *ucontrol)
@@ -168,9 +252,15 @@ static int mt6878_mt6369_spk_amp_event(struct snd_soc_dapm_widget *w,
 	switch (event) {
 	case SND_SOC_DAPM_POST_PMU:
 		/* spk amp on control */
+#if IS_ENABLED(CONFIG_TRAN_AUDIO_CONTROL)
+		tran_audio_pa_switch(true);
+#endif
 		break;
 	case SND_SOC_DAPM_PRE_PMD:
 		/* spk amp off control */
+#if IS_ENABLED(CONFIG_TRAN_AUDIO_CONTROL)
+		tran_audio_pa_switch(false);
+#endif
 		break;
 	default:
 		break;
@@ -185,6 +275,7 @@ static const struct snd_soc_dapm_widget mt6878_mt6369_widgets[] = {
 
 static const struct snd_soc_dapm_route mt6878_mt6369_routes[] = {
 	{EXT_SPK_AMP_W_NAME, NULL, "LINEOUT L"},
+	{EXT_SPK_AMP_W_NAME, NULL, "RCV Mux"},
 	{EXT_SPK_AMP_W_NAME, NULL, "Headphone L Ext Spk Amp"},
 	{EXT_SPK_AMP_W_NAME, NULL, "Headphone R Ext Spk Amp"},
 };
@@ -773,10 +864,6 @@ SND_SOC_DAILINK_DEFS(hostless_ul4,
 	DAILINK_COMP_ARRAY(COMP_CPU("Hostless_UL4 DAI")),
 	DAILINK_COMP_ARRAY(COMP_DUMMY()),
 	DAILINK_COMP_ARRAY(COMP_EMPTY()));
-SND_SOC_DAILINK_DEFS(hostless_ul24,
-	DAILINK_COMP_ARRAY(COMP_CPU("Hostless_UL24 DAI")),
-	DAILINK_COMP_ARRAY(COMP_DUMMY()),
-	DAILINK_COMP_ARRAY(COMP_EMPTY()));
 SND_SOC_DAILINK_DEFS(hostless_dsp_dl,
 	DAILINK_COMP_ARRAY(COMP_CPU("Hostless_DSP_DL DAI")),
 	DAILINK_COMP_ARRAY(COMP_DUMMY()),
@@ -834,6 +921,10 @@ SND_SOC_DAILINK_DEFS(dspfast,
 	DAILINK_COMP_ARRAY(COMP_PLATFORM("snd-audio-dsp")));
 SND_SOC_DAILINK_DEFS(dspspatializer,
 	DAILINK_COMP_ARRAY(COMP_CPU("audio_task_spatializer_dai")),
+	DAILINK_COMP_ARRAY(COMP_DUMMY()),
+	DAILINK_COMP_ARRAY(COMP_PLATFORM("snd-audio-dsp")));
+SND_SOC_DAILINK_DEFS(dspdynamic,
+	DAILINK_COMP_ARRAY(COMP_CPU("audio_task_dynamic_dai")),
 	DAILINK_COMP_ARRAY(COMP_DUMMY()),
 	DAILINK_COMP_ARRAY(COMP_PLATFORM("snd-audio-dsp")));
 SND_SOC_DAILINK_DEFS(dspplayback,
@@ -1572,13 +1663,6 @@ static struct snd_soc_dai_link mt6878_mt6369_dai_links[] = {
 		SND_SOC_DAILINK_REG(hostless_ul4),
 	},
 	{
-		.name = "Hostless_UL24",
-		.no_pcm = 1,
-		.dpcm_capture = 1,
-		.ignore_suspend = 1,
-		SND_SOC_DAILINK_REG(hostless_ul24),
-	},
-	{
 		.name = "Hostless_DSP_DL",
 		.no_pcm = 1,
 		.dpcm_playback = 1,
@@ -1664,6 +1748,11 @@ static struct snd_soc_dai_link mt6878_mt6369_dai_links[] = {
 		.name = "DSP_Playback_Spatializer",
 		.stream_name = "DSP_Playback_Spatializer",
 		SND_SOC_DAILINK_REG(dspspatializer),
+	},
+	{
+		.name = "DSP_Playback_Dynamic",
+		.stream_name = "DSP_Playback_Dynamic",
+		SND_SOC_DAILINK_REG(dspdynamic),
 	},
 	{
 		.name = "DSP_Playback_Playback",
@@ -1801,6 +1890,9 @@ static int mt6878_mt6369_dev_probe(struct platform_device *pdev)
 	struct device_node *platform_node, *spk_node;
 	int ret, i;
 	struct snd_soc_dai_link *dai_link;
+#if IS_ENABLED(CONFIG_MTK_BATTERY_PERCENT_THROTTLING)
+	int is_register_bt_pt;
+#endif
 
 	dev_info(&pdev->dev, "%s() successfully start\n", __func__);
 
@@ -1856,6 +1948,25 @@ static int mt6878_mt6369_dev_probe(struct platform_device *pdev)
 	if (!MT6369_PROBE_DONE)
 		mt6878_mt6369_bypass_primary_codec(pdev);
 
+#if IS_ENABLED(CONFIG_MTK_BATTERY_PERCENT_THROTTLING)
+	/* get low battery power throttling is supported */
+	ret = of_property_read_u32(pdev->dev.of_node, "register-battery-percent-pt", &is_register_bt_pt);
+	if (ret) {
+		dev_info(&pdev->dev, "%s(), get register_bt_pt fail, use defalut 0\n", __func__);
+		is_register_bt_pt = 0;
+	}
+	if (is_register_bt_pt) {
+		last_level = 0;
+		for (i = 0; i < BATTERY_PERCENT_LEVEL_NUM; i++)
+			volume_throttle[i] = 0;
+
+		ret = of_property_read_u32_array(pdev->dev.of_node, "volume-throttle",
+					(unsigned int *)&volume_throttle, BATTERY_PERCENT_LEVEL_NUM);
+
+		register_bp_thl_notify(&audio_pt_battery_percent_cb, BATTERY_PERCENT_PRIO_AUDIO);
+	}
+#endif
+
 	card->dev = &pdev->dev;
 
 	ret = devm_snd_soc_register_card(&pdev->dev, card);
@@ -1865,6 +1976,9 @@ static int mt6878_mt6369_dev_probe(struct platform_device *pdev)
 	else
 		dev_info(&pdev->dev, "%s snd_soc_register_card pss %d\n",
 				__func__, ret);
+#if IS_ENABLED(CONFIG_TRAN_AUDIO_CONTROL)
+	tran_audio_add_card_controls(card);
+#endif
 	return ret;
 }
 

@@ -77,6 +77,10 @@ enum mtk_spk_i2s_type {
 	MTK_SPK_I2S_TYPE_NUM
 };
 
+#if IS_ENABLED(CONFIG_MTK_BATTERY_PERCENT_THROTTLING)
+int mtk_spk_get_reduceDb(void);
+void mtk_spk_set_reduceDb(unsigned int reduce_db);
+#endif
 int mtk_spk_get_type(void);
 extern void mtk_spk_set_type(int spk_type);
 int mtk_spk_get_i2s_out_type(void);

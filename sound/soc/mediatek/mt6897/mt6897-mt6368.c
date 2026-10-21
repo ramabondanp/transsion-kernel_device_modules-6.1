@@ -29,6 +29,10 @@
 #define MT6368_PROBE_DONE 1
 #define BYPASS_FOR_61_BRINGUP 1
 
+#if IS_ENABLED(CONFIG_TRAN_AUDIO_CONTROL)
+extern void tran_audio_add_card_controls(struct snd_soc_card *card);
+extern void tran_audio_pa_switch(bool pa_open_value);
+#endif
 
 static struct snd_soc_card mt6897_mt6368_soc_card;
 
@@ -167,9 +171,15 @@ static int mt6897_mt6368_spk_amp_event(struct snd_soc_dapm_widget *w,
 	switch (event) {
 	case SND_SOC_DAPM_POST_PMU:
 		/* spk amp on control */
+#if IS_ENABLED(CONFIG_TRAN_AUDIO_CONTROL)
+		tran_audio_pa_switch(true);
+#endif
 		break;
 	case SND_SOC_DAPM_PRE_PMD:
 		/* spk amp off control */
+#if IS_ENABLED(CONFIG_TRAN_AUDIO_CONTROL)
+		tran_audio_pa_switch(false);
+#endif
 		break;
 	default:
 		break;
@@ -728,7 +738,12 @@ SND_SOC_DAILINK_DEFS(ap_dmic_ch34,
 	DAILINK_COMP_ARRAY(COMP_EMPTY()));
 SND_SOC_DAILINK_DEFS(i2sin0,
 	DAILINK_COMP_ARRAY(COMP_CPU("I2SIN0")),
+#if IS_ENABLED(CONFIG_SND_SMARTPA_AW883XX)
+	DAILINK_COMP_ARRAY(COMP_CODEC("aw883xx_smartpa.6-0034", "aw883xx-aif-6-34"),
+						COMP_CODEC("aw883xx_smartpa.6-0035", "aw883xx-aif-6-35")),
+#else
 	DAILINK_COMP_ARRAY(COMP_DUMMY()),
+#endif
 	DAILINK_COMP_ARRAY(COMP_EMPTY()));
 SND_SOC_DAILINK_DEFS(i2sin1,
 	DAILINK_COMP_ARRAY(COMP_CPU("I2SIN1")),
@@ -748,7 +763,12 @@ SND_SOC_DAILINK_DEFS(i2sin6,
 	DAILINK_COMP_ARRAY(COMP_EMPTY()));
 SND_SOC_DAILINK_DEFS(i2sout0,
 	DAILINK_COMP_ARRAY(COMP_CPU("I2SOUT0")),
+#if IS_ENABLED(CONFIG_SND_SMARTPA_AW883XX)
+	DAILINK_COMP_ARRAY(COMP_CODEC("aw883xx_smartpa.6-0034", "aw883xx-aif-6-34"),
+						COMP_CODEC("aw883xx_smartpa.6-0035", "aw883xx-aif-6-35")),
+#else
 	DAILINK_COMP_ARRAY(COMP_DUMMY()),
+#endif
 	DAILINK_COMP_ARRAY(COMP_EMPTY()));
 SND_SOC_DAILINK_DEFS(i2sout1,
 	DAILINK_COMP_ARRAY(COMP_CPU("I2SOUT1")),
@@ -840,10 +860,6 @@ SND_SOC_DAILINK_DEFS(hostless_ul4,
 	DAILINK_COMP_ARRAY(COMP_CPU("Hostless_UL4 DAI")),
 	DAILINK_COMP_ARRAY(COMP_DUMMY()),
 	DAILINK_COMP_ARRAY(COMP_EMPTY()));
-SND_SOC_DAILINK_DEFS(hostless_ul24,
-	DAILINK_COMP_ARRAY(COMP_CPU("Hostless_UL24 DAI")),
-	DAILINK_COMP_ARRAY(COMP_DUMMY()),
-	DAILINK_COMP_ARRAY(COMP_EMPTY()));
 SND_SOC_DAILINK_DEFS(hostless_dsp_dl,
 	DAILINK_COMP_ARRAY(COMP_CPU("Hostless_DSP_DL DAI")),
 	DAILINK_COMP_ARRAY(COMP_DUMMY()),
@@ -900,6 +916,10 @@ SND_SOC_DAILINK_DEFS(dspfast,
 	DAILINK_COMP_ARRAY(COMP_PLATFORM("snd-audio-dsp")));
 SND_SOC_DAILINK_DEFS(dspspatializer,
 	DAILINK_COMP_ARRAY(COMP_CPU("audio_task_spatializer_dai")),
+	DAILINK_COMP_ARRAY(COMP_DUMMY()),
+	DAILINK_COMP_ARRAY(COMP_PLATFORM("snd-audio-dsp")));
+SND_SOC_DAILINK_DEFS(dspdynamic,
+	DAILINK_COMP_ARRAY(COMP_CPU("audio_task_dynamic_dai")),
 	DAILINK_COMP_ARRAY(COMP_DUMMY()),
 	DAILINK_COMP_ARRAY(COMP_PLATFORM("snd-audio-dsp")));
 SND_SOC_DAILINK_DEFS(dspplayback,
@@ -1746,13 +1766,6 @@ static struct snd_soc_dai_link mt6897_mt6368_dai_links[] = {
 		SND_SOC_DAILINK_REG(hostless_ul4),
 	},
 	{
-		.name = "Hostless_UL24",
-		.no_pcm = 1,
-		.dpcm_capture = 1,
-		.ignore_suspend = 1,
-		SND_SOC_DAILINK_REG(hostless_ul24),
-	},
-	{
 		.name = "Hostless_DSP_DL",
 		.no_pcm = 1,
 		.dpcm_playback = 1,
@@ -1837,6 +1850,11 @@ static struct snd_soc_dai_link mt6897_mt6368_dai_links[] = {
 		.name = "DSP_Playback_Spatializer",
 		.stream_name = "DSP_Playback_Spatializer",
 		SND_SOC_DAILINK_REG(dspspatializer),
+	},
+	{
+		.name = "DSP_Playback_Dynamic",
+		.stream_name = "DSP_Playback_Dynamic",
+		SND_SOC_DAILINK_REG(dspdynamic),
 	},
 	{
 		.name = "DSP_Playback_Playback",
@@ -2038,6 +2056,10 @@ static int mt6897_mt6368_dev_probe(struct platform_device *pdev)
 	else
 		dev_info(&pdev->dev, "%s snd_soc_register_card pss %d\n",
 				__func__, ret);
+
+#if IS_ENABLED(CONFIG_TRAN_AUDIO_CONTROL)
+	tran_audio_add_card_controls(card);
+#endif
 	return ret;
 }
 

@@ -16,6 +16,9 @@ ccflags-y += -I$(DEVICE_MODULES_PATH)/drivers/misc/mediatek/include/mt-plat/$(MT
 # pbm include path
 ccflags-y += -I$(DEVICE_MODULES_PATH)/drivers/misc/mediatek/pbm
 
+# throttle include path
+subdir-ccflags-y += -I$(DEVICE_MODULES_PATH)/drivers/misc/mediatek/power_throttling
+
 # platform driver
 obj-$(CONFIG_DEVICE_MODULES_SND_SOC_MT6878) += snd-soc-mt6878-afe.o
 snd-soc-mt6878-afe-objs += \

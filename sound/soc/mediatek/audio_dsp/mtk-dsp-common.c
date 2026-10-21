@@ -57,6 +57,7 @@ static char *dsp_task_name[AUDIO_TASK_DAI_NUM] = {
 	[AUDIO_TASK_MDDL_ID]         = "mddl",
 	[AUDIO_TASK_MDUL_ID]         = "mdul",
 	[AUDIO_TASK_SPATIALIZER_ID]  = "spatializer",
+	[AUDIO_TASK_DYNAMIC_ID]      = "dynamic",
 	[AUDIO_TASK_CALLDL_ID]       = "calldl",
 	[AUDIO_TASK_CALLUL_ID]       = "callul",
 };
@@ -88,6 +89,7 @@ static int dsp_task_scence[AUDIO_TASK_DAI_NUM] = {
 	[AUDIO_TASK_MDDL_ID]        = TASK_SCENE_MD_DL,
 	[AUDIO_TASK_MDUL_ID]        = TASK_SCENE_MD_UL,
 	[AUDIO_TASK_SPATIALIZER_ID] = TASK_SCENE_SPATIALIZER,
+	[AUDIO_TASK_DYNAMIC_ID]     = TASK_SCENE_DYNAMIC,
 	[AUDIO_TASK_CALLDL_ID]      = TASK_SCENE_PHONE_CALL_SUB,
 	[AUDIO_TASK_CALLUL_ID]      = TASK_SCENE_PHONE_CALL,
 };

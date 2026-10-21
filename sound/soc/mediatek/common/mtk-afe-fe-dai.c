@@ -11,6 +11,9 @@
 #include <linux/pm_runtime.h>
 #include <linux/regmap.h>
 #include <sound/soc.h>
+#include <linux/sched.h>
+#include <linux/kernel.h>
+#include <linux/fs.h>
 #include "mtk-afe-platform-driver.h"
 #include <sound/pcm_params.h>
 #include "mtk-afe-fe-dai.h"
@@ -29,6 +32,7 @@
 
 #if IS_ENABLED(CONFIG_MTK_AUDIODSP_SUPPORT)
 #include "adsp_helper.h"
+#include "audio_ipi_platform.h"
 #endif
 
 /* scp relate */
@@ -463,19 +467,40 @@ int mtk_afe_fe_hw_free(struct snd_pcm_substream *substream,
 	struct snd_soc_pcm_runtime *rtd = substream->private_data;
 	struct snd_soc_dai *cpu_dai = asoc_rtd_to_cpu(rtd, 0);
 	struct mtk_base_afe_memif *memif = &afe->memif[cpu_dai->id];
+	int pid = current->pid;
+	int tid = current->tgid;
+	u32 reg = 0;
 
 	dev_info(afe->dev,
-		 "%s(), %s, use_adsp_share_mem %d, using_sram %d, use_dram_only %d, dma_addr %pad, dma_area %p, dma_bytes 0x%zx, vow_barge_in_enable %d\n",
+		 "%s(), %s, use_adsp_share_mem %d, using_sram %d, use_dram_only %d, dma_addr %pad, dma_area %p, dma_bytes 0x%zx, vow_barge_in_enable %d, trigger close memif pid %d, tid %d, name %s and hw free pid %d, tid %d, name %s\n",
 		 __func__, memif->data->name,
 		 memif->use_adsp_share_mem,
 		 memif->using_sram, memif->use_dram_only,
 		 &substream->runtime->dma_addr,
 		 substream->runtime->dma_area,
 		 substream->runtime->dma_bytes,
-		 memif->vow_barge_in_enable);
+		 memif->vow_barge_in_enable,
+		 memif->pid, memif->tid, memif->process_name,
+		 pid, tid, current->comm);
+
+	if (tid != memif->tid && memif->pid > 0) {
+		dev_info(afe->dev, "%s(), tid is not match\n", __func__);
+		dump_stack();
+	}
 
 	if (memif->err_close_order)
 		dump_stack();
+
+	/* To prevent the audio server from unexpectedly terminating and leaving
+	 * the memory interface open, ensure that the memory interface is
+	 * disabled before it is freed.
+	 */
+	regmap_read(afe->regmap, memif->data->enable_reg, &reg);
+	if (reg & BIT(memif->data->enable_shift)) {
+		dev_err(afe->dev, "%s: %s(%d) was not disabled before being freed",
+			__func__, memif->data->name, cpu_dai->id);
+		mtk_memif_set_disable(afe, cpu_dai->id);
+	}
 
 #if IS_ENABLED(CONFIG_SND_SOC_MTK_AUDIO_DSP)
 	afe_pcm_ipi_to_dsp(AUDIO_DSP_TASK_PCM_HWFREE,
@@ -732,12 +757,12 @@ int mtk_afe_resume(struct snd_soc_component *component)
 
 	afe->runtime_resume(dev);
 
-	if (!afe->reg_back_up)
-		dev_dbg(dev, "%s no reg_backup\n", __func__);
-
-	for (i = 0; i < afe->reg_back_up_list_num; i++)
-		mtk_regmap_write(regmap, afe->reg_back_up_list[i],
-				 afe->reg_back_up[i]);
+	if (!afe->reg_back_up) {
+		dev_err(dev, "%s no reg_backup\n", __func__);
+	} else {
+		for (i = 0; i < afe->reg_back_up_list_num; i++)
+			mtk_regmap_write(regmap, afe->reg_back_up_list[i], afe->reg_back_up[i]);
+	}
 
 	afe->suspended = false;
 	return 0;
@@ -749,8 +774,13 @@ unsigned int is_afe_need_triggered(struct mtk_base_afe_memif *memif)
 	/* memif and irq enable control of SCP and ADSP
 	 * features will be set in ADSP and SCP side.
 	 */
-
-	if (memif->use_adsp_share_mem ||
+	bool flag = true;
+#if IS_ENABLED(CONFIG_MTK_AUDIODSP_SUPPORT)
+	// for SCP audio platform, should check SCP status
+	if (get_adsp_type() == ADSP_TYPE_RV55 && !is_audio_task_dsp_ready(TASK_SCENE_AUD_DAEMON_A))
+		flag = false;
+#endif
+	if ((memif->use_adsp_share_mem && flag) ||
 	    memif->vow_barge_in_enable ||
 #if IS_ENABLED(CONFIG_MTK_SCP_AUDIO)
 	    memif->use_scp_share_mem ||
