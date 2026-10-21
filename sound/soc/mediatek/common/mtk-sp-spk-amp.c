@@ -43,6 +43,9 @@
 #define MTK_SPK_REF_NAME "Speaker Codec Ref"
 
 static unsigned int mtk_spk_type;
+#if IS_ENABLED(CONFIG_MTK_BATTERY_PERCENT_THROTTLING)
+static unsigned int mtk_reduce_db;
+#endif
 static int mtk_spk_i2s_out = MTK_SPK_I2S_3, mtk_spk_i2s_in = MTK_SPK_I2S_0;
 static struct mtk_spk_i2c_ctrl mtk_spk_list[MTK_SPK_TYPE_NUM] = {
 	[MTK_SPK_NOT_SMARTPA] = {
@@ -82,6 +85,9 @@ static int mtk_spk_i2c_probe(struct i2c_client *client,
 	dev_info(&client->dev, "%s()\n", __func__);
 
 	mtk_spk_type = MTK_SPK_NOT_SMARTPA;
+#if IS_ENABLED(CONFIG_MTK_BATTERY_PERCENT_THROTTLING)
+	mtk_reduce_db = 0;
+#endif
 	for (i = 0; i < MTK_SPK_TYPE_NUM; i++) {
 		if (!mtk_spk_list[i].i2c_probe)
 			continue;
@@ -113,6 +119,20 @@ static void mtk_spk_i2c_shutdown(struct i2c_client *client)
 	if (mtk_spk_list[mtk_spk_type].i2c_shutdown)
 		mtk_spk_list[mtk_spk_type].i2c_shutdown(client);
 }
+
+#if IS_ENABLED(CONFIG_MTK_BATTERY_PERCENT_THROTTLING)
+int mtk_spk_get_reduceDb(void)
+{
+	return mtk_reduce_db;
+}
+EXPORT_SYMBOL(mtk_spk_get_reduceDb);
+
+void mtk_spk_set_reduceDb(unsigned int reduce_db)
+{
+	mtk_reduce_db = reduce_db;
+}
+EXPORT_SYMBOL(mtk_spk_set_reduceDb);
+#endif
 
 int mtk_spk_get_type(void)
 {

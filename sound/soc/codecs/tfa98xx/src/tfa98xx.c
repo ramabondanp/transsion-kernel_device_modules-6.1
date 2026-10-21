@@ -1176,7 +1176,6 @@ static int tfa98xx_set_profile(struct snd_kcontrol *kcontrol,
 	/* update mixer profile */
 	tfa98xx_mixer_profile = new_profile;
 
-	/* modified by jiangtao.zeng begin. */
 	/* we are updating profile index only if the device is not in
 	 * operating mode, and will be start in tfa98xx_mute_stream() later.
 	 * if the device in operating mode, we will apply new
@@ -1231,8 +1230,6 @@ static int tfa98xx_set_profile(struct snd_kcontrol *kcontrol,
 	}
 
 	mutex_unlock(&tfa98xx_mutex);
-
-	/* modified by jiangtao.zeng end. */
 
 	return change;
 }

@@ -22,6 +22,7 @@
 
 #include "mt6369-accdet.h"
 #include "mt6369.h"
+#include <linux/cdev.h>
 
 /* global variables definition */
 #define REGISTER_VAL(x)	(x - 1)
@@ -71,6 +72,8 @@ struct mt6369_accdet_data {
 	struct wakeup_source *wake_lock;
 	struct wakeup_source *timer_lock;
 	struct mutex res_lock;
+	struct cdev *accdet_cdev;
+	struct device *accdet_device;
 	dev_t accdet_devno;
 	struct class *accdet_class;
 	int button_status;
@@ -181,6 +184,8 @@ static void recover_eint_digital_setting(void);
 static void recover_eint_setting(u32 eintsts);
 static void recover_moisture_setting(u32 moistureID);
 static void send_status_event(u32 cable_type, u32 status);
+static bool g_abnormal_headset_flag = true;
+static DEFINE_MUTEX(abnormal_headset_flag_mutex);
 
 /* global function declaration */
 inline u32 accdet_read(u32 addr)
@@ -1636,7 +1641,21 @@ static void eint_work_callback(struct work_struct *work)
 		accdet_init();
 
 		enable_accdet(0);
+		msleep(200);
+		mutex_lock(&abnormal_headset_flag_mutex);
+		if (accdet->eint_sync_flag && g_abnormal_headset_flag) {
+			accdet->cable_type = HEADSET_NO_MIC;
+			send_status_event(accdet->cable_type, 1);
+			pr_info("%s() abnormal accdet Headset has been send HEADSET_NO_MIC,accdet->eint_sync_flag ==%d, g_abnormal_headset_flag ==%d\n", __func__, accdet->eint_sync_flag, g_abnormal_headset_flag);
+		} else {
+			g_abnormal_headset_flag = true;
+			pr_info("%s() abnormal accdet Headset not send !!! headset is plugout or normal,accdet->eint_sync_flag ==%d, g_abnormal_headset_flag ==%d\n", __func__, accdet->eint_sync_flag, g_abnormal_headset_flag);
+		}
+		mutex_unlock(&abnormal_headset_flag_mutex);
 	} else {
+		mutex_lock(&abnormal_headset_flag_mutex);
+		g_abnormal_headset_flag = true;
+		mutex_unlock(&abnormal_headset_flag_mutex);
 		mutex_lock(&accdet->res_lock);
 		accdet->eint_sync_flag = false;
 		accdet->thing_in_flag = false;
@@ -1722,6 +1741,10 @@ void accdet_set_debounce(int state, unsigned int debounce)
 	}
 }
 
+#if IS_ENABLED(CONFIG_USB_SWITCH_SPLIT)
+extern void tran_splitswitch_set_gpio(int);
+#endif
+
 static inline void check_cable_type(void)
 {
 	u32 cur_AB = 0;
@@ -1773,6 +1796,11 @@ static inline void check_cable_type(void)
 				if (accdet->eint_sync_flag) {
 					accdet->accdet_status = PLUG_OUT;
 					accdet->cable_type = NO_DEVICE;
+					mutex_unlock(&accdet->res_lock);
+#if IS_ENABLED(CONFIG_USB_SWITCH_SPLIT)
+					tran_splitswitch_set_gpio(PLUG_OUT);
+#endif
+					break;
 				} else
 					pr_notice("accdet hp been plug-out\n");
 				mutex_unlock(&accdet->res_lock);
@@ -2109,6 +2137,10 @@ void accdet_irq_handle(void)
 	eint_sts = accdet_read(ACCDET_EINT0_MEM_IN_ADDR);
 
 	if ((irq_status & ACCDET_IRQ_MASK_SFT) && (eintID == 0)) {
+		mutex_lock(&abnormal_headset_flag_mutex);
+		g_abnormal_headset_flag = false;
+		mutex_unlock(&abnormal_headset_flag_mutex);
+		pr_info("%s() enter accdet g_abnormal_headset_flag == %d\n", __func__, g_abnormal_headset_flag);
 		clear_accdet_int();
 		accdet_queue_work();
 		clear_accdet_int_check();
@@ -3084,6 +3116,15 @@ static int mt6369_accdet_probe(struct platform_device *pdev)
 	if (ret)
 		goto err_chrdevregion;
 
+	accdet->accdet_cdev = cdev_alloc();
+	accdet->accdet_cdev->owner = THIS_MODULE;
+	accdet->accdet_cdev->ops = accdet_get_fops();
+	ret = cdev_add(accdet->accdet_cdev, accdet->accdet_devno, 1);
+	if (ret) {
+		pr_notice("%s cdev_add fail.ret:%d\n", __func__, ret);
+		goto err_cdev_add;
+	}
+
 	/* create class in sysfs, "sys/class/", so udev in userspace can create
 	 * device node, when device_create is called
 	 */
@@ -3091,7 +3132,14 @@ static int mt6369_accdet_probe(struct platform_device *pdev)
 	if (!accdet->accdet_class) {
 		dev_dbg(&pdev->dev,
 			"Error: Create class failed (%d)\n", ret);
+			goto err_class_create;
+	}
+	accdet->accdet_device = device_create(accdet->accdet_class, NULL, accdet->accdet_devno,
+		NULL, ACCDET_DEVNAME);
+	if (!accdet->accdet_device) {
 		ret = -1;
+		pr_notice("%s device_create fail.\n", __func__);
+		goto err_device_create;
 	}
 
 	/* setup timer */
@@ -3158,6 +3206,10 @@ err_create_workqueue:
 err:
 	destroy_workqueue(accdet->accdet_workqueue);
 	destroy_workqueue(accdet->delay_init_workqueue);
+err_class_create:
+	cdev_del(accdet->accdet_cdev);
+err_cdev_add:
+	unregister_chrdev_region(accdet->accdet_devno, 1);
 err_device_create:
 	class_destroy(accdet->accdet_class);
 err_chrdevregion:
@@ -3171,11 +3223,92 @@ static int mt6369_accdet_remove(struct platform_device *pdev)
 	destroy_workqueue(accdet->dis_micbias_workqueue);
 	destroy_workqueue(accdet->accdet_workqueue);
 	destroy_workqueue(accdet->delay_init_workqueue);
+	device_del(accdet->accdet_device);
+	cdev_del(accdet->accdet_cdev);
 	class_destroy(accdet->accdet_class);
 	unregister_chrdev_region(accdet->accdet_devno, 1);
 	devm_kfree(&pdev->dev, accdet);
 	return 0;
 }
+
+void accdet_eint_callback_wrapper(unsigned int plug_status)
+{
+	int ret = 0;
+	pr_info("%s: call ex eint handler, plug_status %d\n", __func__, plug_status);
+	if (plug_status == 1) {
+		accdet->cur_eint_state = EINT_PLUG_IN;
+		if (accdet_dts.moisture_detect_mode != 0x5) {
+			mod_timer(&micbias_timer,
+			jiffies + MICBIAS_DISABLE_TIMER);
+        }
+	} else {
+		accdet->cur_eint_state = EINT_PLUG_OUT;
+       	}
+
+	ret = queue_work(accdet->eint_workqueue, &accdet->eint_work);
+
+	pr_debug("%s: exit queue work\n", __func__);
+}
+EXPORT_SYMBOL(accdet_eint_callback_wrapper);
+
+static long mt_accdet_unlocked_ioctl(struct file *file, unsigned int cmd,
+	unsigned long arg)
+{
+	switch (cmd) {
+	case GET_BUTTON_STATUS:
+		return accdet->button_status;
+	default:
+		break;
+	}
+	return 0;
+}
+
+static const struct file_operations accdet_fops = {
+	.owner = THIS_MODULE,
+	.unlocked_ioctl = mt_accdet_unlocked_ioctl,
+};
+
+const struct file_operations *accdet_get_fops(void)
+{
+	return &accdet_fops;
+}
+
+#if IS_ENABLED(CONFIG_USB_SWITCH_SPLIT)
+u32 tran_get_auxadc(void)
+{
+	return accdet_get_auxadc();
+}
+EXPORT_SYMBOL(tran_get_auxadc);
+void tran_splitswitch_accdet_set(int accdet_status, int cable_type)
+{
+	pr_info("%s() accdet_status=%d, cable_type=%d", __func__, accdet_status, cable_type);
+	u32 pre_cable_type = accdet->cable_type;
+
+	__pm_stay_awake(accdet->wake_lock);
+	mutex_lock(&accdet->res_lock);
+	accdet->accdet_status = accdet_status;
+	accdet->cable_type = cable_type;
+	if (accdet->accdet_status == MIC_BIAS) {
+		accdet_set_debounce(accdet_state011,
+			cust_pwm_deb->debounce3 * 30);
+	}
+	mutex_unlock(&accdet->res_lock);
+	if (accdet->accdet_status == MIC_BIAS) {
+		accdet_set_debounce(accdet_state000,
+			button_press_debounce);
+	}
+
+	mutex_lock(&accdet->res_lock);
+	if (accdet->eint_sync_flag) {
+		if (pre_cable_type != accdet->cable_type)
+			send_status_event(accdet->cable_type, 1);
+	}
+	mutex_unlock(&accdet->res_lock);
+
+	__pm_relax(accdet->wake_lock);
+}
+EXPORT_SYMBOL(tran_splitswitch_accdet_set);
+#endif
 
 static struct platform_driver mt6369_accdet_driver = {
 	.probe = mt6369_accdet_probe,

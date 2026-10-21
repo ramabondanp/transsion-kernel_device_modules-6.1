@@ -147,4 +147,5 @@ extern void mt6369_accdet_late_init(unsigned long data);
 extern void accdet_set_debounce(int state, unsigned int debounce);
 extern void mt6369_accdet_modify_vref_volt(void);
 extern int mt6369_accdet_init(struct snd_soc_component *component, struct snd_soc_card *card);
+extern const struct file_operations *accdet_get_fops(void);
 #endif /* __MT6369_ACCDET_H__ */

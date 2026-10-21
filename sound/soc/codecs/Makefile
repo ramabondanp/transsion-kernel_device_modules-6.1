@@ -8,6 +8,10 @@ ifneq ($(CONFIG_DEVICE_MODULES_SND_SOC_MEDIATEK),)
 ccflags-y += -I$(DEVICE_MODULES_PATH)/sound/soc/mediatek/common
 endif
 
+ccflags-y += -I$(DEVICE_MODULES_PATH)/drivers/power/supply/transsion
+
+ccflags-y += -I$(DEVICE_MODULES_PATH)/drivers/misc/mediatek/typec/mux
+
 snd-soc-mt6338-objs := mt6338.o
 snd-soc-mt6338-accdet-objs := mt6338-accdet.o
 snd-soc-mt6351-objs := mt6351.o
@@ -39,3 +43,4 @@ obj-$(CONFIG_SND_SOC_MT6681_ACCDET) += mt6681-accdet.o
 obj-$(CONFIG_DEVICE_MODULES_SND_SOC_HDMI_CODEC)	+= snd-soc-hdmi-codec.o
 obj-$(CONFIG_SND_SOC_RT5512)	+= richtek/
 obj-$(CONFIG_SND_SOC_TFA9874)	+= tfa98xx/
+

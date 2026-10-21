@@ -29,6 +29,7 @@
 #include <linux/mfd/mt6397/core.h>
 #include "mt6368-accdet.h"
 #include "mt6368.h"
+#include <linux/cdev.h>
 /* grobal variable definitions */
 #define REGISTER_VAL(x)	(x - 1)
 #define HAS_CAP(_c, _x)	(((_c) & (_x)) == (_x))
@@ -77,6 +78,8 @@ struct mt63xx_accdet_data {
 	struct wakeup_source *wake_lock;
 	struct wakeup_source *timer_lock;
 	struct mutex res_lock;
+	struct cdev *accdet_cdev;
+	struct device *accdet_device;
 	dev_t accdet_devno;
 	struct class *accdet_class;
 	int button_status;
@@ -3180,6 +3183,15 @@ static int accdet_probe(struct platform_device *pdev)
 	if (ret)
 		goto err_chrdevregion;
 
+	accdet->accdet_cdev = cdev_alloc();
+	accdet->accdet_cdev->owner = THIS_MODULE;
+	accdet->accdet_cdev->ops = accdet_get_fops();
+	ret = cdev_add(accdet->accdet_cdev, accdet->accdet_devno, 1);
+	if (ret) {
+		pr_notice("%s cdev_add fail.ret:%d\n", __func__, ret);
+		goto err_cdev_add;
+	}
+
 	/* create class in sysfs, "sys/class/", so udev in userspace can create
 	 * device node, when device_create is called
 	 */
@@ -3187,7 +3199,14 @@ static int accdet_probe(struct platform_device *pdev)
 	if (!accdet->accdet_class) {
 		dev_dbg(&pdev->dev,
 			"Error: Create class failed (%d)\n", ret);
+			goto err_class_create;
+	}
+	accdet->accdet_device = device_create(accdet->accdet_class, NULL, accdet->accdet_devno,
+		NULL, ACCDET_DEVNAME);
+	if (!accdet->accdet_device) {
 		ret = -1;
+		pr_notice("%s device_create fail.\n", __func__);
+		goto err_device_create;
 	}
 
 	/* setup timer */
@@ -3250,6 +3269,10 @@ err_create_workqueue:
 err:
 	destroy_workqueue(accdet->accdet_workqueue);
 	destroy_workqueue(accdet->delay_init_workqueue);
+err_class_create:
+	cdev_del(accdet->accdet_cdev);
+err_cdev_add:
+	unregister_chrdev_region(accdet->accdet_devno, 1);
 err_device_create:
 	class_destroy(accdet->accdet_class);
 err_chrdevregion:
@@ -3263,6 +3286,8 @@ static int accdet_remove(struct platform_device *pdev)
 	destroy_workqueue(accdet->dis_micbias_workqueue);
 	destroy_workqueue(accdet->accdet_workqueue);
 	destroy_workqueue(accdet->delay_init_workqueue);
+	device_del(accdet->accdet_device);
+	cdev_del(accdet->accdet_cdev);
 	class_destroy(accdet->accdet_class);
 	unregister_chrdev_region(accdet->accdet_devno, 1);
 	devm_kfree(&pdev->dev, accdet);
@@ -3280,6 +3305,27 @@ static long mt_accdet_unlocked_ioctl(struct file *file, unsigned int cmd,
 	}
 	return 0;
 }
+
+void accdet_eint_callback_wrapper(unsigned int plug_status)
+{
+	int ret = 0;
+
+	pr_info("%s: call ex eint handler, plug_status %d\n", __func__, plug_status);
+	if (plug_status == 1) {
+		accdet->cur_eint_state = EINT_PLUG_IN;
+		if (accdet_dts.moisture_detect_mode != 0x5) {
+			mod_timer(&micbias_timer,
+				jiffies + MICBIAS_DISABLE_TIMER);
+		}
+	} else {
+		accdet->cur_eint_state = EINT_PLUG_OUT;
+	}
+
+	ret = queue_work(accdet->eint_workqueue, &accdet->eint_work);
+
+	pr_debug("%s: exit queue work\n", __func__);
+}
+EXPORT_SYMBOL(accdet_eint_callback_wrapper);
 
 #if IS_ENABLED(CONFIG_USB_SWITCH_ET7480)
 void accdet_eint_callback_wrapper(unsigned int plug_status)
