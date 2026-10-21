@@ -203,7 +203,7 @@ static int mt6681_check_id(struct mt6681_pmic_info *mpi)
 	ret = regmap_read(mpi->regmap, MT6681_SWCID_H, &data);
 	if (ret < 0) {
 		dev_info(mpi->dev, "device not found %d\n", ret);
-		return ret;
+		//return ret;
 	}
 	if (data != MT6681_SWCID_H_CODE) {
 		dev_info(mpi->dev, "data = %d, not mt6681 chip\n", data);
@@ -343,6 +343,7 @@ void mt6681_InitSetting(struct mt6681_pmic_info *mpi)
 	regmap_write(mpi->regmap, MT6681_LDO_VAUD18_CON2, 0x1c);
 	regmap_write(mpi->regmap, MT6681_PLT_CON0, 0x3a);
 	regmap_write(mpi->regmap, MT6681_PLT_CON1, 0x0c);
+	regmap_write(mpi->regmap, MT6681_LDO_VAUD18_MULTI_SW_0, 0x1);
 }
 
 static const unsigned short mt6681_slave_addr = MT6681_PMIC_SLAVEID;

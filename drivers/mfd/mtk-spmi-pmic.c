@@ -541,6 +541,8 @@ static struct irq_chip mtk_spmi_pmic_irq_chip = {
 	.irq_bus_sync_unlock = mtk_spmi_pmic_irq_sync_unlock,
 };
 
+
+
 static void mtk_spmi_pmic_irq_sp_handler(struct pmic_core *core,
 					 unsigned int top_gp)
 {
@@ -581,6 +583,7 @@ static void mtk_spmi_pmic_irq_sp_handler(struct pmic_core *core,
 
 		regmap_write(core->regmap, sta_reg, irq_status);
 	}
+
 }
 
 static irqreturn_t mtk_spmi_pmic_irq_handler(int irq, void *data)
