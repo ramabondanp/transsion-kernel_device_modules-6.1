@@ -1,0 +1,221 @@
+/*
+ * Copyright (c) 2019 Richtek
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+&pe5{
+	compatible = "tc_pe5";
+	status = "okay";
+	tc_chgtype = <&tc_chgtype>;
+        polling_interval = <500>;
+        ta_cv_ss_repeat_tmin = <25>;
+        vbat_cv = <4530>;
+        start_vbat_min = <3300>;
+        start_vbat_max = <4400>;
+        idvchg_term = <800>; // ibus 2 : 1
+        idvchg_pps_term = <1200>;
+        rcable_level = <180 280 380 480>;
+        ita_level = <9100 6000 5000 4000>;
+        idvchg_level_multi = <3000 5800 10000 0>;
+        idvchg_ss_init = <1000>;
+        idvchg_ss_step = <250>;
+        idvchg_ss_step1 = <100>;
+        idvchg_ss_step2 = <50>;
+        idvchg_ss_step1_vbat = <4000>;
+        idvchg_ss_step2_vbat = <4200>;
+        ta_blanking = <400>;
+        chg_time_max = <36000>;
+	wireless_chg_time_max = <54000>;
+
+	tta_level_def               = <0     0     0     5     25    25    25    25    25    25    25    25    25    25    80    85    2000>;
+	tta_curlmt                  = <(-1)  (-1)  (-1)  0     0     0     0     0     0     0     0     0     0     0     600   900   (-1)>;
+	tta_recovery_area           = <1>;
+
+        tdvchg_level_def            = <0     0     0     5     25    25    25    25    25    25    25    25    25    25    75    80    170>;
+        tdvchg_curlmt               = <(-1)  (-1)  (-1)  0     0     0     0     0     0     0     0     0     0     0     600   900   (-1)>;
+        tdvchg_recovery_area        = <1>;
+
+        tbat_level_def              = <15    15    15    22    25    25    25    25    25    25    25    25    41    42    43    44    45>;
+        tbat_curlmt                 = <(-1)  (-1)  0     0     0     0     0     0     0     0     0     0     1400  2000  5000  6000  (-1)>;
+        tbat_recovery_area          = <1>;
+
+        tpcb_level_def              = <0     0     0     22    25    25    25    25    41    42    43    44    45    46    47    48    90>;
+        tpcb_curlmt                 = <(-1)  (-1)  0     0     0     0     0     0     1000  2200  3000  3400  3800  4400  5000  6000  (-1)>;
+        tpcb_recovery_area          = <1>;
+
+        tpa_level_def               = <0     0     0     22    25    25    25    25    41    42    43    44    45    46    47    48    90>;
+        tpa_curlmt                  = <(-1)  (-1)  0     0     0     0     0     0     1000  2200  3000  3400  3800  4400  5000  6000  (-1)>;
+        tpa_recovery_area           = <1>;
+
+        supprot_multi_level_charging;
+        //tbat
+	tbat_level_def_0              = <15    15    15    22    25    25    25    25    25    25    25    25    41    42    43    44    45>;
+	tbat_curlmt_0                 = <(-1)  (-1)  0     0     0     0     0     0     0     0     0     0     1400  2000  5000  6000  (-1)>;
+	tbat_level_def_1              = <15    15    15    22    25    32    33    34    35    37    39    40    41    42    44    44    45>;
+	tbat_curlmt_1                 = <(-1)  (-1)  0     0     0     2300  3000  3800  4300  4700  5300  5700  7200  7200  7200  7200  (-1)>;
+	tbat_level_def_2              = <15    15    15    22    25    29    30    31    32    33    34    35    36    41    42    43    45>;
+	tbat_curlmt_2                 = <(-1)  (-1)  0     0     0     4000  5200  5700  6200  6300  6400  6500  6600  6700  6800  8000  (-1)>;
+
+	//tpcb
+	tpcb_level_def_0              = <0     0     0     22    25    25    25    25    41    42    43    44    45    46    47    48    90>;
+	tpcb_curlmt_0                 = <(-1)  (-1)  0     0     0     0     0     0     1000  2200  3000  3400  3800  4400  5000  6000  (-1)>;
+	tpcb_level_def_1              = <0     0     0     22    25    32    33    34    35    37    39    40    41    42    44    45    90>;
+	tpcb_curlmt_1                 = <(-1)  (-1)  0     0     0     2300  3000  3800  4300  4700  5300  5700  7200  7200  7200  7200  (-1)>;
+	tpcb_level_def_2              = <0     0     0     22    25    29    30    31    32    33    34    35    36    41    42    43    90>;
+	tpcb_curlmt_2                 = <(-1)  (-1)  0     0     0     4000  5200  5700  6200  6300  6400  6500  6600  6700  6800  8000  (-1)>;
+
+	//tpa
+        tpa_level_def_0              = <0     0     0     22    25    25    25    25    45    46    47    48    49    50    51    52    90>;
+        tpa_curlmt_0                 = <(-1)  (-1)  0     0     0     0     0     0     1000  2200  3000  3400  3800  4400  5000  6000  (-1)>;
+        tpa_level_def_1              = <0     0     0     22    25    25    25    25    45    46    47    48    49    50    51    52    90>;
+        tpa_curlmt_1                 = <(-1)  (-1)  0     0     0     0     0     0     1000  2200  3000  3400  3800  4400  5000  6000  (-1)>;
+        tpa_level_def_2              = <0     0     0     22    25    25    25    25    45    46    47    48    49    50    51    52    90>;
+        tpa_curlmt_2                 = <(-1)  (-1)  0     0     0     0     0     0     1000  2200  3000  3400  3800  4400  5000  6000  (-1)>;
+
+	//wireless
+        wireless_tbat_level_def     = <15    15    15    22    25    33    34    35    36    37    38    40    41    42    44    45    45>;
+        wireless_tbat_curlmt        = <(-1)  (-1)  0     0     0     7600  7800  8000  8050  8100  8100  8200  8200  8200  8200  8200  (-1)>;
+
+        wireless_tpcb_level_def     = <0     0     0     22    25    33    34    35    36    37    38    40    41    42    44    45    45>;
+        wireless_tpcb_curlmt        = <(-1)  (-1)  0     0     0     7600  7800  8000  8050  8100  8100  8200  8200  8200  8200  8200  (-1)>;
+
+        wireless_tpa_level_def      = <0     0     0     22    25    38    38    38    38    38    38    38    38    38    40    43    45>;
+        wireless_tpa_curlmt         = <(-1)  (-1)  0     0     0     0     0     0     0     0     0     0     0     0     4000  5000  (-1)>;
+
+	sys_power_level_def         = <0     0     400   800   1200  1600  2000  2000  2400  2800  3200  3600  4000  4400  4800  5200  50000>;
+	sys_power_curlmt            = <(-1)  (-1)  0     0     0     5000  1600  1600  1600  1600  1600  1600  1600  1600  1600  1600  (-1)>;
+	sys_power_recovery_area     = <400>;
+
+        ifod_threshold = <200>;
+        rsw_min = <20>;
+        ircmp_rbat = <40>;
+        ircmp_vclamp = <0>;
+        support_ta = "pd_adapter";
+        allow_not_check_ta_status;
+        vbat_threshold = <4150>;
+	rechg_tbat_high = <41>;
+	rechg_tbat_low = <17>;
+	project_pwr_ratio = <70>;
+	project_power = <100>;
+	min_ita_gap = <10>;
+	ita_stable_cnt = <20>;
+	vol_diff_gap = <50>;
+	cable_capability_level = <0 5000 6000 9000>;
+	vol_diff_level = <1000 1000 1200 1500>;
+
+        /*wireless charger*/
+        wireless_curlmt = <2000>;
+        wireless_sit_shift_curlmt = <1500>;
+        /*Wireless EOC*/
+        idvchg_wireless_term = <300>;
+        /*0:2:1 or 4:2 cp
+          1:4:2:1 cp*/
+        wireless_en_dual= <0>;
+        wireless_vbus_max_ovp=<11000>;
+        wireless_vta_cap_max=<10500>;
+	pe50_wireless_vta_init = <9000>;
+	pe50_wireless_ita_init = <3000>;
+	pe50_vta_init = <5300>;
+	pe50_ita_init = <3000>;
+
+        run_cp_cur = <0 2500 4250 9000>;
+        run_cp_recovery_gap = <0 500 750 1000>;
+        run_wls_cp_cur = <0 3000 6000 10000>;
+        run_wls_cp_recovery_gap = <0 200 400 600>;
+
+        /* support_6_2; */
+        /* support_4_1; */
+        /* support_4_2; */
+        /* support_2_1; */
+        support_spec =  <0 0 0 1>;
+        vta_cap_min = <6800 6800 6800 6800>;
+        vta_cap_max = <30000 20000 20000 10500>;
+        ita_cap_min = <1000 1000 1000 1000>;
+        vbus_max_ovp = <33000 20500 20500 11000>;
+
+        /* battery step cv param */
+        pe5_ffc_gap = <20 20 20 20 20 20>;
+
+        step_ffc_level = <6>;
+        step_ffc_level_0 = <15 35
+                            4200  4300  4300  4400  4500 4530
+                            20000 15750 15750 13500 9000 6750
+                            1440
+			    0 300
+			    0>;
+        step_ffc_level_1 = <35 45                            /* ffc temp */
+                            4200  4300  4300  4400  4500 4530      /* ffc vbat */
+                            20000 15750 15750 13500 9000 6750      /* ffc ibat */
+                            2115		             /* ffc term */
+			    0 300                            /* cycle cnt(write 0 if not supported long life) */
+			    0>;                              /* rechg gap */
+
+        step_ffc_level_2 = <15 35
+                            4200  4300  4300  4400  4480 4510
+                            20000 15750 15750 13500 9000 6750
+                            1440
+			    300 500
+			    20>;
+
+        step_ffc_level_3 = <35 45                            /* ffc temp */
+                            4200  4300  4300  4400  4480 4510     /* ffc vbat */
+                            20000 15750 15750 13500 9000 6750      /* ffc ibat */
+                            2115		             /* ffc term */
+			    300 500                          /* cycle cnt(write 0 if not supported long life) */
+			    20>;                             /* rechg gap */
+
+        step_ffc_level_4 = <15 35
+                            4200  4300  4300  4400  4460 4490
+                            20000 15750 15750 13500 9000 6750
+                            1440
+			    500 (-1)
+			    40>;
+        step_ffc_level_5 = <35 45                            /* ffc temp */
+                            4200  4300  4300  4400  4460 4490      /* ffc vbat */
+                            20000 15750 15750 13500 9000 6750      /* ffc ibat */
+                            2115		             /* ffc term */
+			    500 (-1)                            /* cycle cnt(write 0 if not supported long life) */
+			    40>;                             /* rechg gap */
+
+	support_vbat_cycle_level;
+	support_long_life_recharger;
+
+	/* dual battery  */
+	/* support_dual_battery; */
+	/* step_cc_gap = <100>; */
+	/* step_master_ffc_level = <2>; */
+        /* step_master_ffc_level_0 = <15 35 */
+        /*                     4200  4300  4300  4400  4500 4530 */
+        /*                     20000 15750 15750 13500 9000 6750 */
+        /*                     1440 */
+	/*                     0 0 */
+	/*                     0>; */
+        /* step_master_ffc_level_1 = <35 45 */
+        /*                     4200  4300  4300  4400  4500 4530 */
+        /*                     20000 15750 15750 13500 9000 6750 */
+        /*                     2115 */
+	/*                     0 0 */
+	/*                     0>; */
+
+	/* step_slave_ffc_level = <2>; */
+        /* step_slave_ffc_level_0 = <15 35 */
+        /*                     4200  4300  4300  4400  4500 4530 */
+        /*                     20000 15750 15750 13500 9000 6750 */
+        /*                     1440 */
+	/*                     0 0 */
+	/*                     0>; */
+        /* step_slave_ffc_level_1 = <35 45                       */
+        /*                     4200  4300  4300  4400  4500 4530 */
+        /*                     20000 15750 15750 13500 9000 6750 */
+        /*                     2115 */
+	/*                     0 0 */
+	/*                     0>; */
+};

@@ -1,0 +1,24 @@
+&i2c9 {
+	status = "okay";
+	clock-frequency = <900000>;
+	#address-cells = <1>;
+	#size-cells = <0>;
+
+	aw210xx_led@20 {
+		compatible = "awinic,aw210xx_led";
+		reg = <0x20>;
+		enable-gpio = <&pio 9 0>;
+		global_current = <0x7>;
+		osc_clk = <1>;
+		br_res = <1>;
+		status = "okay";
+		aw210xx,led {
+			aw210xx,name = "aw210xx_led";
+			aw210xx,imax = <40>;
+			aw210xx,brightness = <15>;
+			aw210xx,max_brightness = <255>;
+
+			open_circuit_test_val = <0x00 0x01 0x00>;
+		};
+	};
+};

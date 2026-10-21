@@ -1,0 +1,76 @@
+&i2c10 {
+	sc8565-charger@6F {
+		compatible = "sc,sc8565-standalone";
+		chg_name = "primary_dvchg";
+		reg = <0x6F>;
+		pinctrl-names = "cp_i2c_clk_mode", "cp_i2c_sda_mode";
+		pinctrl-0 = <&cp_i2c_clk_mode>;
+		pinctrl-1 = <&cp_i2c_sda_mode>;
+
+		sc,sc8565,irq-gpio = <&pio 27 0x00>;
+		sc,sc8565,lpm-gpio = <&pio 64 0x00>;
+
+		/*sc,sc8565,bat-ovp-disable = <0>;
+		sc,sc8565,bat-ocp-disable = <0>;
+		sc,sc8565,bus-ocp-disable = <0>;
+		sc,sc8565,bus-ucp-disable = <1>;
+		sc,sc8565,pmid2out-ovp-disable = <0>;
+		sc,sc8565,pmid2out-uvp-disable = <0>;*/
+
+		sc,sc8565,bat-ovp-threshold = <4525>;
+		sc,sc8565,bat-ocp-threshold = <8000>;
+
+		sc,sc8565,bus-ovp-threshold = <24000>;//defult 4:1 charge
+		sc,sc8565,bus-ocp-threshold = <3750>;
+
+		sc,sc8565,usb-ovp-threshold = <24000>;
+		sc,sc8565,wpc-ovp-threshold = <24000>;
+		sc,sc8565,out-ovp-threshold = <5000>;
+
+		sc,sc8565,pmid2out-ovp-threshold = <400>;
+		sc,sc8565,pmid2out-uvp-threshold = <200>;
+		sc,sc8565,sense-r-mohm = <1>;
+	};
+	sc8565-charger@6e {
+		compatible = "sc,sc8565-standalone";
+		chg_name = "secondary_dvchg";
+		reg = <0x6e>;
+
+		sc,sc8565,irq-gpio = <&pio 23 0x00>;
+		sc,sc8565,lpm-gpio = <&pio 30 0x00>;
+		/*sc,sc8565,bat-ovp-disable = <0>;
+		sc,sc8565,bat-ocp-disable = <0>;
+		sc,sc8565,bus-ocp-disable = <0>;
+		sc,sc8565,bus-ucp-disable = <1>;
+		sc,sc8565,pmid2out-ovp-disable = <0>;
+		sc,sc8565,pmid2out-uvp-disable = <0>;*/
+
+		sc,sc8565,bat-ovp-threshold = <4525>;
+		sc,sc8565,bat-ocp-threshold = <8000>;
+
+		sc,sc8565,bus-ovp-threshold = <24000>;//defult 4:1 charge
+		sc,sc8565,bus-ocp-threshold = <3750>;
+
+		sc,sc8565,usb-ovp-threshold = <24000>;
+		sc,sc8565,wpc-ovp-threshold = <24000>;
+		sc,sc8565,out-ovp-threshold = <5000>;
+
+		sc,sc8565,pmid2out-ovp-threshold = <400>;
+		sc,sc8565,pmid2out-uvp-threshold = <200>;
+		sc,sc8565,sense-r-mohm = <1>;
+	};
+};
+&pio {
+	cp_i2c_clk_mode: cp_i2c_clk_mode {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO157__FUNC_SCL10>;
+			drive-strength = <4>;
+		};
+	};
+	cp_i2c_sda_mode: cp_i2c_sda_mode {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO158__FUNC_SDA10>;
+			drive-strength = <4>;
+		};
+	};
+};

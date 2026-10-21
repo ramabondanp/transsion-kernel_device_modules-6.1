@@ -1,0 +1,17 @@
+#include <dt-bindings/phy/phy.h>
+
+&i2c1 {
+	clock-frequency = <400000>;
+	mt5728@2b {
+		compatible = "tran,mt5728";
+		reg = <0x2b>;
+		status = "okay";
+		powergood-gpios = <&pio 72 0x0>;
+		eint_wpc-gpios = <&pio 73 0x0>;
+		wired-gpios = <&pio 76 0x0>;
+		tx_mode_support_epp = <1>;
+		sleep-gpios = <&pio 75 0x0>;
+		//dv_vctrl-gpios = <&pio 12 0x0>;
+		tx_mode-gpios = <&pio 74 0x0>;
+	};
+};

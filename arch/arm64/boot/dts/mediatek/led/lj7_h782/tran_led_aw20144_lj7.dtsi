@@ -1,0 +1,20 @@
+&i2c9 {
+	status = "okay";
+	clock-frequency = <1000000>;
+	#address-cells = <1>;
+	#size-cells = <0>;
+
+	aw20144_led@20 {
+		compatible = "awinic,aw20144_led";
+		reg = <0x20>;
+		enable-gpio = <&pio 9 0>;
+		aw20144,imax = <48>;
+		aw20144,sl_current = <255>;
+		aw20144,max_brightness = <255>;
+		/*aw20144,effect-bin;*/
+		ignore_open_circuit_test_cfg_size = <8>;
+		ignore_open_circuit_test_cfg_reg = <0x05 0x08 0x0b 0x0e 0x11 0x14 0x17 0x1a>;
+		ignore_open_circuit_test_cfg_val = <0x3e 0x3e 0x3e 0x3e 0x3e 0x3e 0x3e 0x3e>;
+		status = "okay";
+	};
+};

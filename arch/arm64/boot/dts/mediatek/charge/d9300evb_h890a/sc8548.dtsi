@@ -1,0 +1,51 @@
+&i2c12 {
+	#address-cells = <1>;
+	#size-cells = <0>;
+	clock-frequency = <100000>;
+	sc8548_master@6F{
+		compatible = "sc,sc8548-standalone";
+		chg_name = "primary_dvchg";
+		reg = <0x6F>;
+		/* interrupt-parent = <&pio>; */
+		/* interrupts = <65 0>; */
+		/* pinctrl-names = "default"; */
+		/* pinctrl-0 = <&sc8551_int_default>; */
+		sc8548,intr-gpios = <&pio 12 0x0>;
+		/*sc,sc8548,bat-ovp-disale = <0>;
+		sc,sc8548,bus-ovp-disale = <0>;
+		sc,sc8548,bus-ocp-disale = <0>;*/
+		sc,sc8548,bat-ovp-threshold = <4525>;/*mv*/
+		sc,sc8548,bat-ocp-threshold = <13000>;/*mv*/
+		sc,sc8548,ac-ovp-threshold = <12000>;/*mv*/
+		sc,sc8548,bus-ovp-threshold = <12000>;/*mv*/
+		sc,sc8548,bus-ocp-threshold = <5000>;/*ma*/
+		sc,sc8548,sense-resistor-mohm = <5>;/*mΩ*/
+	};
+};
+
+&i2c1 {
+	#address-cells = <1>;
+	#size-cells = <0>;
+	clock-frequency = <400000>;
+	sc8548_slave@6F{
+		compatible = "sc,sc8548-secondary";
+		chg_name = "secondary_dvchg";
+		reg = <0x6F>;
+		/* interrupt-parent = <&pio>; */
+		/* interrupts = <65 0>; */
+		/* pinctrl-names = "default"; */
+		/* pinctrl-0 = <&sc8551_int_default>; */
+		/*sc8548,intr-gpios = <&pio 0 0x0>;*/
+		sc,sc8548,bat-ovp-disable = <1>;
+		sc,sc8548,bus-ovp-disable = <1>;
+		sc,sc8548,bus-ocp-disable = <1>;
+		sc,exio_irq = <1>;
+	
+		sc,sc8548,bat-ovp-threshold = <4525>;/*mv*/
+		sc,sc8548,bat-ocp-threshold = <13000>;/*mv*/
+		sc,sc8548,ac-ovp-threshold = <11000>;/*mv*/
+		sc,sc8548,bus-ovp-threshold = <11000>;/*mv*/
+		sc,sc8548,bus-ocp-threshold = <5000>;/*ma*/
+		sc,sc8548,sense-resistor-mohm = <5>;/*mΩ*/
+	};
+};

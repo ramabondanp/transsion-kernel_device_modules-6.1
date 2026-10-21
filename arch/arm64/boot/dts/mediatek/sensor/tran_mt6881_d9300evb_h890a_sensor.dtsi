@@ -1,0 +1,10 @@
+// SPDX-License-Identifier: (GPL-2.0 OR MIT)
+/*
+ * Sensor configuration for d9300evb_h890a
+ * Migrated from tran_projects d9300evb_h890a.dts
+ */
+
+&irtx_pwm {
+	pwm_ch = <0>;
+	status = "okay";
+};

@@ -1,0 +1,53 @@
+// SPDX-License-Identifier: (GPL-2.0 OR MIT)
+/*
+ * Copyright (C) 2020 MediaTek Inc.
+ */
+/* TOUCH start */
+&odm {
+        touch: touch {
+                compatible = "mediatek,touch";
+        };
+};
+
+&touch {
+        supplier-num = <1>;
+        supplier-vendor-0 = "TXD";
+        supplier-0 = "any, omnivision, td4160";
+	supplier-resolution-0 = <10>;
+};
+
+&spi3 {
+        tran_touch:omnivision@0 {
+                        compatible = "omnivision,tcm-spi";
+                        reg = <0>;
+                        spi-max-frequency = <8000000>;
+
+                        //td4376
+                        omnivision,irq-on-state = <0>;
+                        omnivision,power-delay-ms = <200>;
+                        omnivision,reset-on-state = <0>;
+                        omnivision,reset-active-ms = <20>;
+                        omnivision,reset-delay-ms = <200>;
+                        omnivision,byte-delay-us = <0>;
+                        omnivision,ubl-max-freq = <8000000>;
+                        omnivision,ubl-byte-delay-us = <20>;
+                        omnivision,spi-mode = <3>;
+                        omnivision,block-delay-us = <0>;
+                        omnivision,irq-gpio = <&pio 7 0x0>;
+                        omnivision,reset-gpio = <&pio 6 0x0>;
+                        omnivision,pocket-function-support = <1>;
+			status = "okay";
+        };
+};
+
+/* key start */
+&mt6363keys {
+	home {
+		linux,keycodes = <114>;
+	};
+};
+/* key start */
+
+#include "mediatek/omnivision_test_spi.dtsi"
+
+/* TOUCH end */

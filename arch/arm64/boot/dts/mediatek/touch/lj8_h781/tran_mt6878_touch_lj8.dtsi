@@ -1,0 +1,85 @@
+// SPDX-License-Identifier: (GPL-2.0 OR MIT)
+/*
+ * Copyright (C) 2020 MediaTek Inc.
+ */
+ /* key start */
+&mt6363keys {
+        home {
+                linux,keycodes = <114>;
+        };
+};
+
+/* key end */
+
+/* TOUCH start */
+&odm {
+        touch: touch {
+                compatible = "mediatek,touch";
+        };
+};
+
+&touch {
+        supplier-num = <1>;
+        supplier-vendor-0 = "TM";
+        supplier-vendor-fwname-0 = "focaltech_ts_fw.bin";
+        supplier-0 = "any, focaltech, ft3682g";
+        supplier-resolution-0 = <16>;
+};
+
+&spi3 {
+    tran_touch:touch@0 {
+        compatible = "focaltech,fts";
+        reg = <0>;
+        spi-max-frequency = <8000000>;
+        vtouch-supply = <&mt6369_vtp>;
+        focaltech,irq-gpio = <&pio 7 0x0>;
+        focaltech,reset-gpio = <&pio 6 0x0>;
+        focaltech,iovdd-gpio = <&pio 189 0x0>;
+        focaltech,max-touch-number = <10>;
+        focaltech,display-coords =  <0 0 19583 43519>;
+        focaltech,pocket-function-support;
+        focaltech,switch-report-support;
+        focaltech,fod-function-support;
+        focaltech,custom-mistouch-support;
+        status = "okay";
+    };
+};
+/* TOUCH end */
+
+/* AWINIC Haptic start */
+&chosen {
+        lra,info = <1 7 31>;//type:(1:X-lra 2:Z-lra)  bus_num:i2c5  reset_gpio:gpio31
+};
+
+&i2c7 {
+	clock-frequency = <400000>;
+	haptic_hv@5A {
+		compatible = "awinic,haptic_hv";
+		reg = <0x5A>;
+		irq-gpio = <&pio 18 0>;
+		reset-gpio = <&pio 31 0>;
+		f0_pre = < 1700 >;
+		mode = /bits/ 8 < 5 >;
+		aw8692x_f0_cali_percent = /bits/ 8 < 7 >;
+		aw8692x_gain_bypass = /bits/ 8 < 1 >;
+		aw8692x_cont_drv1_lvl = /bits/ 8 < 0x7F >;
+		aw8692x_cont_lra_vrms = < 1000 >; /* Motor rated voltage, mV. If use 0812, 0512, 0412 or 0825, please select ram get f0 */
+		aw8692x_cont_drv1_time = /bits/ 8 < 0x04 >;
+		aw8692x_cont_drv2_time = /bits/ 8 < 0x14 >;
+		aw8692x_cont_track_margin = /bits/ 8 < 0x0F >;
+		aw8692x_cont_brk_gain = /bits/ 8 < 0x08 >;
+		aw8692x_cont_brk_time = /bits/ 8 < 0x08 >;
+		//aw8692x_duration_time = /bits/ 8 < 20 30 60 >;
+		aw8692x_duration_time = /bits/ 8 < 30 60 90 >;
+		aw8692x_d2s_gain = /bits/ 8 < 0x04 >;
+		aw8692x_trig_config = /bits/ 8 < 0 0 0 1 0 2 0 0
+						 0 0 0 1 0 2 0 0
+						 0 0 0 1 0 2 0 0 >;
+		aw8692x_bst_vol_default = < 8500 >;
+		aw8692x_is_enabled_track_en;
+		aw8692x_is_enabled_auto_bst;
+		/* aw8692x_is_enabled_one_wire; */
+		status = "okay";
+	};
+};
+/* AWINIC Haptic end */

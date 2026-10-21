@@ -1,0 +1,18 @@
+#include <dt-bindings/phy/phy.h>
+&i2c0 {
+	status = "okay";
+	clock-frequency = <400000>;
+	#address-cells = <1>;
+	#size-cells = <0>;
+
+	cps4021@30 {
+		compatible = "wireless_charger,cps4021";
+		reg = <0x30>;
+		status = "okay";
+		powergood-gpios = <&pio 20 0x0>;
+		eint_wpc-gpios = <&pio 44 0x0>;
+		wired-gpios = <&pio 42 0x0>;
+		sleep-gpios = <&pio 59 0x0>;
+		dv_vctrl-gpios = <&pio 32 0x0>;
+	};
+};

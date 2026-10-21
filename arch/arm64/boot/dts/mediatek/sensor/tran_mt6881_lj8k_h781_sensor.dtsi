@@ -1,0 +1,23 @@
+// SPDX-License-Identifier: (GPL-2.0 OR MIT)
+/*
+ * Sensor configuration for lj8k_h781
+ * Migrated from tran_projects lj8k_h781.dts
+ */
+
+&tran_sensor_cust {
+    /*lcm info for sensor start*/
+    /*als sensor support state*/
+    un_als_support = <1 0 0 0>;/*ML MSL SL SSL*/
+    /*main sensor:ML*/
+    ml_lcm_info = <836 47 58 58>;/*offset_x, offset_y, clip_w, clip_h*/
+    extra_ml_lcm_info = <844 49 46 46 80 20>;
+    /*main sub als lcm info:MSL*/
+    /*lcm info for sensor end*/
+	ml_nv_info = <1 1 1>; /*vendortype:SensorTek,  algotype:Cutout, version:V1_0_0*/
+	nv_restore_time = <3>;
+};
+
+&irtx_pwm {
+	pwm_ch = <0>;
+	status = "okay";
+};

@@ -1,0 +1,591 @@
+#include <dt-bindings/iio/mt635x-auxadc.h>
+#include <dt-bindings/iio/adc/mediatek,mt6375_adc.h>
+
+&mt6375_chg {
+	aicr = <500>;
+	mivr = <4400>;
+	cv = <4500>;
+	ichg = <2000>;
+	ieoc = <270>;
+	ircmp_r = <0>;
+	ircmp_v = <0>;
+};
+
+&odm {
+	charge_transfer: charge_transfer {
+		compatible = "transsion, charge_transfer";
+		status = "okay";
+		manual_scheme = <2>;
+	};
+
+	tran_otg: tran_otg {
+		compatible = "tran,otg_fun";
+		status = "okay";
+		/* support_otg_dcp; */
+		/* otg_dcp_by_pmic; */
+		/* support_ext_otg; */
+		pd_reverse_chg_support;
+		otg_revercharge_limit_temp = <45>;
+		tc_otg_boost_curr_max = <2000000>; /* 10W config 2000000,6W config 1200000 */
+		tc_otg_boost_curr_min = <500000>;
+		otg_reverse_chg_curr_lmt = <500000>;
+		otg_reverse_chg_limit_temp_step1 = <42>;
+		otg_reverse_chg_recovery_area = <3>;
+	};
+
+	tc_audio: tc_audio {
+		compatible = "tc_audio";
+		status = "okay";
+		water_detect = <&water_detect>;
+		/* GPIO sel sbu1/2 */
+		gpio_sbu2_micgnd = <&pio 18 0x00>;
+	};
+
+	water_detect: water_detect {
+		status = "okay";
+		compatible = "transsion, water_detect";
+		bootmode = <&chosen>;
+		polling_interval = <5>;
+
+		/*	0:SUBPMIC USB_ID detect
+			1:GPIO detect
+			2:GPIO detect--GPIO sel 1--- GPIO sel sbu1/2
+			3:WAS4783 detect
+			4:SUBPMIC USB_ID detect--GPIO sel 1
+			5:SUBPMIC USB_ID detect--GPIO sel 1--- GPIO sel sbu1/2
+		*/
+		scheme = <5>;
+
+		/* GPIO sel 1 */
+		gpio_z =<&pio 155 0x00>;
+	};
+
+	tc_chgtype: tc_chgtype {
+		compatible = "tc_chgtype";
+		charger = <&mt6375_chg>;
+		phys = <&u2port0 PHY_TYPE_USB2>;
+		phy-names = "usb2-phy";
+		usb = <&ssusb>;
+		status = "okay";
+	};
+
+	tc_pmic: tc_pmic {
+		compatible = "tc_pmic";
+		status = "okay";
+		/* The current project is not in use */
+		//io-channels = <&pmic_auxadc AUXADC_VCDT>;
+		//io-channel-names = "pmic_vbus";
+		//pmic = <&pmic>;
+
+		//io-channels = <&mt6375_auxadc AUXADC_VCDT>;
+		//io-channels = <&mt6375_adc MT6375_ADC_CHGVIN>;
+	};
+
+	tc_gauge: tc_gauge {
+		compatible = "tc_gauge";
+		gauge = <&mtk_gauge>;
+		status = "okay";
+	};
+
+	tc_misc: tc_misc {
+		compatible = "tc,misc_intf";
+		bootmode = <&chosen>;
+		/* det_vbus_by_dvchg; */
+		det_ibus_by_swchg;
+		/* det_tusb_by_swchg; */
+		io-channels = <&pmic_adc (ADC_PURES_OPEN_MASK | AUXADC_VIN7)>;
+		io-channel-names = "tusb";
+		tusb_div_res = <100000>;
+		tusb_div_vol = <1800>;
+		min_tusb_temp = <(-200)>;
+		max_tusb_temp = <600>;
+	};
+
+	tc_lcd: tc_lcd {
+		compatible = "tc,lcd";
+	};
+
+	tc_pe2:tc_pe2 {
+		compatible = "transsion,pe20_charger";
+		status = "okay";
+
+		/* TC30 */
+		ta_ichg_level_threshold = <1000000>; /* uA */
+		ta_stop_battery_soc = <90>;
+		vbat_threshold = <4350000>;
+
+		chr_volt = <5000000 9000000>;
+		chr_volt_mivr = <4600000 8000000>;
+		chr_volt_input_cur = <2000000 2000000>;
+		chr_volt_chg_cur = <2000000 3600000>;
+	};
+
+	tc_pd:tc_pd {
+		compatible = "transsion,pd_charger";
+		status = "okay";
+
+		/* PD_FIX */
+		min_charger_voltage = <4600000>; /* uV */
+		charger_current_limit = <3600000>;
+		pd_vbus_upper_bound = <10000000>;
+		pd_vbus_low_bound = <5000000>;
+		ta_ichg_level_threshold = <1000000>;
+		pd_stop_battery_soc = <90>;
+		vbat_threshold = <4350000>;
+	};
+
+	tc_auto_test: tc_auto_test {
+	            compatible = "tc,auto_test";
+	            status = "okay";
+	};
+
+	wireless_manager:wireless_manager {
+		compatible = "tran,wireless_manager";
+		usb = <&ssusb>;
+		done_interval = <120>;
+		status = "disabled";
+	};
+
+	pid_chg:pid_chg{
+		compatible = "tc,pid_chg_algo";
+		pid_array = <1000 100 10000>;           //KP KI KD
+		polling_interval = <10000>;                     //The minimum time for each cycle
+		ambient_temp = <250 250 250 250 350>;
+		target_temp_array = <4000 4000 4000 4000 4300>;
+		power_level = <800 1600 2400 3200 4000>;        //The average power consumption in the on-screen mode
+		power_delta_temp = <0 100 200 300 300>;         //Temperature corresponding to the average power consumption in the on-screen mode
+		power_update_time = <300>;                      //Average power update time in the on-screen mode
+		power_meas_current = <400000>;                  //ibus current when the average power is measured in the on-screen mode
+		target_temp_gap = <50>;
+		steady_cycle = <2>;
+		max_steady_target_delta_temp = <50>;
+		max_steady_delta_temp = <30>;
+		normal_steady_delta_temp = <20>;
+		max_unsteady_cnt = <2>;
+		max_target_temp = <4400>;
+		//support_ibus_measure;
+		ibus_measure_power_update_time = <60>;
+		delta_current_max = <500000>;
+	};
+
+	ambient_detect:ambient_detect{
+		compatible = "tc,ambient_detect";
+		qmax = <4900>;
+		polling_interval = <420>;
+		ambient_max_power = <2250>;
+		ambient_max_temp = <600>;
+		ambient_min_temp = <(-200)>;
+		min_detection_duration = <300>;
+		ambient_low_power_update_time = <1200>;
+		ambient_charging_time = <300>;
+		ambient_cooling_time = <600>;
+		ambient_max_update_time = <10800>;
+		ambient_max_temp_rate = <900>;
+		ambient_max_diff_pcb_temp = <50>;
+		min_update_soc_diff = <40>;
+		plug_update_soc_diff = <20>;
+		power_level = <400 800 1200 1600 2000>;
+		power_delta_temp = <0 10 20 30 40>;
+	};
+
+	temp_forecast:temp_forecast{
+		compatible = "tc,temp_forecast";
+                orgin_rate = <85>;
+		max_temp_diff = <150>;
+		max_comp_temp = <30>;
+		pa_temp_gap = <500>;
+		per_rate_time = <5>;
+	};
+
+	tc_tcpc:tc_tcpc{
+		compatible = "tc_tcpc";
+		status = "okay";
+		usb_docking_judge;
+	};
+
+	tc_adapter_control:tc_adapter_control {
+		compatible = "transsion, adapter_control";
+		polling_interval = <30>;
+		status = "okay";
+	};
+};
+
+&charger{
+	compatible = "tc,charger";
+	enable_sw_jeita;
+	enable_hv_charging;
+	enable_sw_safety_timer;
+	support_real_soc_decimal;
+	/* charger_unlimited; */
+	enable_dynamic_mivr;
+	enable_ir_comp;
+	/* support_reset_eoc; */
+	support_hardware_ir_comp;
+	r_comp = <15>;
+	v_comp_max = <40>;
+	log_level = <3>;
+	eoc_scheme = <1>;
+	aging_start_uisoc = <70>;
+	aging_stop_uisoc = <75>;
+	kom_start_uisoc = <40>;
+	kom_stop_uisoc = <70>;
+	batt_over_heat_temp = <60>;
+	batt_over_cold_temp = <(-20)>;
+	bat_health_cycle_base = <0>;
+	bat_health_dec_times = <100>;
+	polling_interval = <10>;
+	min_charger_voltage = <4400000>;
+	min_charger_current = <1000000>;
+	support_alg = "pe5", "pd", "pe20";
+
+	tbat_temp = <(-100) 15 35 38 40 42 43 44 55 60 65 70>;
+	tbat_ichg = <0 0 500000 800000 1000000 1500000 1700000 2000000 2400000 2400000 2400000 2400000>;
+	tbat_temp_gap = <1>;
+
+	tpcb_temp = <(-100) 15 30 35 37 39 41 45 55 60 65 70>;
+	tpcb_ichg = <0 0 0 200000 300000 500000 700000 900000 1300000 1500000 2000000 2000000>;
+	tpcb_temp_gap = <1>;
+
+	tpa_temp = <(-100) 15 30 35 37 39 41 45 55 60 65 70>;
+	tpa_ichg = <0 0 0 200000 300000 500000 700000 900000 1300000 1500000 2000000 2000000>;
+	tpa_temp_gap = <1>;
+
+	batt_ht_temp = <53 55 58>;
+	batt_ht_rec_temp = <0 54 54>;
+	batt_ht_code = <0 (1 << 11) (1 << 10)>;
+	batt_ht_vote_hiz = <0 0 0>;
+	batt_ht_vote_discharge = <0 1 1>;
+	batt_ht_vote_icon = <0 1 1>;
+
+	batt_lt_temp = <0 (-19) (-19)>;
+	batt_lt_rec_temp = <0 (-17) (-17)>;
+	batt_lt_code = <0  0  (1 << 7 | 1 << 12)>;
+	batt_lt_vote_hiz = <0 0 0>;
+	batt_lt_vote_discharge = <0 1 1>;
+	batt_lt_vote_icon = <0 1 1>;
+
+	kpoc_batt_ht_temp = <53 55 58>;
+	kpoc_batt_ht_rec_temp = <0 54 54>;
+	kpoc_batt_ht_code = <0 (1 << 11) (1 << 10)>;
+	kpoc_batt_ht_vote_hiz = <0 0 0>;
+	kpoc_batt_ht_vote_discharge = <0 1 1>;
+	kpoc_batt_ht_vote_icon = <0 1 1>;
+
+	kpoc_batt_lt_temp = <0 (-19) (-19)>;
+	kpoc_batt_lt_rec_temp = <0 (-17) (-17)>;
+	kpoc_batt_lt_code = <0  0 (1 << 12 | 1 << 7)>;
+	kpoc_batt_lt_vote_hiz = <0 0 0>;
+	kpoc_batt_lt_vote_discharge = <0 1 1>;
+	kpoc_batt_lt_vote_icon = <0 1 1>;
+
+	batt_ht_temp_dis_chg = <58 58 58>;
+	batt_ht_code_dis_chg = <(1 << 10) (1 << 10) (1 << 10)>;
+	batt_lt_temp_dis_chg = <(-19) (-19) (-19)>;
+	batt_lt_code_dis_chg = <(1 << 7) (1 << 7) (1 << 7)>;
+
+	dynamic_mivr_vol = <4400000 4400000 4400000 4600000>;
+	charger_voltage_ovp = <6500000 10500000 11000000 11000000>;
+	max_charging_time = <72000>;
+	sdp_charger_current = <500000>;
+	sdp_input_current = <500000>;
+	cdp_charger_current = <1000000>;
+	cdp_input_current = <1000000>;
+	dcp_charger_current = <2000000>;
+	dcp_input_current = <2000000>;
+	nonstd_charger_current = <1200000>;
+	nonstd_input_current = <1200000>;
+	max_input_current_limit = <3000000>;
+	max_charging_current_limit = <3150000>;
+	swchg_hw_eoc_max = <800000>;
+
+	vbat_gap = <40000 40000 40000 40000 40000 40000>;
+
+	single_batt_level = <19>;
+
+	single_batt_level_0 =  <(-20)    0
+				(-1)
+				4500000  4500000  4500000  4500000  4500000  4500000
+				1000000  1000000  1000000  1000000  1000000  1000000
+				270000
+				0 (-1)
+				0
+				>;
+
+	single_batt_level_1 =  <0        10
+				(-1)
+				4470000  4470000  4470000  4470000  4470000  4470000
+				2675000  2675000  2675000  2675000  2675000  2675000
+				270000
+				0 100
+				0
+				>;
+
+	single_batt_level_2 =  <0        10
+				(-1)
+				4480000  4480000  4480000  4480000  4480000  4480000
+				2675000  2675000  2675000  2675000  2675000  2675000
+				270000
+				100 200
+				0
+				>;
+
+	single_batt_level_3 =  <0        10
+				(-1)
+				4490000  4490000  4490000  4490000  4490000  4490000
+				2675000  2675000  2675000  2675000  2675000  2675000
+				270000
+				200 300
+				0
+				>;
+
+	single_batt_level_4 =  <0        10
+				(-1)
+				4500000  4500000  4500000  4500000  4500000  4500000
+				2675000  2675000  2675000  2675000  2675000  2675000
+				270000
+				300 (-1)
+				0
+				>;
+
+	single_batt_level_5 =  <10       15
+				(-1)
+				4470000  4470000  4470000  4470000  4470000  4470000
+				3150000  3150000  3150000  3150000  3150000  3150000
+				270000
+				0 100
+				0
+				>;
+
+	single_batt_level_6 =  <10       15
+				(-1)
+				4480000  4480000  4480000  4480000  4480000  4480000
+				3150000  3150000  3150000  3150000  3150000  3150000
+				270000
+				100 200
+				0
+				>;
+
+	single_batt_level_7 =  <10       15
+				(-1)
+				4490000  4490000  4490000  4490000  4490000  4490000
+				3150000  3150000  3150000  3150000  3150000  3150000
+				270000
+				200 300
+				0
+				>;
+
+	single_batt_level_8 =  <10       15
+				(-1)
+				4500000  4500000  4500000  4500000  4500000  4500000
+				3150000  3150000  3150000  3150000  3150000  3150000
+				270000
+				300 (-1)
+				0
+				>;
+
+	single_batt_level_9 =  <15       35
+				(-1)
+				4470000  4470000  4470000  4470000  4470000  4470000
+				3150000  3150000  3150000  3150000  3150000  3150000
+				270000
+				0 100
+				0
+				>;
+
+	single_batt_level_10 =  <15       35
+				(-1)
+				4480000  4480000  4480000  4480000  4480000  4480000
+				3150000  3150000  3150000  3150000  3150000  3150000
+				270000
+				100 200
+				0
+				>;
+
+	single_batt_level_11 =  <15       35
+				(-1)
+				4490000  4490000  4490000  4490000  4490000  4490000
+				3150000  3150000  3150000  3150000  3150000  3150000
+				270000
+				200 300
+				0
+				>;
+
+	single_batt_level_12 =  <15       35
+				(-1)
+				4500000  4500000  4500000  4500000  4500000  4500000
+				3150000  3150000  3150000  3150000  3150000  3150000
+				270000
+				300 (-1)
+				0
+				>;
+
+	single_batt_level_13 =  <35       45
+				(-1)
+				4470000  4470000  4470000  4470000  4470000  4470000
+				3150000  3150000  3150000  3150000  3150000  3150000
+				270000
+				0 100
+				0
+				>;
+
+	single_batt_level_14 =  <35       45
+				(-1)
+				4480000  4480000  4480000  4480000  4480000  4480000
+				3150000  3150000  3150000  3150000  3150000  3150000
+				270000
+				100 200
+				0
+				>;
+
+	single_batt_level_15 =  <35       45
+				(-1)
+				4490000  4490000  4490000  4490000  4490000  4490000
+				3150000  3150000  3150000  3150000  3150000  3150000
+				270000
+				200 300
+				0
+				>;
+
+	single_batt_level_16 =  <35       45
+				(-1)
+				4500000  4500000  4500000  4500000  4500000  4500000
+				3150000  3150000  3150000  3150000  3150000  3150000
+				270000
+				300 (-1)
+				0
+				>;
+
+	single_batt_level_17 =  <45       50
+				(-1)
+				4400000  4400000  4400000  4400000  4400000  4400000
+				2675000  2675000  2675000  2675000  2675000  2675000
+				534000
+				0 (-1)
+				0
+				>;
+
+	single_batt_level_18 =  <50       60
+				(-1)
+				4200000  4200000  4200000  4200000  4200000  4200000
+				2675000  2675000  2675000  2675000  2675000  2675000
+				270000
+				0 (-1)
+				0
+				>;
+
+	/* only for dual switch*/
+	/* support_dual_switch; */
+	/* dsc_chg1_high_cv; */
+	/* dsc_eoc_cur = <500000>; */
+	/* dsc_aicr_min = <1000000>; */
+	/* dsc_ichg_min = <1400000>; */
+	/* chg_tab = < */
+	/*         3400000 1700000 */
+	/*         3300000 1600000 */
+	/*         3200000 1600000 */
+	/*         3100000 1500000 */
+	/*         3000000 1500000 */
+	/*         2900000 1400000 */
+	/*         2800000 1400000 */
+	/*         2700000 1300000 */
+	/*         2600000 1300000 */
+	/*         2500000 1200000 */
+	/*         2400000 1200000 */
+	/*         2300000 1100000 */
+	/*         2200000 1100000 */
+	/*         2100000 1000000 */
+	/*         2000000 1000000 */
+	/*         1900000 900000 */
+	/*         1800000 900000 */
+	/*         1700000 800000 */
+	/*         1600000 800000 */
+	/*         1500000 700000 */
+	/*         1400000 700000 */
+	/*         1300000 600000 */
+	/*         1200000 600000 */
+	/*         1100000 500000 */
+	/*         1000000 500000 */
+	/*         900000 400000 */
+	/*         800000 400000 */
+	/*         700000 300000 */
+	/*         600000 300000 */
+	/*         500000 200000 */
+	/*         400000 200000 */
+	/*         300000 100000 */
+	/*         200000 100000 */
+	/*         100000 0 */
+	/*>;*/
+
+	/* only for dual battery */
+
+	/* master_r_comp = <10>; */
+	/* master_v_comp_max = <20>; */
+	/* slave_r_comp = <10>; */
+	/* slave_v_comp_max = <20>; */
+	/* support_dual_battery; */
+	/* dual_batt_eoc_delay_time = <15>; */
+	/* master_batt_level = <2>; */
+	/* master_batt_level_0 =  <(-20)    (0) */
+	/*                         4500000  4500000  4500000  4500000  4500000  4500000 */
+	/*                         900000   900000   900000   900000   900000   900000 */
+	/*                         225000>; */
+
+	/* master_batt_level_1 =  <0        50 */
+	/*                         4200000  4500000  4500000  4500000  4500000  4500000 */
+	/*                         9000000  5400000  5400000  5400000  5400000  5400000 */
+	/*                         225000>; */
+
+	/* slave_batt_level = <2>; */
+	/* slave_batt_level_0 =  <(-20)    (0) */
+	/*                         4500000  4500000  4500000  4500000  4500000  4500000 */
+	/*                         900000   900000   900000   900000   900000   900000 */
+	/*                         225000>; */
+
+	/* slave_batt_level_1 =  <0        50 */
+	/*                         4200000  4500000  4500000  4500000  4500000  4500000 */
+	/*                         9000000  5400000  5400000  5400000  5400000  5400000 */
+	/*                         225000>; */
+
+};
+
+&extcon_usb {
+	charger = <&tc_chgtype>;
+};
+
+&mtk_gauge {
+	charger = <&tc_chgtype>;
+};
+
+/*
+&i2c11 {
+	clock-frequency = <100000>;
+	bq27z561_master@55 {
+		compatible = "ti,bq27z561_master";
+		status = "disabled";
+		reg = <0x55>;
+		pinctrl-names = "i2c_scl_gpio_init", "i2c_sda_gpio_init";
+		pinctrl-0 = <&gpio_master_i2c_sclk_mode>;
+		pinctrl-1 = <&gpio_master_i2c_sda_mode>;
+	};
+};
+
+&pio {
+
+	gpio_master_i2c_sclk_mode: gpio_master_i2c_sclk_mode {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO159__FUNC_SCL11>;
+			drive-strength = <4>;
+		};
+	};
+	gpio_master_i2c_sda_mode: gpio_master_i2c_sda_mode {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO160__FUNC_SDA11>;
+			drive-strength = <4>;
+		};
+	};
+
+};
+*/
+&mt6375_typec {
+	charger = <&tc_chgtype>;
+};

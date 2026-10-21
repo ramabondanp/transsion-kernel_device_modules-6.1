@@ -1,0 +1,143 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Copyright (c) 2022 MediaTek Inc.
+ */
+/********************************************
+ * MT6897 TOUCH/VIBR/KEY DTSI File
+ ********************************************/
+/* lk haptic start */
+&chosen {
+lra,info = <1 7 22>;//type:(1:X-lra 2:Z-lra)  bus_num:i2c7  reset_gpio:gpio22
+};
+/* lk haptic end */
+
+/* key start */
+&mt6363keys {
+	home {
+		linux,keycodes = <114>;
+	};
+};
+/* key start */
+
+/* RT6010 Haptic start */
+&i2c7 {
+	clock-frequency = <400000>;
+	ics_haptic@5f {
+		compatible = "ics,haptic_rt";
+		reg = <0x5f>;
+		interrupt-parent = <&pio>;
+		interrupts = <4 IRQ_TYPE_EDGE_FALLING 4 0>;
+		device-name = "vibrator_single";
+		richtap-name = "aw8697_haptic";
+		gpio-en = <&pio 22 0>;
+		gpio-irq = <&pio 4 0>;
+		status = "ok";
+		// rt6010 chip configuration
+		rt6010_chip_id = <0x6B>;
+		rt6010_reg_size = <0x6C>;
+		rt6010_ram_size = <0x600>;
+		rt6010_sys_f0 = <1700>;
+		rt6010_list_base_addr = <0x400>;
+		rt6010_wave_base_addr = <0x420>;
+		rt6010_fifo_ae = <0x200>;
+		rt6010_fifo_af = <0x300>;
+		rt6010_boost_mode = <0x00>;
+		rt6010_boost_vol = <0x0d>;
+		rt6010_gain = <0x80>;
+		rt6010_brake_en = <0>;
+		rt6010_brake_wave_no = <0>;
+		rt6010_brake_const = <0>;
+		rt6010_brake_acq_point = <0>;
+	};
+};
+/* RT6010 Haptic end */
+
+
+/* TP start */
+&touch {
+	supplier-num = <1>;
+	supplier-vendor-0 = "TM";
+	supplier-0 = "any, focaltech, ft3682g";
+	supplier-resolution-0 = <16>;
+};
+
+&spi2 {
+	tran_touch:touch@0 {
+		 compatible = "focaltech,fts";
+		 reg = <0>;
+		 status = "ok";
+		 spi-max-frequency = <8000000>;
+		 interrupt-parent = <&pio>;
+		 vtouch-supply = <&mt6368_vtp>;
+		 //For ft3683g  driver config
+		 focaltech,iovdd-gpio = <&pio 59 0x0>;
+		 focaltech,irq-gpio = <&pio 9 0x0>;
+		 focaltech,reset-gpio = <&pio 60 0x0>;
+		 focaltech,max-touch-number = <10>;
+		 focaltech,display-coords =  <0 0 19583 43519>;
+		 focaltech,fod-function-support;
+		 focaltech,pocket-function-support;
+		 pinctrl-names = "default","state_spi_mode";
+		 pinctrl-0 = <&ctp_pins_default>;
+		 pinctrl-1 = <&ctp_pins_spi_mode>;
+	};
+};
+&pio {
+	ctp_pins_default: ctp_default {
+	};
+	ctp_pins_spi_mode: ctp_spimode_default {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO13__FUNC_SPI2_MI>,
+					 <PINMUX_GPIO12__FUNC_SPI2_CSB>,
+					 <PINMUX_GPIO14__FUNC_SPI2_MO>,
+					 <PINMUX_GPIO11__FUNC_SPI2_CLK>;
+			drive-strength = <2>;
+		};
+	};
+};
+/* tp end */
+
+/* shoulder key start */
+&mt6368_vio28 {
+	regulator-always-on;
+};
+&i2c10 {
+	clock-frequency = <400000>;
+	status = "okay";
+	aw9620x_sar@12 {
+		compatible = "awinic,aw9620x_sar_0";
+		reg = <0x12>;
+		sar-num = < 0 >;
+		interrupt-parent = <&pio>;
+		interrupts = <45 0x0>;
+		irq-gpio = <&pio 45 0x0>;
+		//vcc0-supply = <&pm660l_l4>;
+		channel_use_flag = <0xff>;
+		//aw9620x,using-arr-laod-reg;
+		air_diff_limit_max = <1500>;
+		air_diff_limit_min = <(-1500)>;
+		air_parasitic_limit_max = <400000>;
+		air_parasitic_limit_min = <140000>;
+		contact_diff_limit = <30000>;
+		status = "okay";
+	};
+	aw9620x_sar@13 {
+		compatible = "awinic,aw9620x_sar_1";
+		reg = <0x13>;
+		sar-num = < 1 >;
+		interrupt-parent = <&pio>;
+		interrupts = <10 0x0>;
+		irq-gpio = <&pio 10 0x0>;
+		//vcc0-supply = <&pm660l_l4>;
+		channel_use_flag = <0xff>;
+		//aw9620x,using-arr-laod-reg;
+		air_diff_limit_max = <1500>;
+		air_diff_limit_min = <(-1500)>;
+		air_parasitic_limit_max = <650000>;
+		air_parasitic_limit_min = <140000>;
+		contact_diff_limit = <30000>;
+		status = "okay";
+	};
+};
+/* shoulder key end */
+

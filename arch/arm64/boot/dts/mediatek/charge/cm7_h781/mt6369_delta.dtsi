@@ -1,0 +1,3 @@
+&mt6369_vfp {
+	/delete-property/ regulator-always-on;
+};

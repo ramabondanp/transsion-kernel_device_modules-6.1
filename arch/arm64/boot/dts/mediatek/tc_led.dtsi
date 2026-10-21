@@ -1,0 +1,6 @@
+&odm {
+	tc_led: tc_led{
+		compatible = "tc,led";
+		status = "okay";
+	};
+};
