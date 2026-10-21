@@ -22,18 +22,6 @@
 
 extern struct apummu_dev_info *g_adv;
 
-struct apummu_tbl {
-	struct list_head g_stable_head;
-	struct kref session_tbl_cnt;
-	struct mutex table_lock;
-	struct mutex DRAM_FB_lock;
-	bool is_stable_exist;
-	bool is_SLB_set;
-	bool is_work_canceled;
-	bool is_free_job_set;
-	bool is_SLB_alloc; // Since SLB state might not sync with APU
-};
-
 struct apummu_tbl g_ammu_table_set;
 struct apummu_session_tbl *g_ammu_stable_ptr; // stable stand for session table
 
@@ -305,12 +293,37 @@ out:
 	return ret;
 }
 
+static void count_page_array_en_num(void)
+{
+	int i;
+	uint32_t idx;
+
+	for (idx = 0; idx < 2; idx++) {
+	#if PAGE_ARRAY_CNT_EN
+		if (g_ammu_stable_ptr->stable_info.DRAM_page_array_mask[idx] != 0) {
+			for (i = 31; i >= 0; i--) {
+				if (g_ammu_stable_ptr->stable_info.DRAM_page_array_mask[idx]
+					& (1 << i))
+					break;
+			}
+
+			g_ammu_stable_ptr->stable_info.DRAM_page_array_en_num[idx] =
+				i + 1;
+		} else {
+			g_ammu_stable_ptr->stable_info.DRAM_page_array_en_num[idx] = 0;
+		}
+	#else
+		g_ammu_stable_ptr->stable_info.DRAM_page_array_en_num[idx] = 32;
+	#endif
+	}
+}
+
 /* device_va == iova */
 int addr_encode_and_write_stable(enum AMMU_BUF_TYPE type, uint64_t session, uint64_t device_va,
 								uint32_t buf_size, uint64_t *eva)
 {
 	int ret = 0;
-	uint64_t ret_eva;
+	uint64_t ret_eva = 0;
 	uint32_t SLB_type, cross_page_array_num = 0;
 	uint8_t mask_idx;
 
@@ -319,13 +332,13 @@ int addr_encode_and_write_stable(enum AMMU_BUF_TYPE type, uint64_t session, uint
 	if (g_adv == NULL) {
 		AMMU_LOG_ERR("Invalid apummu_device\n");
 		ret = -EINVAL;
-		goto out_before_lock;
+		goto out;
 	}
 
 	if (device_va & 0xFFF) {
 		AMMU_LOG_ERR("device_va is not 4K alignment!!!\n");
 		ret = -EINVAL;
-		goto out_before_lock;
+		goto out;
 	}
 
 	AMMU_LOG_VERBO("session = 0x%llx, device_va = 0x%llx, size = 0x%x\n",
@@ -345,7 +358,7 @@ int addr_encode_and_write_stable(enum AMMU_BUF_TYPE type, uint64_t session, uint
 			ret = ammu_session_table_add_SLB(session, SLB_type);
 			if (ret) {
 				AMMU_LOG_ERR("IOVA 2 EVA SLB fail!!\n");
-				goto out_before_lock;
+				goto out;
 			}
 
 			ret_eva = (device_va == g_adv->rsc.internal_SLB.iova)
@@ -356,14 +369,14 @@ int addr_encode_and_write_stable(enum AMMU_BUF_TYPE type, uint64_t session, uint
 		} else {
 			AMMU_LOG_ERR("Invalid input VA 0x%llx\n", device_va);
 			ret = -EINVAL;
-			goto out_before_lock;
+			goto out;
 		}
 	}
 
 	/* addr encode and CHECK input type */
 	ret = addr_encode(device_va, type, &ret_eva);
 	if (ret)
-		goto out_before_lock;
+		goto out;
 
 	/* lock for g_ammu_stable_ptr */
 	mutex_lock(&g_ammu_table_set.table_lock);
@@ -416,42 +429,18 @@ int addr_encode_and_write_stable(enum AMMU_BUF_TYPE type, uint64_t session, uint
 		g_ammu_stable_ptr->stable_info.mem_mask |= (1 << DRAM_1_4G);
 	}
 
+	count_page_array_en_num();
+
+out_after_lock:
+	mutex_unlock(&g_ammu_table_set.table_lock);
+
 out:
 	*eva = ret_eva;
 
 	AMMU_LOG_VERBO("apummu add 0x%llx -> 0x%llx in 0x%llx stable done\n",
 		ret_eva, device_va, session);
 
-out_after_lock:
-	mutex_unlock(&g_ammu_table_set.table_lock);
-out_before_lock:
-	ammu_trace_end();
 	return ret;
-}
-
-static void count_page_array_en_num(void)
-{
-	int i;
-	uint32_t idx;
-
-	for (idx = 0; idx < 2; idx++) {
-	#if PAGE_ARRAY_CNT_EN
-		if (g_ammu_stable_ptr->stable_info.DRAM_page_array_mask[idx] != 0) {
-			for (i = 31; i >= 0; i--) {
-				if (g_ammu_stable_ptr->stable_info.DRAM_page_array_mask[idx]
-					& (1 << i))
-					break;
-			}
-
-			g_ammu_stable_ptr->stable_info.DRAM_page_array_en_num[idx] =
-				i + 1;
-		} else {
-			g_ammu_stable_ptr->stable_info.DRAM_page_array_en_num[idx] = 0;
-		}
-	#else
-		g_ammu_stable_ptr->stable_info.DRAM_page_array_en_num[idx] = 32;
-	#endif
-	}
 }
 
 /* get session table by session */
@@ -467,8 +456,6 @@ int get_session_table(uint64_t session, void **tbl_kva, uint32_t *size)
 		ret = -ENOMEM;
 		goto out;
 	}
-
-	count_page_array_en_num();
 
 	AMMU_LOG_VERBO("stable session(%llx), mem_mask = 0x%08x\n",
 		g_ammu_stable_ptr->session,

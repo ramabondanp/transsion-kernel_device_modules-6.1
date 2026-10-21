@@ -73,4 +73,6 @@ struct apummu_dev_info {
 	struct apummu_remote_data remote;
 };
 
+extern struct apummu_tbl g_ammu_table_set;
+
 #endif
